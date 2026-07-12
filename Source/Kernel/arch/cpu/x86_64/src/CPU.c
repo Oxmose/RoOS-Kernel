@@ -1233,7 +1233,7 @@ void CPUInit(void)
   /* Detect the number of CPUs and allocate the contexts */
   kpFDTRoot = FDTGetRoot();
   _WalkCPUCount(kpFDTRoot);
-  sCPUConfiguration = KMalloc(sizeof(S_VirtualCPU) * sNumberOfCPUs,
+  sCPUConfiguration = KMalloc(sizeof(S_CPUConfig) * sNumberOfCPUs,
                               ALIGN_16_BYTES,
                               KMALLOC_NO_FREE_POOL);
   spCoreIds = KMalloc(sizeof(uint32_t) * sNumberOfCPUs,
@@ -1582,6 +1582,20 @@ void CPURegisterLAPICTimerDriver(const S_LAPICTimerDriver* kpLAPICTimerDriver)
   kspLAPICTimerDriver = kpLAPICTimerDriver;
 }
 
+/* Stack protection support */
+#ifdef _STACK_PROT
+#define STACK_CHK_GUARD 0x595e9fbd94fda766ULL
+uintptr_t __stack_chk_guard = STACK_CHK_GUARD;
+__attribute__((noreturn)) void __stack_chk_fail(void);
+__attribute__((noreturn)) void __stack_chk_fail(void)
+{
+  CPU_ASSERT(false, "Stack smashing detected", ERR_UNAUTHORIZED_ACTION);
+  while (true)
+  {
+    CPUHalt();
+  }
+}
+#endif
 /***************************** DRIVER REGISTRATION ****************************/
 DRIVERMGR_REG_FDT(sX86CPUDriver);
 
