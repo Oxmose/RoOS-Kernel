@@ -25,6 +25,6 @@
 build/
 bin/
 ARTIFACTS/
-GeneratedFiles/
+generated/
 
 .DS_Store

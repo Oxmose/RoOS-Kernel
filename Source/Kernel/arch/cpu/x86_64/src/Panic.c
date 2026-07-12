@@ -37,7 +37,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* TODO */
+#include <TestFramework.h>
 
 /* Header file */
 #include <Panic.h>
@@ -580,6 +580,14 @@ void KernelPanic(const uint32_t kErrorCode,
 
   /* Print panic stack trace */
   _PrintStackTrace((uintptr_t*)kpVCPU->cpuState.rbp);
+
+  /* Test point */
+  TEST_POINT_ASSERT_RCODE(PANIC_TEST_SUCCESS_ID,
+                          true,
+                          NO_ERROR,
+                          NO_ERROR,
+                          TEST_PANIC_ENABLED);
+  TEST_FRAMEWORK_END();
 
   /* Wait intefinitely */
   while (1)

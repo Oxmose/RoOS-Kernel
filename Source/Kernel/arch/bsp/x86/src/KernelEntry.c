@@ -40,7 +40,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* None TODO */
+#include <TestFramework.h>
 
 /* Header file */
 #include <KernelEntry.h>
@@ -105,6 +105,9 @@ extern uintptr_t _KERNEL_DEV_TREE_BASE;
  ******************************************************************************/
 void X64KernelEntry(void)
 {
+  /* Start testing framework */
+  TEST_FRAMEWORK_START();
+
 #if OUTPUT_DEBUG_ENABLE
   /* Enable the debug output port */
   DebugOutputInit();
@@ -157,6 +160,9 @@ void X64KernelEntry(void)
   KERNEL_SUCCESS("SMP started.\n");
 
   KERNEL_INFO("Kernel started successfully.\n");
+
+/* Add library and core tests here */
+  TEST_POINT_FUNCTION_CALL(PanicTest, TEST_PANIC_ENABLED);
 
   /* Perform first schedule */
   SchedulerSchedule();
