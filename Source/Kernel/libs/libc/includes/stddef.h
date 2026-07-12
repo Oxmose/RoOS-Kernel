@@ -1,0 +1,205 @@
+/*******************************************************************************
+ * @file stddef.h
+ *
+ * @author Alexy Torres Aurora Dugo
+ *
+ * @date 30/03/2023
+ *
+ * @version 1.0
+ *
+ * @brief Standard definitions for the kernel.
+ *
+ * @details Standard definitions for the kernel.
+ *
+ * @copyright Alexy Torres Aurora Dugo
+ ******************************************************************************/
+
+#ifndef __LIB_STDDEF_H_
+#define __LIB_STDDEF_H_
+
+/*******************************************************************************
+ * INCLUDES
+ ******************************************************************************/
+#include <config.h>
+#include <stdint.h>
+
+/*******************************************************************************
+ * CONSTANTS
+ ******************************************************************************/
+
+/** @brief NULL definition. */
+#define NULL ((void *)0)
+
+/** @brief Defines the table size for a CPU bitmask. */
+#define CPU_MASK_TABLE_SIZE \
+  (SOC_MAX_CPU_COUNT / 64ULL + ((SOC_MAX_CPU_COUNT % 64ULL != 0) ? 1 : 0))
+
+/*******************************************************************************
+ * STRUCTURES AND TYPES
+ ******************************************************************************/
+
+/** @brief Check the size of a structure statically */
+#define STRUCT_SIZE_CHECK(COND) typedef char p__LINE__[ (COND) ? 1 : -1];
+
+/**
+ * @brief Defines size_t type as a renaming for __SIZE_TYPE__.
+ */
+typedef __SIZE_TYPE__ size_t;
+
+/**
+ * @brief Defines size_t type as a renaming for __SIZE_TYPE__.
+ */
+typedef long long int ssize_t;
+
+#ifndef __PTRDIFF_TYPE__
+#error __PTRDIFF_TYPE__ not defined
+#endif
+
+/**
+ * @brief Defines ptrdiff_t type as a renaming for __PTRDIFF_TYPE__.
+ */
+typedef __PTRDIFF_TYPE__ ptrdiff_t;
+
+#ifdef ARCH_64_BITS
+/** @brief Defines the format for a pointer */
+#define PRIPTR  "%lu"
+#elif defined(ARCH_32_BITS)
+/** @brief Defines the format for a pointer */
+#define PRIPTR  "%u"
+#else
+#error Architecture is not supported by the standard library
+#endif
+
+/** @brief Defines a CPU mask. */
+typedef struct
+{
+  /** @brief The CPU mask table. */
+  uint64_t mask[CPU_MASK_TABLE_SIZE];
+} S_CPUMask;
+
+/**
+ * @brief Sets the corresponding bit in the CPU mask.
+ *
+ * @param[out] CPU_MASK The mask to udpate.
+ * @param[in] CPU_ID The CPU Id to set in the mask.
+ */
+#define CPU_MASK_SET(CPU_MASK, CPU_ID) {                        \
+  CPU_MASK.mask[CPU_ID / 64ULL] |= (1ULL << (CPU_ID % 64ULL));  \
+}
+
+/**
+ * @brief Resets the bits in the CPU mask.
+ *
+ * @param[out] CPU_MASK The mask to reset.
+ */
+#define CPU_MASK_RESET(CPU_MASK) {        \
+  memset(&CPU_MASK, 0, sizeof(CPU_MASK)); \
+}
+
+/**
+ * @brief Clears the corresponding bit in the CPU mask.
+ *
+ * @param[out] CPU_MASK The mask to udpate.
+ * @param[in] CPU_ID The CPU Id to clear in the mask.
+ */
+#define CPU_MASK_CLEAR(CPU_MASK, CPU_ID) {                      \
+  CPU_MASK.mask[CPU_ID / 64ULL] &= ~(1ULL << (CPU_ID % 64ULL)); \
+}
+
+/**
+ * @brief Gets the corresponding bit in the CPU mask.
+ *
+ * @param[out] CPU_MASK The mask to use.
+ * @param[in] CPU_ID The CPU Id to get in the mask.
+ */
+#define CPU_MASK_GET(CPU_MASK, CPU_ID) \
+  (CPU_MASK.mask[CPU_ID / 64ULL] & (1ULL << (CPU_ID % 64ULL)))
+
+/*******************************************************************************
+ * MACROS
+ ******************************************************************************/
+
+/**
+ * @brief Defines the MIN function, return the minimal value between two
+ * variables.
+ *
+ * @param[in] x The first value to compare.
+ * @param[in] y The second value to compare.
+ *
+ * @return The smallest value.
+ */
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+
+/**
+ * @brief Defines the MAX function, return the maximal value between two
+ * variables.
+ *
+ * @param[in] x The first value to compare.
+ * @param[in] y The second value to compare.
+ *
+ * @return The biggest value.
+ */
+#define MAX(x, y) ((x) < (y) ? (y) : (x))
+
+/**
+ * @brief Defines the ABS function, return the absolute value of a variable.
+ *
+ * @param[in] x The value to absolute.
+ *
+ * @return The absolute value.
+ */
+#define ABS(X) ((X) < 0 ? -(X) : (X))
+
+/**
+ * @brief Returns the number of elements in a statically allocated array.
+ *
+ * @param[in] x The array to calculate the size of.
+ *
+ * @return THe number of elements in the array.
+ *
+ * @warning This macro shall only by used with statically allocated arrays.
+ */
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+/**
+ * @brief Align a value on boundaries. If not aligned, the value is aligned on
+ * the next boundary.
+ *
+ * @param[in] VALUE The value to align.
+ * @param[in] ALIGN_BOUND The boundary to use.
+ */
+#define ALIGN_UP(VALUE, ALIGN_BOUND) (((VALUE) + ((ALIGN_BOUND) - 1)) & \
+                                      (~((ALIGN_BOUND) - 1)))
+
+/**
+ * @brief Align a value on boundaries. If not aligned, the value is aligned on
+ * the previous boundary.
+ *
+ * @param[in] VALUE The value to align.
+ * @param[in] ALIGN_BOUND The boundary to use.
+ */
+#define ALIGN_DOWN(VALUE, ALIGN_BOUND) ((VALUE) & (~((ALIGN_BOUND) - 1)))
+
+
+/*******************************************************************************
+ * GLOBAL VARIABLES
+ ******************************************************************************/
+
+/************************* Imported global variables **************************/
+/* None */
+
+/************************* Exported global variables **************************/
+/* None */
+
+/************************** Static global variables ***************************/
+/* None */
+
+/*******************************************************************************
+ * FUNCTIONS
+ ******************************************************************************/
+
+/* None */
+
+#endif /* #ifndef __LIB_STDDEF_H_ */
+
+/************************************ EOF *************************************/

@@ -1,0 +1,147 @@
+/*******************************************************************************
+ * @file drivermgr.h
+ *
+ * @see drivermgr.c
+ *
+ * @author Alexy Torres Aurora Dugo
+ *
+ * @date 25/05/2024
+ *
+ * @version 1.0
+ *
+ * @brief Kernel's driver and device manager.
+ *
+ * @details Kernel's driver and device manager. Used to register, initialize and
+ * manage the drivers used in the kernel.
+ *
+ * @copyright Alexy Torres Aurora Dugo
+ ******************************************************************************/
+
+#ifndef __CORE_DRIVERMGR_H_
+#define __CORE_DRIVERMGR_H_
+
+/*******************************************************************************
+ * INCLUDES
+ ******************************************************************************/
+#include <DeviceTree.h>
+#include <KernelError.h>
+
+/*******************************************************************************
+ * CONSTANTS
+ ******************************************************************************/
+
+/* None */
+
+/*******************************************************************************
+ * STRUCTURES AND TYPES
+ ******************************************************************************/
+/** @brief Defines the generic definition for a driver used in the kernel */
+typedef struct
+{
+  /** @brief Driver's name. */
+  const char* pName;
+  /** @brief Driver's description. */
+  const char* pDescription;
+  /** @brief Driver's compatible string. */
+  const char* pCompatible;
+  /** @brief Driver's version. */
+  const char* pVersion;
+
+  /**
+   * @brief Driver's attatch function.
+   *
+   * @details Driver's attatch function. This function is called when a device
+   * is detected and is compatible with the driver's compatible string.
+   * It should initialize the driver and / or device.
+   *
+   * @param[in] kpFdtNode The FDT node that matches the driver's compatible.
+   *
+   * @return The functon should return the error state of the driver.
+   */
+  E_Return (*pDriverAttach)(const S_FDTNode* kpFdtNode);
+
+  /**
+   * @brief Driver's dettach function.
+   *
+   * @details Driver's dettach function. This function is called when a device
+   * is detached or shutdown after being attached.
+   * It should deinitialize the driver and / or device.
+   *
+   * @param[in] kpFdtNode The FDT node that matches the driver's compatible.
+   *
+   * @return The functon should return the error state of the driver.
+   */
+  E_Return (*pDriverDettach)(const S_FDTNode* kpFdtNode);
+} S_Driver;
+
+/*******************************************************************************
+ * MACROS
+ ******************************************************************************/
+/**
+ * @brief Registers a new FDT driver.
+ *
+ * @details Registers a new driver in the kernel's FDT driver table.
+ *
+ * @param[in] DRIVER The driver to add to the FDT driver table.
+ */
+#define DRIVERMGR_REG_FDT(DRIVER)                                              \
+    S_Driver* DRVENT_##DRIVER __attribute__ ((section (".roos_driver_tbl"))) = \
+        &DRIVER
+
+/*******************************************************************************
+ * GLOBAL VARIABLES
+ ******************************************************************************/
+
+/************************* Imported global variables **************************/
+/* None */
+
+/************************* Exported global variables **************************/
+/* None */
+
+/************************** Static global variables ***************************/
+/* None */
+
+/*******************************************************************************
+ * FUNCTIONS
+ ******************************************************************************/
+/**
+ * @brief Initializes the driver manager.
+ *
+ * @details Initializes the driver manager. This function will walk the FDT
+ * and try to probe the registered drivers to initialize them and attach them.
+ * In case of hard error, a panic is raised.
+ */
+void DriverManagerInit(void);
+
+/**
+ * @brief Registers the device data of a node.
+ *
+ * @details Registers the device data of a node. The data can be any structure
+ * or information that the driver corresponding to the phandle has defined.
+ * If a data was already associated, it is overriden.
+ *
+ * @param[in] kpFdtNode The FDT handle node to associate the data with.
+ * @param[in] pData The data to associate.
+ *
+ * @return The success or error status is returned.
+ */
+E_Return DriverManagerSetDeviceData(const S_FDTNode* kpFdtNode,
+                                    void*            pData);
+
+/**
+ * @brief Returns the device data of a given phandle.
+ *
+ * @details Returns the device data of a given phandle. The data can
+ * be any structure or information that the driver corresponding to the phandle
+ * has defined. If nothing was defined, NULL is returned.
+ *
+ * @param[in] kHandle The FDT handle of the device controller to get.
+ *
+ * @return A pointer to the device controller is returned. NULL is returned if
+ * no data was defined.
+ */
+void* DriverManagerGetDeviceData(const uint32_t kHandle);
+
+#endif /* #ifndef __CORE_DRIVERMGR_H_ */
+
+/************************************ EOF *************************************/
