@@ -48,9 +48,9 @@
 #define MODULE_NAME "SCHEDULER"
 
 /** @brief Main process name */
-#define MAIN_PROCESS_NAME "ROOS_KERNEL"
+#define MAIN_PROCESS_NAME "ROOS_KERNEL\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
 /** @brief Idle threads name */
-#define IDLE_THREAD_NAME "ROOS_IDLE"
+#define IDLE_THREAD_NAME "ROOS_IDLE\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -255,7 +255,7 @@ static S_KernelProcess* _CreateMainProcess(void)
   pMainProcess->pChildren   = KQueueCreate();
   pMainProcess->pMainThread = NULL;
   pMainProcess->pThreads    = KQueueCreate();
-  memcpy(pMainProcess->pName, MAIN_PROCESS_NAME, strlen(MAIN_PROCESS_NAME) + 1);
+  memcpy(pMainProcess->pName, MAIN_PROCESS_NAME, PROCESS_NAME_MAX_LENGTH);
 
   pMainProcess->pMemoryData = MemoryCreateProcessData();
 
@@ -299,7 +299,7 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
   CPU_MASK_RESET(pIdle->affinity);
   CPU_MASK_SET(pIdle->affinity, kCPUId);
 
-  memcpy(pIdle->pName, IDLE_THREAD_NAME, strlen(IDLE_THREAD_NAME) + 1);
+  memcpy(pIdle->pName, IDLE_THREAD_NAME, THREAD_NAME_MAX_LENGTH);
 
   KERNEL_SPINLOCK_INIT(pIdle->lock);
 

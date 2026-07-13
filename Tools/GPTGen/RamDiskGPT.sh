@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Size of the eMMC/SD in sectors
 SECTORS=131072
 SECTOR_SIZE=1
