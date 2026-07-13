@@ -28,46 +28,63 @@
 ## Supported General Features
 ### File Device Tree
 * FDT is used to setup the system and discover drivers
+
 * FDT handles used for drivers inter-operability
+
 * Configuration (stdin, stdout, interrupts, etc.) in FDT
 
 ### Driver Management
 * Easy-to-use driver system
+
 * Driver attach mechanism with FDT auto-discovery
 
 ### Memory Management
 * Higher-half kernel
+
 * Virtual and Physical memory allocator
+
 * Kernel Heap allocator
 
 ### Interrupt and Exception Management
 * Custom Interrupts
+
 * Custom Exceptions
 
 ### Synchronization
 * Futex based synchronization
+
 * Mutex: Non recursive/Recursive - Priority inheritance capable - FIFO and Priority-based queuing disciplines.
+
 * Semaphore: FIFO and Priority-based queuing disciplines - Counting and Binary semaphores.
+
 * Spinlocks
+
 * Kernel critical section by disabling interrupts
 
 ### Communication
 * Signals, not really POSIX signals but still signals
+
 * Inter-processor interrupts
 
 ### Scheduler
 * Priority based scheduler (Round Robin for all the threads having the same priority)
+
 * Kernel threads
+
 * Updateable priorities
+
 * Sleep capable
 
 ### Libraries
 * Embedded LibC
+
 * Structures Libraries (Vector, HashTable, Queues, etc.)
 
 ### Virtual File System
 * Character-based driver support
+
 * Disk manager
+
 * Filesystem mounting
 
 ## Roadmap
@@ -82,6 +99,7 @@ To build roOs, choose the architecture you want and execute.
 Architecture list to use in the TARGET flag:
 
 * x86_i386
+
 * x86_64
 
 ### Compilation
@@ -95,5 +113,7 @@ make target=[TARGET] run
 ### Tests, Trace and Debug
 
 * TESTS flag set to TRUE to enable internal testing
+
 * DEBUG flag set to TRUE to enable debuging support (-O0 -g3)
+
 * TRACE flag set to TRUE to enable kernel tracing

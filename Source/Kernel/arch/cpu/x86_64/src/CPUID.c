@@ -1348,6 +1348,72 @@ static void _GetCPUName(S_CPUInformation* pCpuInf);
  * @param[out] pCpuInf The CPU information structure to fill with the
  * information.
  */
+static void _GetGeneralAMDTextInfo(S_CPUInformation* pCpuInf);
+
+/**
+ * @brief Retrieves the CPU feature information.
+ *
+ * @details Retrieves the CPU feature information. This function uses the CPUID
+ * functions to gather the CPU information.
+ *
+ * @param[out] pCpuInf The CPU information structure to fill with the
+ * information.
+ */
+static void _GetGeneralCapacityExtended(S_CPUInformation* pCpuInf);
+
+/**
+ * @brief Retrieves the CPU feature information.
+ *
+ * @details Retrieves the CPU feature information. This function uses the CPUID
+ * functions to gather the CPU information.
+ *
+ * @param[out] pCpuInf The CPU information structure to fill with the
+ * information.
+ */
+static void _GetGeneralPowerManagement(S_CPUInformation* pCpuInf);
+
+/**
+ * @brief Retrieves the CPU feature information.
+ *
+ * @details Retrieves the CPU feature information. This function uses the CPUID
+ * functions to gather the CPU information.
+ *
+ * @param[out] pCpuInf The CPU information structure to fill with the
+ * information.
+ */
+static void _GetGeneralFeaturesExtended(S_CPUInformation* pCpuInf);
+
+/**
+ * @brief Retrieves the CPU feature information.
+ *
+ * @details Retrieves the CPU feature information. This function uses the CPUID
+ * functions to gather the CPU information.
+ *
+ * @param[out] pCpuInf The CPU information structure to fill with the
+ * information.
+ */
+static void _GetGeneralFeaturesBase(S_CPUInformation* pCpuInf);
+
+/**
+ * @brief Retrieves the CPU feature information.
+ *
+ * @details Retrieves the CPU feature information. This function uses the CPUID
+ * functions to gather the CPU information.
+ *
+ * @param[out] pCpuInf The CPU information structure to fill with the
+ * information.
+ */
+static void _GetGeneralFeaturesGeneral(S_CPUInformation* pCpuInf);
+
+/**
+ * @brief Retrieves the CPU feature information.
+ *
+ * @details Retrieves the CPU feature information. This function uses the CPUID
+ * functions to gather the CPU information.
+ *
+ * @param[out] pCpuInf The CPU information structure to fill with the
+ * information.
+ */
 static void _GetGeneralFeatures(S_CPUInformation* pCpuInf);
 
 /**
@@ -1537,7 +1603,7 @@ static void _GetCPUName(S_CPUInformation* pCpuInf)
   int32_t  ret;
   uint32_t regs[4];
 
-  strncpy(pCpuInf->pName, "UNKNOWN", 8);
+  memcpy(pCpuInf->pName, "UNKNOWN", 8);
   ret = _PerformCPUID(CPUID_GETBRANDSTRING_START, regs);
   if (ret == 1)
   {
@@ -1601,11 +1667,10 @@ static void _GetGeneralInformation(S_CPUInformation* pCpuInf)
   }
 }
 
-static void _GetGeneralFeatures(S_CPUInformation* pCpuInf)
+static void _GetGeneralFeaturesGeneral(S_CPUInformation* pCpuInf)
 {
   int32_t  ret;
   uint32_t regs[4];
-  uint32_t maxLeaves;
 
   ret = _PerformCPUID(CPUID_GETFEATURES, regs);
   if (ret == 1)
@@ -1679,6 +1744,13 @@ static void _GetGeneralFeatures(S_CPUInformation* pCpuInf)
     pCpuInf->flags.ia64 = ((regs[EDX_REG] & EDX_IA64) == EDX_IA64);
     pCpuInf->flags.pbe = ((regs[EDX_REG] & EDX_PBE) == EDX_PBE);
   }
+}
+
+static void _GetGeneralFeaturesBase(S_CPUInformation* pCpuInf)
+{
+  int32_t  ret;
+  uint32_t regs[4];
+  uint32_t maxLeaves;
 
   regs[ECX_REG] = 0;
   maxLeaves = 0;
@@ -1877,6 +1949,12 @@ static void _GetGeneralFeatures(S_CPUInformation* pCpuInf)
     pCpuInf->flags.uclock_disable =
         ((regs[EDX_REG] & EDX_UCLOCK_DISABLE) == EDX_UCLOCK_DISABLE);
   }
+}
+
+static void _GetGeneralFeaturesExtended(S_CPUInformation* pCpuInf)
+{
+  int32_t  ret;
+  uint32_t regs[4];
 
   ret = _PerformCPUID(CPUID_GETEXTENTED_FEATURES, regs);
   if (ret == 1)
@@ -1952,6 +2030,12 @@ static void _GetGeneralFeatures(S_CPUInformation* pCpuInf)
         ((regs[EDX_REG] & EDX_3DNOWEXT) == EDX_3DNOWEXT);
     pCpuInf->flags.f3dnow = ((regs[EDX_REG] & EDX_3DNOW) == EDX_3DNOW);
   }
+}
+
+static void _GetGeneralPowerManagement(S_CPUInformation* pCpuInf)
+{
+  int32_t  ret;
+  uint32_t regs[4];
 
   ret = _PerformCPUID(CPUID_GETPOWERMANAGEMENT, regs);
   if (ret == 1)
@@ -1959,6 +2043,12 @@ static void _GetGeneralFeatures(S_CPUInformation* pCpuInf)
     pCpuInf->flags.constant_tsc =
         ((regs[EDX_REG] & EDX_CONSTANT_TSC) == EDX_CONSTANT_TSC);
   }
+}
+
+static void _GetGeneralCapacityExtended(S_CPUInformation* pCpuInf)
+{
+  int32_t  ret;
+  uint32_t regs[4];
 
   ret = _PerformCPUID(CPUID_GETCAPACITY_EXT_FLAGS, regs);
   if (ret == 1)
@@ -2008,6 +2098,12 @@ static void _GetGeneralFeatures(S_CPUInformation* pCpuInf)
     pCpuInf->flags.branch_sampling =
         ((regs[EBX_REG] & EBX_BRANCH_SAMPLING) == EBX_BRANCH_SAMPLING);
   }
+}
+
+static void _GetGeneralAMDTextInfo(S_CPUInformation* pCpuInf)
+{
+  int32_t  ret;
+  uint32_t regs[4];
 
   ret = _PerformCPUID(CPUID_GETAMDEXTINFO, regs);
   if (ret == 1)
@@ -2052,6 +2148,17 @@ static void _GetGeneralFeatures(S_CPUInformation* pCpuInf)
     pCpuInf->flags.srso_msr_fix =
         ((regs[EAX_REG] & EAX_SRSO_MSR_FIX) == EAX_SRSO_MSR_FIX);
   }
+}
+
+static void _GetGeneralFeatures(S_CPUInformation* pCpuInf)
+{
+
+  _GetGeneralFeaturesGeneral(pCpuInf);
+  _GetGeneralFeaturesBase(pCpuInf);
+  _GetGeneralFeaturesExtended(pCpuInf);
+  _GetGeneralPowerManagement(pCpuInf);
+  _GetGeneralCapacityExtended(pCpuInf);
+  _GetGeneralAMDTextInfo(pCpuInf);
 }
 
 static void _GetMemoryInformation(S_CPUInformation* pCpuInf)
@@ -2124,41 +2231,47 @@ static void _GetCacheInformationUnified(S_CPUInformation* pCpuInf,
 
 static uint16_t _GetCacheAssocAmd(const uint32_t kBase)
 {
-  switch(kBase)
+  uint16_t assoc;
+  if (kBase < 5)
   {
-    case 0:
-      return 0;
-    case 1:
-      return 1;
-    case 2:
-      return 2;
-    case 3:
-      return 3;
-    case 4:
-      return 4;
-    case 5:
-      return 6;
-    case 6:
-      return 8;
-    case 8:
-      return 16;
-    case 9:
-      return 0;
-    case 10:
-      return 32;
-    case 11:
-      return 48;
-    case 12:
-      return 64;
-    case 13:
-      return 96;
-    case 14:
-      return 128;
-    case 15:
-      return 1;
-    default:
-      return 0;
+    assoc = kBase;
   }
+  else
+  {
+    switch(kBase)
+    {
+      case 5:
+        assoc = 6;
+        break;
+      case 6:
+        assoc = 8;
+        break;
+      case 8:
+        assoc = 16;
+        break;
+      case 10:
+        assoc = 32;
+        break;
+      case 11:
+        assoc = 48;
+        break;
+      case 12:
+        assoc = 64;
+        break;
+      case 13:
+        assoc = 96;
+        break;
+      case 14:
+        assoc = 128;
+        break;
+      case 15:
+        assoc = 1;
+        break;
+      default:
+        assoc = 0;
+    }
+  }
+  return assoc;
 }
 
 static void _GetCacheInformationAmd(S_CPUInformation* pCpuInf)

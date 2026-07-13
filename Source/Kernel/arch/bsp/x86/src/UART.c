@@ -564,20 +564,15 @@ static E_UARTBaudrate _UartGetCanonicalRate(const uint32_t kBaudrate)
     case 115200:
     default:
        return 1;
-
   }
 }
 
 void _UartPutString(const char* kpString)
 {
-  size_t i;
-  size_t stringLen;
-
-  stringLen = strlen(kpString);
-
-  for (i = 0; i < stringLen; ++i)
+  while (*kpString != '\0')
   {
-    _UartWrite(SERIAL_DEBUG_PORT, kpString[i]);
+    _UartWrite(SERIAL_DEBUG_PORT, *kpString);
+    ++kpString;
   }
 }
 
@@ -608,14 +603,10 @@ void DebugOutputInit(void)
 
 void DebugOutputPutString(const char* kpString)
 {
-  size_t i;
-  size_t stringLen;
-
-  stringLen = strlen(kpString);
-
-  for (i = 0; i < stringLen; ++i)
+  while (*kpString)
   {
-    _UartWrite(SERIAL_DEBUG_PORT, kpString[i]);
+    _UartWrite(SERIAL_DEBUG_PORT, *kpString);
+    ++kpString;
   }
 }
 

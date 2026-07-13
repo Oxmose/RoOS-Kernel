@@ -515,6 +515,26 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode);
 static void  _ParseRSDP(const S_RSDPDescriptor* kpRsdpDesc);
 
 /**
+ * @brief Use the APIC RSDP to parse the ACPI infomation.
+ *
+ * @details Use the APIC RSDP to parse the ACPI infomation. The function will
+ * detect the RSDT or XSDT pointed and parse them.
+ *
+ * @param[in] kpRsdpDesc The RSDP to walk.
+ */
+static void _ParseRSDPRevision0(const S_RSDPDescriptor* kpRsdpDesc);
+
+/**
+ * @brief Use the APIC RSDP to parse the ACPI infomation.
+ *
+ * @details Use the APIC RSDP to parse the ACPI infomation. The function will
+ * detect the RSDT or XSDT pointed and parse them.
+ *
+ * @param[in] kpRsdpDesc The RSDP to walk.
+ */
+static void _ParseRSDPRevision2(const S_RSDPDescriptor* kpRsdpDesc);
+
+/**
  * @brief Parse the APIC RSDT table.
  *
  * @details Parse the APIC RSDT table. The function will detect the read each
@@ -717,6 +737,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   size_t           mapSize;
   uintptr_t        mapBase;
   uintptr_t        mapPhys;
+  size_t           initSize;
   uint64_t         signature;
 
   /* Get the reg: the range to search for the ACPI structure */
@@ -728,10 +749,12 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
 
 #ifdef ARCH_32_BITS
   searchRangeStart = FDTTOCPU32(*kpUintptrProp);
-  searchRangeEnd   = searchRangeStart + FDTTOCPU32(*(kpUintptrProp + 1));
+  initSize = FDTTOCPU32(*(kpUintptrProp + 1));
+  searchRangeEnd   = searchRangeStart + initSize;
 #elif defined(ARCH_64_BITS)
   searchRangeStart = FDTTOCPU64(*kpUintptrProp);
-  searchRangeEnd   = searchRangeStart + FDTTOCPU64(*(kpUintptrProp + 1));
+  initSize = FDTTOCPU64(*(kpUintptrProp + 1));
+  searchRangeEnd   = searchRangeStart + initSize;
 #else
   #error "Invalid architecture"
 #endif
@@ -750,8 +773,9 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   ACPI_ASSERT(retCode == NO_ERROR, "Failed to map ACPI", retCode);
 
   /* Search for the ACPI table */
-  mapBase        = searchRangeStart;
-  searchRangeEnd = searchRangeStart + mapSize;
+  mapBase          = searchRangeStart;
+  searchRangeStart = mapBase + (mapPhys & PAGE_SIZE_MASK);
+  searchRangeEnd   = searchRangeStart + initSize;
   while (searchRangeStart < searchRangeEnd)
   {
     signature = *(uint64_t*)searchRangeStart;
@@ -769,7 +793,6 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
     }
 
     searchRangeStart += sizeof(uintptr_t);
-    mapPhys          += sizeof(uintptr_t);
   }
 
   /* Unmap the memory */
@@ -786,15 +809,114 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   return NO_ERROR;
 }
 
-static void _ParseRSDP(const S_RSDPDescriptor* kpRsdpDesc)
+static void _ParseRSDPRevision0(const S_RSDPDescriptor* kpRsdpDesc)
 {
-  uint8_t                   sum;
-  uint8_t                   i;
+  uintptr_t                 descAddr;
+  S_RSDTDescriptor*         pDesc;
+  size_t                    toMap;
+  E_Return                  errCode;
+
+  /* Map pages for RSDT */
+  toMap = ((uintptr_t)kpRsdpDesc->rsdtAddress & PAGE_SIZE_MASK) +
+            sizeof(S_RSDTDescriptor);
+  toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
+
+  descAddr = (uintptr_t)kpRsdpDesc->rsdtAddress & ~PAGE_SIZE_MASK;
+  descAddr = (uintptr_t)MemoryKernelMap((void*)descAddr,
+                                        toMap,
+                                        MEMMGR_MAP_HARDWARE |
+                                        MEMMGR_MAP_KERNEL   |
+                                        MEMMGR_MAP_RO,
+                                        &errCode);
+  ACPI_ASSERT(errCode == NO_ERROR && descAddr != (uintptr_t)NULL,
+              "Failed to map RSDT",
+              errCode);
+  pDesc = (S_RSDTDescriptor*)(descAddr |
+                              (kpRsdpDesc->rsdtAddress & PAGE_SIZE_MASK));
+  _ParseRSDT(pDesc);
+
+  /* Unmap */
+  errCode = MemoryKernelUnmap((void*)descAddr, toMap);
+  ACPI_ASSERT(errCode == NO_ERROR, "Failed to unmap RSDT", errCode);
+}
+
+static void _ParseRSDPRevision2(const S_RSDPDescriptor* kpRsdpDesc)
+{
   uintptr_t                 descAddr;
   S_RSDTDescriptor*         pDesc;
   size_t                    toMap;
   S_RSDPDescriptorExtended* pExtendedRsdp;
   E_Return                  errCode;
+  uint8_t                   sum;
+  uint8_t                   i;
+
+  pExtendedRsdp = (S_RSDPDescriptorExtended*)kpRsdpDesc;
+  sum = 0;
+
+  for (i = 0; i < sizeof(S_RSDPDescriptorExtended); ++i)
+  {
+    sum += ((uint8_t*)pExtendedRsdp)[i];
+  }
+  if (sum == 0)
+  {
+#ifdef ARCH_64_BITS
+    if (pExtendedRsdp->xsdtAddress)
+    {
+      /* Map pages for XSDT */
+      toMap = ((uintptr_t)pExtendedRsdp->xsdtAddress & PAGE_SIZE_MASK) +
+                sizeof(S_XSDTDescriptor);
+      toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
+
+      descAddr = (uintptr_t)pExtendedRsdp->xsdtAddress &
+                  ~PAGE_SIZE_MASK;
+      descAddr = (uintptr_t)MemoryKernelMap((void*)descAddr,
+                                          toMap,
+                                          MEMMGR_MAP_HARDWARE |
+                                          MEMMGR_MAP_KERNEL   |
+                                          MEMMGR_MAP_RO,
+                                          &errCode);
+      ACPI_ASSERT(errCode == NO_ERROR && descAddr != (uintptr_t)NULL,
+                  "Failed to map XSDT",
+                  errCode);
+      _ParseXSDT((S_XSDTDescriptor*)(descAddr |
+                                      ((uintptr_t)pExtendedRsdp->xsdtAddress &
+                                      PAGE_SIZE_MASK)));
+    }
+    else
+#endif
+    {
+      /* Map pages for RSDT */
+      toMap = ((uintptr_t)kpRsdpDesc->rsdtAddress & PAGE_SIZE_MASK) +
+                sizeof(S_RSDTDescriptor);
+      toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
+
+      descAddr = (uintptr_t)kpRsdpDesc->rsdtAddress &
+                  ~PAGE_SIZE_MASK;
+      descAddr = (uintptr_t)MemoryKernelMap((void*)descAddr,
+                                          KERNEL_PAGE_SIZE * 2,
+                                          MEMMGR_MAP_HARDWARE |
+                                          MEMMGR_MAP_KERNEL   |
+                                          MEMMGR_MAP_RO,
+                                          &errCode);
+      ACPI_ASSERT(errCode == NO_ERROR && descAddr != (uintptr_t)NULL,
+                  "Failed to map RSDT",
+                  errCode);
+
+      pDesc = (S_RSDTDescriptor*)(descAddr |
+                                  (kpRsdpDesc->rsdtAddress & PAGE_SIZE_MASK));
+      _ParseRSDT(pDesc);
+    }
+
+    /* Unmap */
+    errCode = MemoryKernelUnmap((void*)descAddr, toMap);
+    ACPI_ASSERT(errCode == NO_ERROR, "Failed to unmap RSDT", errCode);
+  }
+}
+
+static void _ParseRSDP(const S_RSDPDescriptor* kpRsdpDesc)
+{
+  uint8_t sum;
+  uint8_t i;
 
   ACPI_ASSERT(kpRsdpDesc != NULL,
               "Tried to parse a NULL RSDP",
@@ -812,94 +934,13 @@ static void _ParseRSDP(const S_RSDPDescriptor* kpRsdpDesc)
               ERR_NOT_SUPPORTED);
 
   /* ACPI version check */
-  descAddr = (uintptr_t)NULL;
   if (kpRsdpDesc->revision == 0)
   {
-    /* Map pages for RSDT */
-    toMap = ((uintptr_t)kpRsdpDesc->rsdtAddress & PAGE_SIZE_MASK) +
-              sizeof(S_RSDTDescriptor);
-    toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
-
-    descAddr = (uintptr_t)kpRsdpDesc->rsdtAddress & ~PAGE_SIZE_MASK;
-    descAddr = (uintptr_t)MemoryKernelMap((void*)descAddr,
-                                          toMap,
-                                          MEMMGR_MAP_HARDWARE |
-                                          MEMMGR_MAP_KERNEL   |
-                                          MEMMGR_MAP_RO,
-                                          &errCode);
-    ACPI_ASSERT(errCode == NO_ERROR && descAddr != (uintptr_t)NULL,
-                "Failed to map RSDT",
-                errCode);
-    pDesc = (S_RSDTDescriptor*)(descAddr |
-                                (kpRsdpDesc->rsdtAddress & PAGE_SIZE_MASK));
-    _ParseRSDT(pDesc);
+    _ParseRSDPRevision0(kpRsdpDesc);
   }
   else if (kpRsdpDesc->revision == 2)
   {
-    pExtendedRsdp = (S_RSDPDescriptorExtended*)kpRsdpDesc;
-    sum = 0;
-
-    for (i = 0; i < sizeof(S_RSDPDescriptorExtended); ++i)
-    {
-      sum += ((uint8_t*)pExtendedRsdp)[i];
-    }
-    if (sum == 0)
-    {
-#ifdef ARCH_64_BITS
-      if (pExtendedRsdp->xsdtAddress)
-      {
-        /* Map pages for XSDT */
-        toMap = ((uintptr_t)pExtendedRsdp->xsdtAddress & PAGE_SIZE_MASK) +
-                  sizeof(S_XSDTDescriptor);
-        toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
-
-        descAddr = (uintptr_t)pExtendedRsdp->xsdtAddress &
-                    ~PAGE_SIZE_MASK;
-        descAddr = (uintptr_t)MemoryKernelMap((void*)descAddr,
-                                            toMap,
-                                            MEMMGR_MAP_HARDWARE |
-                                            MEMMGR_MAP_KERNEL   |
-                                            MEMMGR_MAP_RO,
-                                            &errCode);
-        ACPI_ASSERT(errCode == NO_ERROR && descAddr != (uintptr_t)NULL,
-                    "Failed to map XSDT",
-                    errCode);
-        _ParseXSDT((S_XSDTDescriptor*)(descAddr |
-                                       ((uintptr_t)pExtendedRsdp->xsdtAddress &
-                                        PAGE_SIZE_MASK)));
-      }
-      else
-#endif
-      {
-        /* Map pages for RSDT */
-        toMap = ((uintptr_t)kpRsdpDesc->rsdtAddress & PAGE_SIZE_MASK) +
-                  sizeof(S_RSDTDescriptor);
-        toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
-
-        descAddr = (uintptr_t)kpRsdpDesc->rsdtAddress &
-                    ~PAGE_SIZE_MASK;
-        descAddr = (uintptr_t)MemoryKernelMap((void*)descAddr,
-                                            KERNEL_PAGE_SIZE * 2,
-                                            MEMMGR_MAP_HARDWARE |
-                                            MEMMGR_MAP_KERNEL   |
-                                            MEMMGR_MAP_RO,
-                                            &errCode);
-        ACPI_ASSERT(errCode == NO_ERROR && descAddr != (uintptr_t)NULL,
-                    "Failed to map RSDT",
-                    errCode);
-
-        pDesc = (S_RSDTDescriptor*)(descAddr |
-                                    (kpRsdpDesc->rsdtAddress & PAGE_SIZE_MASK));
-        _ParseRSDT(pDesc);
-      }
-    }
-  }
-
-  /* Unmap */
-  if (descAddr != (uintptr_t)NULL)
-  {
-    errCode = MemoryKernelUnmap((void*)descAddr, toMap);
-    ACPI_ASSERT(errCode == NO_ERROR, "Failed to unmap RSDT", errCode);
+    _ParseRSDPRevision2(kpRsdpDesc);
   }
 }
 
