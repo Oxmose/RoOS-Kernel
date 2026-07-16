@@ -110,19 +110,19 @@ typedef struct
 void CPUInit(void);
 
 /**
- * @brief Initializes the core manager.
+ * @brief Initializes the CPU manager.
  *
- * @details Intializes the core manager. During initialization, secondary CPUs
+ * @details Intializes the CPU manager. During initialization, secondary CPUs
  * detection and enabling is done if possible. After this call, it is possible
- * that more core execute in the system.
+ * that more CPU execute in the system.
  */
 void CPUStartSMP(void);
 
 /**
- * @brief Entry C function for secondary cores.
+ * @brief Entry C function for secondary CPUs.
  *
- * @details Entry C function for secondary cores. This function is called by the
- * secondary cores after initializing their state in the secondary core
+ * @details Entry C function for secondary CPUs. This function is called by the
+ * secondary CPUs after initializing their state in the secondary CPU
  * startup function.
  *
  * @param[in] kCpuId The booted CPU identifier that call the function.
@@ -241,7 +241,7 @@ void CPUInvalidateTLBEntry(const uintptr_t kVirtAddress);
  *
  * @details Returns the CPU identifier of the calling code.
  *
- * @return The CPU identifier of the calling core is returned.
+ * @return The CPU identifier of the calling CPU is returned.
  */
 uint32_t CPUGetId(void);
 
@@ -312,10 +312,10 @@ void CPUMemoryFenceAcquire(void);
 void CPUMemoryFenceRelease(void);
 
 /**
- * @brief Sends an IPI to the cores.
+ * @brief Sends an IPI to the CPUs.
  *
- * @details Sends an IPI to the cores. The flags define the nature of the
- * IPI, if it should be broadcasted, including the calling core, etc.
+ * @details Sends an IPI to the CPUs. The flags define the nature of the
+ * IPI, if it should be broadcasted, including the calling CPU, etc.
  *
  * @param[in] kFlags The flags to use, see IPI flags definition.
  * @param[in] kpParams The IPI parameters to use.
@@ -339,6 +339,28 @@ uint8_t CPUGetPhysicalAddressWidth(void);
  * @return Returns the CPU virtual address width.
  */
 uint8_t CPUGetVirtualAddressWidth(void);
+
+/**
+ * @brief Schedule the thread after saving its context.
+ *
+ * @details Schedule the thread after saving its context. The thread will be
+ * restored at the next instruction after this call.
+ *
+ * @param[out] pVCPU The virtual CPU of the thread to save
+ */
+void CPUSaveContextAndSchedule(void* pVCPU);
+
+/**
+ * @brief Validates a CPU mask.
+ *
+ * @details Validates a CPU mask. Checks that at least one CPU is selected and
+ * that no invalid CPU is.
+ *
+ * @param[in] kpMask The CPU mask to check.
+ *
+ * @return True is returned when the mask is valid. False otherwise.
+ */
+bool CPUValidateCPUMask(const S_CPUMask* kpMask);
 
 #endif /* #ifndef __CPU_CPU_H_ */
 

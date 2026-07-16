@@ -29,6 +29,7 @@
 #include <DeviceTree.h>
 #include <KernelError.h>
 #include <TimerManager.h>
+#include <KernelOutput.h>
 #include <DriverManager.h>
 
 /* Configuration files */
@@ -207,6 +208,8 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   uint64_t             tickCount;
   uint32_t             highPart;
   uint32_t             lowPart;
+  uint32_t             highPartEnd;
+  uint32_t             lowPartEnd;
 
   pDrvCtrl  = NULL;
   pTimerDrv = NULL;
@@ -246,16 +249,16 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
 
   /* Detect the TSC frequency */
   __asm__ __volatile__ ("rdtsc" : "=a"(lowPart), "=d"(highPart));
-  startTick = (((uint64_t)highPart << 32) | (uint64_t)lowPart);
   startTime = kpBaseTimer->pGetTimeNs(kpBaseTimer->pDriverCtrl);
   /* Wait for calibration */
   do
   {
+    __asm__ __volatile__ ("rdtsc" : "=a"(lowPartEnd), "=d"(highPartEnd));
     endTime = kpBaseTimer->pGetTimeNs(kpBaseTimer->pDriverCtrl);
-    __asm__ __volatile__ ("rdtsc" : "=a"(lowPart), "=d"(highPart));
-    endTick = (((uint64_t)highPart << 32) | (uint64_t)lowPart);
   } while (endTime < startTime + TSC_CALIBRATION_DELAY);
 
+  startTick = (((uint64_t)highPart << 32) | (uint64_t)lowPart);
+  endTick = (((uint64_t)highPartEnd << 32) | (uint64_t)lowPartEnd);
 
   /* If the period is smaller than the tick count, we cannot calibrate */
   period = (endTime - startTime) * 1000000000;
@@ -265,6 +268,8 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
              ERR_EXCEEDED_LIMIT);
 
   pDrvCtrl->frequency = 1000000000000000000ULL / ((period) / (tickCount));
+
+  KPrintfInfo("Detected TSC Frequency: %lluHz\n", pDrvCtrl->frequency);
 
   /* Set the API driver */
   retCode = DriverManagerSetDeviceData(pkFdtNode, pTimerDrv);

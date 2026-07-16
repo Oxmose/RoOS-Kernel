@@ -60,8 +60,6 @@ typedef enum
   THREAD_STATE_JOINING,
   /** @brief Thread's scheduling state: waiting. */
   THREAD_STATE_WAITING,
-  /** @brief Thread's scheduling state: errored. */
-  THREAD_STATE_ERRORED,
 } E_ThreadState;
 
 /**
@@ -193,6 +191,9 @@ typedef struct S_KernelThread
   /** @brief Thread's end time. */
   uint64_t endTime;
 
+  /** @brief Thread's execution time. */
+  uint64_t executionTime;
+
   /**************************************
    * Scheduler management
    *************************************/
@@ -214,17 +215,19 @@ typedef struct S_KernelThread
   /** @brief Thread's currently mapped CPU */
   uint32_t mappedCPU;
 
-  /** @brief Tells if the thread has preemption disabled */
-  bool preemptionDisabled;
-
   /** @brief Process */
   struct S_KernelProcess* pProcess;
+
+  /** @brief Stores the thread that is currently joining this thread */
+  struct S_KernelThread* pJoiningThread;
 
   /**************************************
    * Resources management
    *************************************/
   /** @brief The thread's structure lock */
   S_KernelSpinlock lock;
+  /** @brief Flags that tells if the thread can safelly be scheduled */
+  volatile uint32_t isScheduled;
 
   /** @brief Thread's error table */
   S_ErrorTable errorTable;

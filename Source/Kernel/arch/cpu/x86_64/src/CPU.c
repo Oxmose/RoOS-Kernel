@@ -423,10 +423,10 @@ static void _FormatIDTEntry(S_CPUIDTEntry*  pEntry,
                             const uint8_t   kIst);
 
 /**
- * @brief Attaches the Core Manager driver to the system.
+ * @brief Attaches the CPU Manager driver to the system.
  *
- * @details Attaches the Core Manager driver to the system. This function will
- * use the FDT to initialize the Core Manager hardware and retreive the Core
+ * @details Attaches the CPU Manager driver to the system. This function will
+ * use the FDT to initialize the CPU Manager hardware and retreive the CPU
  * Manager parameters.
  *
  * @param[in] kpNode The FDT node with the compatible declared
@@ -514,7 +514,7 @@ static const S_LAPICDriver* kspLAPICDriver = NULL;
 static const S_LAPICTimerDriver* kspLAPICTimerDriver = NULL;
 
 /** @brief Stores the CPUs LAPIS identifiers. */
-static uint32_t* spCoreIds;
+static uint32_t* spCPUIds;
 
 /** @brief Stores the CPU interrupt handlers entry point */
 static uintptr_t sIntHandlerTable[IDT_ENTRY_COUNT] =
@@ -1166,7 +1166,7 @@ static bool _IPIInterruptHandler(void)
     while (available == true)
     {
       /* Dispatch */
-      switch(params.function)
+      switch (params.function)
       {
         case IPI_FUNC_PANIC:
           KernelPanicSecondary();
@@ -1233,7 +1233,7 @@ void CPUInit(void)
   sCPUConfiguration = KMalloc(sizeof(S_CPUConfig) * sNumberOfCPUs,
                               ALIGN_16_BYTES,
                               KMALLOC_NO_FREE_POOL);
-  spCoreIds = KMalloc(sizeof(uint32_t) * sNumberOfCPUs,
+  spCPUIds = KMalloc(sizeof(uint32_t) * sNumberOfCPUs,
                       ALIGN_4_BYTES,
                       KMALLOC_NO_FREE_POOL);
   /* Set the main CPU kernel stack */
@@ -1261,23 +1261,23 @@ void CPUStartSMP(void)
   /* Check if the LAPIC driver was registered */
   CPU_ASSERT(kspLAPICDriver != NULL, "No LAPIC driver.", ERR_NOT_SUPPORTED);
   CPU_ASSERT(_bootedCPUCount == 1,
-             "Multiple cores already started.",
+             "Multiple CPUs already started.",
              ERR_UNAUTHORIZED_ACTION);
 
-  /* Init the current core information */
-  spCoreIds[0] = kspLAPICDriver->pGetLAPICId();
+  /* Init the current CPU information */
+  spCPUIds[0] = kspLAPICDriver->pGetLAPICId();
 
-  /* Check if we need to enable more cores */
+  /* Check if we need to enable more CPUs */
   kpLapicNode = kspLAPICDriver->pGetLAPICList();
   while (kpLapicNode != NULL && _bootedCPUCount < sNumberOfCPUs)
   {
     /* If not self */
-    if (spCoreIds[0] != kpLapicNode->lapic.lapicId)
+    if (spCPUIds[0] != kpLapicNode->lapic.lapicId)
     {
-      /* Check if core can be started */
+      /* Check if CPU can be started */
       if ((kpLapicNode->lapic.flags & 1) != 0)
       {
-        /* Start the core */
+        /* Start the CPU */
         kspLAPICDriver->pStartCpu(kpLapicNode->lapic.lapicId);
       }
     }
@@ -1312,12 +1312,12 @@ void CPUAPInit(const uint8_t kCPUId)
   _ValidateArchitecture();
 
   /* Initialize the CPU LAPIC */
-  kspLAPICDriver->pInitApCore();
+  kspLAPICDriver->pInitApCPU();
   if (kspLAPICTimerDriver != NULL)
   {
-    kspLAPICTimerDriver->pInitApCore(kCPUId);
+    kspLAPICTimerDriver->pInitApCPU(kCPUId);
   }
-  spCoreIds[kCPUId] = kspLAPICDriver->pGetLAPICId();
+  spCPUIds[kCPUId] = kspLAPICDriver->pGetLAPICId();
 
   /* Wait release and schedule */
   while (SchedulerIsInitialized() != true)
@@ -1325,7 +1325,7 @@ void CPUAPInit(const uint8_t kCPUId)
   SchedulerSchedule();
 
   /* Once the scheduler is started, we should never come back here. */
-  CPU_ASSERT(false, "CPU AP Init Returned", ERR_UNAUTHORIZED_ACTION);
+  PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "CPU AP Init Returned", false);
 }
 
 const S_VirtualCPU* CPUGetVirtualCPU(const S_KernelThread* kpThread)
@@ -1390,10 +1390,6 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
     stack     = pThread->stackEnd;
   }
 
-  /* Ensure the stack alignement */
-
-  stack = ALIGN_DOWN(stack - ALIGN_16_BYTES, ALIGN_16_BYTES);
-
   /* Allocate the new VCPU */
   pVCpu = KMalloc(sizeof(S_VirtualCPU), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
   memset(pVCpu, 0, sizeof(S_VirtualCPU));
@@ -1409,7 +1405,7 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
   pVCpu->cpuState.rdi   = (uintptr_t)pThread->pArgs;
 
   /* Setup stack pointers */
-  pVCpu->cpuState.rsp   = stack - ALIGN_16_BYTES;
+  pVCpu->cpuState.rsp   = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
   pVCpu->cpuState.rbp   = pVCpu->cpuState.rsp;
 
   /* Setup the CPU state */
@@ -1516,14 +1512,14 @@ void CPUSendIPI(const uint32_t kFlags, const S_IPIParameters* kpParams)
   if ((kFlags & CPU_IPI_BROADCAST_TO_OTHER) == 0 &&
      (kFlags & CPU_IPI_BROADCAST_TO_ALL) == 0)
   {
-    /* Get the core to send to */
+    /* Get the CPU to send to */
     destCpuId = kFlags & CPU_IPI_SEND_TO_CPU_MASK;
 
     /* Check if in bounds */
     if (destCpuId < _bootedCPUCount)
     {
       FQueuePush(spIPIRequestQueue[destCpuId][srcCpuId], kpParams);
-      kspLAPICDriver->pSendIPI(spCoreIds[destCpuId],
+      kspLAPICDriver->pSendIPI(spCPUIds[destCpuId],
                                ksInterruptConfig.ipiInterruptLine);
     }
   }
@@ -1533,8 +1529,7 @@ void CPUSendIPI(const uint32_t kFlags, const S_IPIParameters* kpParams)
     for (i = 0; i < _bootedCPUCount; ++i)
     {
       FQueuePush(spIPIRequestQueue[i][srcCpuId], kpParams);
-      kspLAPICDriver->pSendIPI(spCoreIds[i],
-                               ksInterruptConfig.ipiInterruptLine);
+      kspLAPICDriver->pSendIPI(spCPUIds[i], ksInterruptConfig.ipiInterruptLine);
     }
   }
   else if ((kFlags & CPU_IPI_BROADCAST_TO_OTHER) == CPU_IPI_BROADCAST_TO_OTHER)
@@ -1545,7 +1540,7 @@ void CPUSendIPI(const uint32_t kFlags, const S_IPIParameters* kpParams)
       if (i != srcCpuId)
       {
         FQueuePush(spIPIRequestQueue[i][srcCpuId], kpParams);
-        kspLAPICDriver->pSendIPI(spCoreIds[i],
+        kspLAPICDriver->pSendIPI(spCPUIds[i],
                                  ksInterruptConfig.ipiInterruptLine);
       }
     }
@@ -1579,6 +1574,40 @@ void CPURegisterLAPICTimerDriver(const S_LAPICTimerDriver* kpLAPICTimerDriver)
   kspLAPICTimerDriver = kpLAPICTimerDriver;
 }
 
+bool CPUValidateCPUMask(const S_CPUMask* kpMask)
+{
+  uint32_t cpuCount;
+  uint32_t i;
+  uint32_t j;
+  uint32_t total;
+  bool     valid;
+
+  cpuCount = CPUGetCount();
+  valid    = true;
+  total    = 0;
+  for (i = 0; i < CPU_MASK_TABLE_SIZE && valid == true; ++i)
+  {
+    for (j = 0; j < 64; ++j)
+    {
+      /* Check that we did not select a invalid CPU */
+      if ((kpMask->mask[i] & (1ULL << j)) != 0)
+      {
+        ++total;
+        if (j + i * 64 >= cpuCount)
+        {
+          valid = false;
+          break;
+        }
+      }
+    }
+  }
+  if (total == 0)
+  {
+    valid = false;
+  }
+  return valid;
+}
+
 /* Stack protection support */
 #ifdef _STACK_PROT
 #define STACK_CHK_GUARD 0x595e9fbd94fda766ULL
@@ -1586,7 +1615,7 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD;
 __attribute__((noreturn)) void __stack_chk_fail(void);
 __attribute__((noreturn)) void __stack_chk_fail(void)
 {
-  CPU_ASSERT(false, "Stack smashing detected", ERR_UNAUTHORIZED_ACTION);
+  PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "Stack smashing detected", false);
   while (true)
   {
     CPUHalt();
