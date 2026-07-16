@@ -92,10 +92,10 @@ void KernelPanic(const uint32_t kErrorCode,
                  const bool     kFromInterrupt);
 
 /**
- * @brief Called by secondary cores when a primary core enters panic.
+ * @brief Called by secondary CPUs when a primary CPU enters panic.
  *
- * @details Called by secondary cores when a primary core enters panic. This
- * will put the core to idle and never return.
+ * @details Called by secondary CPUs when a primary CPU enters panic. This
+ * will put the CPU to idle and never return.
  */
 void KernelPanicSecondary(void);
 

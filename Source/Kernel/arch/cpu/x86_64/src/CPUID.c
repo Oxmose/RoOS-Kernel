@@ -1594,7 +1594,7 @@ static void _GetVendorInfo(S_CPUInformation* pCpuInf)
   }
   else
   {
-    CPU_ASSERT(false, "CPU is not supported.", ERR_NOT_SUPPORTED);
+    PANIC(ERR_NOT_SUPPORTED, MODULE_NAME, "CPU is not supported.", false);
   }
 }
 
@@ -2238,7 +2238,7 @@ static uint16_t _GetCacheAssocAmd(const uint32_t kBase)
   }
   else
   {
-    switch(kBase)
+    switch (kBase)
     {
       case 5:
         assoc = 6;

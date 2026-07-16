@@ -350,12 +350,12 @@ static void _SendIPI(const uint8_t kLAPICId, const uint8_t kVector);
 static const S_LAPICNode* _GetLAPICList(void);
 
 /**
- * @brief Initializes a secondary core LAPIC.
+ * @brief Initializes a secondary CPU LAPIC.
  *
- * @details Initializes a secondary core LAPIC. This function initializes
- * the secondary core LAPIC interrupts and settings.
+ * @details Initializes a secondary CPU LAPIC. This function initializes
+ * the secondary CPU LAPIC interrupts and settings.
  */
-static void _InitApCore(void);
+static void _InitApCPU(void);
 
 /**
  * @brief Reads into the LAPIC controller memory.
@@ -504,15 +504,15 @@ static E_Return _TimerRemoveHandler(void* pDrvCtrl);
 static void _TimerAckInterrupt(void* pDrvCtrl);
 
 /**
- * @brief Initializes a secondary core LAPIC Timer.
+ * @brief Initializes a secondary CPU LAPIC Timer.
  *
- * @details Initializes a secondary core LAPIC Timer. This function
- * initializes the secondary core LAPIC timer interrupts and settings.
+ * @details Initializes a secondary CPU LAPIC Timer. This function
+ * initializes the secondary CPU LAPIC timer interrupts and settings.
  *
  * @param[in] kCpuId The CPU identifier for which we should enable the LAPIC
  * timer.
  */
-static void _TimerInitApCore(const uint8_t kCpuId);
+static void _TimerInitApCPU(const uint8_t kCpuId);
 
 /*******************************************************************************
  * GLOBAL VARIABLES
@@ -559,7 +559,7 @@ static S_LAPICDriver sLAPICAPIDriver =
   .pStartCpu       = _StartCpu,
   .pSendIPI        = _SendIPI,
   .pGetLAPICList   = _GetLAPICList,
-  .pInitApCore     = _InitApCore
+  .pInitApCPU      = _InitApCPU
 };
 
 /** @brief LAPIC driver controler instance. There will be only on for all
@@ -576,10 +576,10 @@ static S_LAPICControler sDrvCtrl =
 /** @brief LAPIC Timer API driver instance */
 static S_LAPICTimerDriver sLAPICTimerAPIDriver =
 {
-  .pInitApCore = _TimerInitApCore
+  .pInitApCPU = _TimerInitApCPU
 };
 
-/** @brief Local timer controller instance, used by AP core */
+/** @brief Local timer controller instance, used by AP CPU */
 static S_LAPICTimerControler* spDrvCtrl;
 
 /*******************************************************************************
@@ -641,7 +641,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
         retCode = DriverManagerSetDeviceData(pkFdtNode, &sLAPICAPIDriver);
         if (retCode == NO_ERROR)
         {
-          /* Register the driver in the core manager */
+          /* Register the driver in the CPU manager */
           CPURegisterLAPICDriver(&sLAPICAPIDriver);
         }
         else
@@ -719,7 +719,7 @@ static void _StartCpu(const uint8_t kLAPICId)
     /* Wait for pending sends */
     while ((_Read(sDrvCtrl.baseAddr, LAPIC_ICRLO) & ICR_SEND_PENDING) != 0){}
 
-    /* Wait 100ms and check if the number of cores was updated */
+    /* Wait 100ms and check if the number of CPUs was updated */
     TimeWaitNoScheduler(LAPIC_CPU_STARTUP_DELAY_NS);
     if (oldBootedCpuCount != _bootedCPUCount)
     {
@@ -766,9 +766,9 @@ static const S_LAPICNode* _GetLAPICList(void)
   return sDrvCtrl.pLAPICList;
 }
 
-static void _InitApCore(void)
+static void _InitApCPU(void)
 {
-  /* We are in a secondary core (AP core), just setup interrupts */
+  /* We are in a secondary CPU (AP CPU), just setup interrupts */
   _Write(sDrvCtrl.baseAddr, LAPIC_TPR, 0);
 
   /* Set logical destination mode */
@@ -849,7 +849,7 @@ static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
                "Invalid Timer FDT configuration.",
                ERR_INVALID_VALUE);
   pDrvCtrl->divider = FDTTOCPU32(*kpUintProp);
-  switch(pDrvCtrl->divider)
+  switch (pDrvCtrl->divider)
   {
     case 1:
       pDrvCtrl->divider = LAPICT_DIVIDER_1;
@@ -876,7 +876,7 @@ static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
       pDrvCtrl->divider = LAPICT_DIVIDER_128;
       break;
     default:
-      LAPIC_ASSERT(false, "Invalid Timer Divider.", ERR_NOT_SUPPORTED);
+      PANIC(ERR_NOT_SUPPORTED, MODULE_NAME, "Invalid Timer Divider.", false);
   }
 
   /* Get the LAPIC pHandle */
@@ -923,7 +923,7 @@ static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
   /* Set interrupt EOI */
   _TimerAckInterrupt(pDrvCtrl);
 
-  /* Register the driver in the core manager */
+  /* Register the driver in the CPU manager */
   CPURegisterLAPICTimerDriver(&sLAPICTimerAPIDriver);
 
   /* Set the API driver */
@@ -1130,9 +1130,9 @@ static void _TimerAckInterrupt(void* pDrvCtrl)
   InterruptSetEOI(pLAPICTimerCtrl->interruptNumber);
 }
 
-static void _TimerInitApCore(const uint8_t kCpuId)
+static void _TimerInitApCPU(const uint8_t kCpuId)
 {
-  /* We are in a secondary core (AP core), just setup the counter as all
+  /* We are in a secondary CPU (AP CPU), just setup the counter as all
    * LAPIC timers should have the same frequency
    */
   spDrvCtrl->pDisabledNesting[kCpuId] = 1;
