@@ -61,3 +61,10 @@ void TestKernel(void)
   }
 }
 #endif
+
+void TestKernel(void)
+{
+  E_Return error;
+
+  error = CreateThread()
+}
