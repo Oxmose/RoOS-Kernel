@@ -342,6 +342,15 @@ void CPURegisterLAPICTimerDriver(const S_LAPICTimerDriver* kpLAPICTimerDrv);
  */
 bool CPUGet1GBPageSupport(void);
 
+/**
+ * @brief Sets the number of detected CPUs.
+ *
+ * @details Sets the number of detected CPUs.
+ *
+ * @param[in] kCPUCount The number of CPUs to set.
+ */
+void CPUSetCount(const uint32_t kCPUCount);
+
 #endif /* #ifndef __CPU_X86_64_X64_CPU_H_ */
 
 /************************************ EOF *************************************/

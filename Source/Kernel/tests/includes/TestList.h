@@ -32,6 +32,7 @@
  ************************************************/
 /** @brief Panic test enabled flag */
 #define TEST_PANIC_ENABLED                        0
+#define TEST_OS_UHASHTABLE_ENABLED                0
 #define TEST_SCHEDULER_ENABLED                    1
 
 /*************************************************
@@ -42,18 +43,28 @@
 #define PANIC_TEST_SUCCESS_ID                           0
 
 /** @brief Scheduler test */
-#define SCHED_TEST_IS_INIT_ID                      1000
-#define SCHED_TEST_CREATE_TEST_THREAD_ID(X)        (1100 + X)
-#define SCHED_TEST_SLEEP_ID(X)                     (1200 + X)
-#define SCHED_TEST_JOIN_THREAD_ID(X)               (1300 + X)
-#define SCHED_TEST_GETTER_ID(X)                    (1400 + X)
-#define SCHED_TEST_ERROR_THREAD_ID(X)              (1500 + X)
-#define SCHED_TEST_PRIORITY_THREAD_CREATE_ID(X)    (1600 + X)
-#define SCHED_TEST_PRIORITY_THREAD_JOIN_ID(X)      (1700 + X)
-#define SCHED_TEST_PRIORITY_THREAD_CHECK_ID(X)     (1900 + X)
-#define SCHED_TEST_MAPPING_THREAD_CREATE_ID(X)     (2000 + X)
-#define SCHED_TEST_MAPPING_THREAD_JOIN_ID(X)       (2100 + X)
-#define SCHED_TEST_MAPPING_THREAD_CHECK_ID(X)      (2200 + X)
+#define SCHED_TEST_IS_INIT_ID                      0
+#define SCHED_TEST_CREATE_TEST_THREAD_ID(X)        (100 + X)
+#define SCHED_TEST_SLEEP_ID(X)                     (200 + X)
+#define SCHED_TEST_JOIN_THREAD_ID(X)               (300 + X)
+#define SCHED_TEST_GETTER_ID(X)                    (400 + X)
+#define SCHED_TEST_ERROR_THREAD_ID(X)              (500 + X)
+#define SCHED_TEST_PRIORITY_THREAD_CREATE_ID(X)    (600 + X)
+#define SCHED_TEST_PRIORITY_THREAD_JOIN_ID(X)      (700 + X)
+#define SCHED_TEST_PRIORITY_THREAD_CHECK_ID(X)     (900 + X)
+#define SCHED_TEST_MAPPING_THREAD_CREATE_ID(X)     (1000 + X)
+#define SCHED_TEST_MAPPING_THREAD_JOIN_ID(X)       (1100 + X)
+#define SCHED_TEST_MAPPING_THREAD_CHECK_ID(X)      (1200 + X)
+
+/** @brief UHashtable test */
+#define TEST_UHASHTABLE_CREATE_ID(X)      (X)
+#define TEST_UHASHTABLE_SETBURST_ID(X)    (100 + X)
+#define TEST_UHASHTABLE_SET_ID(X)         (400 + X)
+#define TEST_UHASHTABLE_GETBURST_ID(X)    (500 + X)
+#define TEST_UHASHTABLE_GET_ID(X)         (1100 + X)
+#define TEST_UHASHTABLE_REMOVEBURST_ID(X) (1200 + X)
+#define TEST_UHASHTABLE_REMOVE_ID(X)      (1300 + X)
+#define TEST_UHASHTABLE_DESTROY_ID(X)     (1400 + X)
 
 /** @brief Current test name */
 #define TEST_FRAMEWORK_TEST_NAME "Kernel Scheduler"
@@ -92,6 +103,9 @@ void PanicTest(void);
 
 /** @brief Scheduler main test function */
 void SchedulerTest(void);
+
+/** @brief UHashtable test function */
+void UHashtableTest(void);
 
 #endif /* #ifdef _TESTING_FRAMEWORK_ENABLED */
 
