@@ -34,6 +34,7 @@
 #include <KernelHeap.h>
 #include <DeviceTree.h>
 #include <KernelError.h>
+#include <KernelOutput.h>
 #include <DriverManager.h>
 #include <InterruptHandlers.h>
 
@@ -51,11 +52,6 @@
  ******************************************************************************/
 /** @brief Current module name */
 #define MODULE_NAME "CPU_X64"
-
-/** @brief Compatible property name in FDT */
-#define COMPATIBLE_PROP_NAME "compatible"
-/** @brief Status property name in FDT */
-#define STATUS_PROP_NAME "status"
 
 /***************************
  * GDT Flags
@@ -437,15 +433,6 @@ static void _FormatIDTEntry(S_CPUIDTEntry*  pEntry,
 static E_Return _CPUAttach(const S_FDTNode* kpNode);
 
 /**
- * @brief Initializes the number of CPU based on the FDT.
- *
- * @param[in] kpFDTNode The current FDT node to walk.
- *
- * @details Initializes the number of CPU based on the FDT.
- */
-static void _WalkCPUCount(const S_FDTNode* kpFDTNode);
-
-/**
  * @brief Checks the architecture's feature and requirements for roOs.
  *
  * @details Checks the architecture's feature and requirements for roOs. If a
@@ -487,13 +474,10 @@ extern volatile uint32_t _bootedCPUCount;
 /************************** Static global variables ***************************/
 
 /** @brief CPU configuration table. */
-static S_CPUConfig* sCPUConfiguration;
+static S_CPUConfig* spCPUConfiguration[SOC_MAX_CPU_COUNT];
 
 /**@brief Stores the number of detected CPUs */
 static uint32_t sNumberOfCPUs;
-
-/** @brief Stores the number of attached CPUs */
-static uint32_t sAttachedCpus;
 
 /** @brief CPU IDT space in memory. */
 static S_CPUIDTEntry sIDT[IDT_ENTRY_COUNT] __attribute__((aligned(8)));
@@ -514,7 +498,7 @@ static const S_LAPICDriver* kspLAPICDriver = NULL;
 static const S_LAPICTimerDriver* kspLAPICTimerDriver = NULL;
 
 /** @brief Stores the CPUs LAPIS identifiers. */
-static uint32_t* spCPUIds;
+static uint32_t spCPUIds[SOC_MAX_CPU_COUNT];
 
 /** @brief Stores the CPU interrupt handlers entry point */
 static uintptr_t sIntHandlerTable[IDT_ENTRY_COUNT] =
@@ -1028,43 +1012,7 @@ static void _FormatIDTEntry(S_CPUIDTEntry*  pEntry,
 static E_Return _CPUAttach(const S_FDTNode* kpNode)
 {
   (void)kpNode;
-
-  CPU_ASSERT(sAttachedCpus < sNumberOfCPUs,
-             "Exceeded CPU limit.",
-             ERR_EXCEEDED_LIMIT);
-
-  ++sAttachedCpus;
-
   return NO_ERROR;
-}
-
-static void _WalkCPUCount(const S_FDTNode* kpFDTNode)
-{
-  const char* kpCompatible;
-  const char* kpStatus;
-  size_t      propLen;
-
-  if (kpFDTNode != NULL)
-  {
-    /* Manage disabled nodes */
-    kpStatus = FDTGetProp(kpFDTNode, STATUS_PROP_NAME, &propLen);
-    if (kpStatus == NULL || (propLen == 5 && strcmp(kpStatus, "okay") == 0))
-    {
-      /* Get the node compatible */
-      kpCompatible = FDTGetProp(kpFDTNode, COMPATIBLE_PROP_NAME, &propLen);
-      if (kpCompatible != NULL && propLen > 0)
-      {
-        if (strcmp(sX86CPUDriver.pCompatible, kpCompatible) == 0)
-        {
-          ++sNumberOfCPUs;
-        }
-      }
-    }
-
-    /* Got to next nodes */
-    _WalkCPUCount(FDTGetChild(kpFDTNode));
-    _WalkCPUCount(FDTGetNextNode(kpFDTNode));
-  }
 }
 
 static void _ValidateArchitecture(void)
@@ -1076,7 +1024,7 @@ static void _ValidateArchitecture(void)
   cpuId = CPUGetId();
 
   /* Link */
-  pNewCpuInfo = &sCPUConfiguration[cpuId].cpuInfo;
+  pNewCpuInfo = &spCPUConfiguration[cpuId]->cpuInfo;
 
   /* CPU identifier */
   pNewCpuInfo->id = cpuId;
@@ -1123,17 +1071,17 @@ static void _ValidateArchitecture(void)
              "CPU addressing width incompatible with virtual address width",
              ERR_NOT_SUPPORTED);
 
-  sCPUConfiguration[cpuId].cpu1GBPageSupport = pNewCpuInfo->flags.page1gb;
-  sCPUConfiguration[cpuId].physAddressWidth = pNewCpuInfo->physAddressWidth;
-  sCPUConfiguration[cpuId].virtAddressWidth = pNewCpuInfo->virtAddressWidth;
+  spCPUConfiguration[cpuId]->cpu1GBPageSupport = pNewCpuInfo->flags.page1gb;
+  spCPUConfiguration[cpuId]->physAddressWidth = pNewCpuInfo->physAddressWidth;
+  spCPUConfiguration[cpuId]->virtAddressWidth = pNewCpuInfo->virtAddressWidth;
 
   if (pNewCpuInfo->id != 0)
   {
     /* Validate uniformity*/
     CPU_ASSERT(
-      (pNewCpuInfo->flags.page1gb == sCPUConfiguration[0].cpu1GBPageSupport &&
-       pNewCpuInfo->physAddressWidth == sCPUConfiguration[0].physAddressWidth &&
-       pNewCpuInfo->virtAddressWidth == sCPUConfiguration[0].virtAddressWidth),
+      (pNewCpuInfo->flags.page1gb == spCPUConfiguration[0]->cpu1GBPageSupport &&
+       pNewCpuInfo->physAddressWidth == spCPUConfiguration[0]->physAddressWidth &&
+       pNewCpuInfo->virtAddressWidth == spCPUConfiguration[0]->virtAddressWidth),
       "Heterogenous configuration detected.",
       ERR_NOT_SUPPORTED);
   }
@@ -1218,40 +1166,24 @@ static void _InitializeIPI(void)
 
 void CPUInit(void)
 {
-  uint32_t         i;
-  const S_FDTNode* kpFDTRoot;
-
-  sNumberOfCPUs = 0;
-  sAttachedCpus = 0;
+  sNumberOfCPUs = 1;
 
   /* Setup the shared IDT */
   _SetupIDT();
 
-  /* Detect the number of CPUs and allocate the contexts */
-  kpFDTRoot = FDTGetRoot();
-  _WalkCPUCount(kpFDTRoot);
-  sCPUConfiguration = KMalloc(sizeof(S_CPUConfig) * sNumberOfCPUs,
-                              ALIGN_16_BYTES,
-                              KMALLOC_NO_FREE_POOL);
-  spCPUIds = KMalloc(sizeof(uint32_t) * sNumberOfCPUs,
-                      ALIGN_4_BYTES,
-                      KMALLOC_NO_FREE_POOL);
+  spCPUConfiguration[0] = KMalloc(sizeof(S_CPUConfig),
+                                  ALIGN_8_BYTES,
+                                  KMALLOC_NO_FREE_POOL);
   /* Set the main CPU kernel stack */
-  for (i = 0; i < sNumberOfCPUs; ++i)
-  {
-    sCPUConfiguration[i].kernelStackEnd = ((uintptr_t)&_KERNEL_STACKS_BASE) +
-                                           (i + 1) * KERNEL_STACK_SIZE - 1;
-  }
+  spCPUConfiguration[0]->kernelStackEnd = ((uintptr_t)&_KERNEL_STACKS_BASE) +
+                                           KERNEL_STACK_SIZE - 1;
 
   /* Setup the main CPU GDT and TSS */
-  _SetupTSS(&sCPUConfiguration[0]);
-  _SetupGDT(&sCPUConfiguration[0]);
+  _SetupTSS(spCPUConfiguration[0]);
+  _SetupGDT(spCPUConfiguration[0]);
 
   /* Validate architecture */
   _ValidateArchitecture();
-
-  /* Initialize IPI */
-  _InitializeIPI();
 }
 
 void CPUStartSMP(void)
@@ -1267,9 +1199,12 @@ void CPUStartSMP(void)
   /* Init the current CPU information */
   spCPUIds[0] = kspLAPICDriver->pGetLAPICId();
 
+  /* Initialize IPIs */
+  _InitializeIPI();
+
   /* Check if we need to enable more CPUs */
   kpLapicNode = kspLAPICDriver->pGetLAPICList();
-  while (kpLapicNode != NULL && _bootedCPUCount < sNumberOfCPUs)
+  while (kpLapicNode != NULL && _bootedCPUCount < SOC_MAX_CPU_COUNT)
   {
     /* If not self */
     if (spCPUIds[0] != kpLapicNode->lapic.lapicId)
@@ -1290,11 +1225,6 @@ void CPUStartSMP(void)
   while (_bootedCPUCount < sNumberOfCPUs)
   {
   }
-
-  /* Last check */
-  CPU_ASSERT(sAttachedCpus == _bootedCPUCount,
-             "Attached CPUs count does not match booted CPU count.",
-              ERR_INVALID_VALUE);
 }
 
 void CPUAPInit(const uint8_t kCPUId)
@@ -1304,20 +1234,31 @@ void CPUAPInit(const uint8_t kCPUId)
                        :
                        : "m" (sIDTPtr.size), "m" (sIDTPtr.base));
 
+  /* Create the internal structure */
+  spCPUConfiguration[kCPUId] = KMalloc(sizeof(S_CPUConfig),
+                                       ALIGN_8_BYTES,
+                                       KMALLOC_NO_FREE_POOL);
+  /* Set the main CPU kernel stack */
+  spCPUConfiguration[kCPUId]->kernelStackEnd =
+    ((uintptr_t)&_KERNEL_STACKS_BASE) +
+    (((kCPUId + 1) * KERNEL_STACK_SIZE) - 1);
+
   /* Setup the main CPU GDT and TSS */
-  _SetupTSS(&sCPUConfiguration[kCPUId]);
-  _SetupGDT(&sCPUConfiguration[kCPUId]);
+  _SetupTSS(spCPUConfiguration[kCPUId]);
+  _SetupGDT(spCPUConfiguration[kCPUId]);
 
   /* Validate architecture */
   _ValidateArchitecture();
 
   /* Initialize the CPU LAPIC */
   kspLAPICDriver->pInitApCPU();
+  spCPUIds[kCPUId] = kspLAPICDriver->pGetLAPICId();
   if (kspLAPICTimerDriver != NULL)
   {
     kspLAPICTimerDriver->pInitApCPU(kCPUId);
   }
-  spCPUIds[kCPUId] = kspLAPICDriver->pGetLAPICId();
+
+  KERNEL_INFO("Started CPU %d\n", _bootedCPUCount - 1);
 
   /* Wait release and schedule */
   while (SchedulerIsInitialized() != true)
@@ -1333,6 +1274,11 @@ const S_VirtualCPU* CPUGetVirtualCPU(const S_KernelThread* kpThread)
   return (S_VirtualCPU*)kpThread->pVCpu;
 }
 
+void CPUSetCount(const uint32_t kCPUCount)
+{
+  sNumberOfCPUs = MIN(kCPUCount, SOC_MAX_CPU_COUNT);
+}
+
 uint32_t CPUGetCount(void)
 {
   return sNumberOfCPUs;
@@ -1340,7 +1286,7 @@ uint32_t CPUGetCount(void)
 
 uintptr_t CPUGetStackEnd(const uint32_t kCPUId)
 {
-  return sCPUConfiguration[kCPUId].kernelStackEnd;
+  return spCPUConfiguration[kCPUId]->kernelStackEnd;
 }
 
 size_t CPUGetStackSize(void)
@@ -1488,9 +1434,9 @@ void CPUUpdateMemoryConfig(const S_KernelThread* kpThread)
   if (kpThread->type == THREAD_TYPE_USER)
   {
     /* Update the TSS */
-    sCPUConfiguration[cpuId].tss.rsp0 = ALIGN_DOWN(kpThread->kernelStackEnd -
-                                                   ALIGN_16_BYTES,
-                                                   ALIGN_16_BYTES);
+    spCPUConfiguration[cpuId]->tss.rsp0 = ALIGN_DOWN(kpThread->kernelStackEnd -
+                                                     ALIGN_16_BYTES,
+                                                     ALIGN_16_BYTES);
   }
 
   /* Update the thread local storage */
@@ -1551,17 +1497,17 @@ void CPUSendIPI(const uint32_t kFlags, const S_IPIParameters* kpParams)
 
 uint8_t CPUGetPhysicalAddressWidth(void)
 {
-  return sCPUConfiguration->physAddressWidth;
+  return spCPUConfiguration[0]->physAddressWidth;
 }
 
 uint8_t CPUGetVirtualAddressWidth(void)
 {
-  return sCPUConfiguration->virtAddressWidth;
+  return spCPUConfiguration[0]->virtAddressWidth;
 }
 
 bool CPUGet1GBPageSupport(void)
 {
-  return sCPUConfiguration->cpu1GBPageSupport;
+  return spCPUConfiguration[0]->cpu1GBPageSupport;
 }
 
 void CPURegisterLAPICDriver(const S_LAPICDriver* kpLAPICDriver)

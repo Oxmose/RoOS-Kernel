@@ -23,6 +23,7 @@ exclude_paths:
   - ".github/**"
   - ".vscode/**"
   - "Peripherals/**"
+  - "Source/Kernel/tests/**"
   - "Tools/**"
   - ".vscode/**"
   - "Utils/**/*"

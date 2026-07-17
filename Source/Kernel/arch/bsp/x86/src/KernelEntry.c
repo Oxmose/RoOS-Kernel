@@ -149,10 +149,6 @@ void X64KernelEntry(void)
   TimeManagerInit();
   KERNEL_SUCCESS("Time manager initialized.\n");
 
-  /* Initilize the scheduler */
-  SchedulerInit();
-  KERNEL_SUCCESS("Scheduler initialized.\n");
-
   /* Now that devices are configured, start the CPU manager, in charge of
    * starting other CPUs if needed. After calling this function all the
    * running CPUs excepted this one have their interrupt enabled.
@@ -160,10 +156,15 @@ void X64KernelEntry(void)
   CPUStartSMP();
   KERNEL_SUCCESS("SMP started.\n");
 
+  /* Initilize the scheduler */
+  SchedulerInit();
+  KERNEL_SUCCESS("Scheduler initialized.\n");
+
   KERNEL_INFO("Kernel started successfully.\n");
 
   /* Add library and core tests here */
   TEST_POINT_FUNCTION_CALL(PanicTest, TEST_PANIC_ENABLED);
+  TEST_POINT_FUNCTION_CALL(UHashtableTest, TEST_OS_UHASHTABLE_ENABLED);
 
   #if 0
   /* TODO: Remove */

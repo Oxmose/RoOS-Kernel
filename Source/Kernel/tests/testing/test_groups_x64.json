@@ -1,5 +1,9 @@
 [
   {
+    "name": "UHashTable",
+    "testname": "OS_UHASHTABLE"
+  },
+  {
     "name": "Kernel Panic",
     "testname": "PANIC"
   },
