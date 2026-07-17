@@ -123,6 +123,7 @@ void X64KernelEntry(void)
   /* Initialize the kernel heap */
   KernelHeapInit();
   KERNEL_SUCCESS("Kernel heap initialized.\n");
+  TEST_POINT_FUNCTION_CALL(KernelHeapTest, TEST_KHEAP_ENABLED);
 
   /* Initialize the device tree */
   DeviceTreeInit((uintptr_t)&_KERNEL_DEV_TREE_BASE);
@@ -164,9 +165,12 @@ void X64KernelEntry(void)
 
   /* Add library and core tests here */
   TEST_POINT_FUNCTION_CALL(PanicTest, TEST_PANIC_ENABLED);
+  TEST_POINT_FUNCTION_CALL(DeviceTreeTest, TEST_DEVTREE_ENABLED);
   TEST_POINT_FUNCTION_CALL(UHashtableTest, TEST_OS_UHASHTABLE_ENABLED);
+  TEST_POINT_FUNCTION_CALL(InterruptsTest, TEST_INTERRUPT_ENABLED);
+  TEST_POINT_FUNCTION_CALL(CriticalTest, TEST_CRITICAL_ENABLED);
 
-  #if 0
+#if 0
   /* TODO: Remove */
   extern void TestKernel(void);
   TestKernel();

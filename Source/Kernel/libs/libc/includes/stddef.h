@@ -30,10 +30,6 @@
 /** @brief NULL definition. */
 #define NULL ((void *)0)
 
-/** @brief Defines the table size for a CPU bitmask. */
-#define CPU_MASK_TABLE_SIZE \
-  (SOC_MAX_CPU_COUNT / 64ULL + ((SOC_MAX_CPU_COUNT % 64ULL != 0) ? 1 : 0))
-
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
@@ -65,61 +61,6 @@ typedef __PTRDIFF_TYPE__ ptrdiff_t;
 #else
 #error Architecture is not supported by the standard library
 #endif
-
-/** @brief Defines a CPU mask. */
-typedef struct
-{
-  /** @brief The CPU mask table. */
-  uint64_t mask[CPU_MASK_TABLE_SIZE];
-} S_CPUMask;
-
-/**
- * @brief Sets the corresponding bit in the CPU mask.
- *
- * @param[out] CPU_MASK The mask to udpate.
- * @param[in] CPU_ID The CPU Id to set in the mask.
- */
-#define CPU_MASK_SET(CPU_MASK, CPU_ID) {                        \
-  CPU_MASK.mask[CPU_ID / 64ULL] |= (1ULL << (CPU_ID % 64ULL));  \
-}
-
-/**
- * @brief Resets the bits in the CPU mask.
- *
- * @param[out] CPU_MASK The mask to reset.
- */
-#define CPU_MASK_RESET(CPU_MASK) {        \
-  memset(&CPU_MASK, 0, sizeof(CPU_MASK)); \
-}
-
-/**
- * @brief Clears the corresponding bit in the CPU mask.
- *
- * @param[out] CPU_MASK The mask to udpate.
- * @param[in] CPU_ID The CPU Id to clear in the mask.
- */
-#define CPU_MASK_CLEAR(CPU_MASK, CPU_ID) {                      \
-  CPU_MASK.mask[CPU_ID / 64ULL] &= ~(1ULL << (CPU_ID % 64ULL)); \
-}
-
-/**
- * @brief Gets the corresponding bit in the CPU mask.
- *
- * @param[out] CPU_MASK The mask to use.
- * @param[in] CPU_ID The CPU Id to get in the mask.
- */
-#define CPU_MASK_GET(CPU_MASK, CPU_ID) \
-  (CPU_MASK.mask[CPU_ID / 64ULL] & (1ULL << (CPU_ID % 64ULL)))
-
-  /**
- * @brief Copy a CPU mask.
- *
- * @param[out] CPU_MASK_DEST The destination mask.
- * @param[in] CPU_MASK_SRC The source mask to copy.
- */
-#define CPU_MASK_COPY(CPU_MASK_DEST, CPU_MASK_SRC) {            \
-  memcpy(&CPU_MASK_DEST, &CPU_MASK_SRC, sizeof(CPU_MASK_DEST)); \
-}
 
 /*******************************************************************************
  * MACROS

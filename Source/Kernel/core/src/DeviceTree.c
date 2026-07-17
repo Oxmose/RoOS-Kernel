@@ -390,18 +390,12 @@ static inline const void* _FDTInternalReadProp(const S_FDTProperty* kpProperty,
 
   if (kpProperty == NULL)
   {
-    if (pReadSize != NULL)
-    {
-      *pReadSize = 0;
-    }
+    *pReadSize = 0;
     pCells = NULL;
   }
   else
   {
-    if (pReadSize != NULL)
-    {
-      *pReadSize = kpProperty->length;
-    }
+    *pReadSize = kpProperty->length;
     pCells = kpProperty->pCells;
   }
 
@@ -506,8 +500,8 @@ static S_FDTProperty* _ParseProperty(uint32_t* pOffset, S_FDTNode* pNode)
                                   ALIGN_ADDRESS,
                                   KMALLOC_NO_FREE_POOL);
       memcpy(pProperty->pCells,
-             sFDTDesc.pStructs +
-             *pOffset, pProperty->length);
+             sFDTDesc.pStructs + *pOffset,
+             pProperty->length);
     }
     else
     {
@@ -544,6 +538,7 @@ static S_FDTNode* _ParseNode(uint32_t*     pOffset,
   bool             isResMem;
 
   /* Check if start node */
+  retNode = NULL;
   if (FDTTOCPU32(sFDTDesc.pStructs[*pOffset]) == FDT_BEGIN_NODE)
   {
     ++(*pOffset);
@@ -673,13 +668,10 @@ static S_FDTNode* _ParseNode(uint32_t*     pOffset,
         if (cursor == FDT_END_NODE)
         {
           retNode = pNode;
+          break;
         }
       }
     }
-  }
-  else
-  {
-    retNode = NULL;
   }
 
   return retNode;
@@ -827,18 +819,12 @@ const void* FDTGetProp(const S_FDTNode* kpFDTNode,
         if (kpProp->pCells == NULL)
         {
           retVal = (void*)1;
-          if (pReadSize != NULL)
-          {
-            *pReadSize = 0;
-          }
+          *pReadSize = 0;
         }
         else
         {
           retVal = (void*)kpProp->pCells;
-          if (pReadSize != NULL)
-          {
-            *pReadSize = kpProp->length;
-          }
+          *pReadSize = kpProp->length;
         }
 
         break;
@@ -849,10 +835,7 @@ const void* FDTGetProp(const S_FDTNode* kpFDTNode,
   }
   else
   {
-    if (pReadSize != NULL)
-    {
-      *pReadSize = 0;
-    }
+    *pReadSize = 0;
     retVal = NULL;
   }
 

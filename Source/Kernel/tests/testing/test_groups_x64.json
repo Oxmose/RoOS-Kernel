@@ -1,5 +1,21 @@
 [
   {
+    "name": "Kernel Heap",
+    "testname": "KHEAP"
+  },
+  {
+    "name": "Device Tree",
+    "testname": "DEVTREE"
+  },
+  {
+    "name": "Kernel Critical Sections",
+    "testname": "CRITICAL"
+  },
+  {
+    "name": "Interrupt",
+    "testname": "INTERRUPT"
+  },
+  {
     "name": "UHashTable",
     "testname": "OS_UHASHTABLE"
   },

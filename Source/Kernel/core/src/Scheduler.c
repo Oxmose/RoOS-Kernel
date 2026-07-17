@@ -277,9 +277,9 @@ S_ScheduleContext** ppSchedulerContext;
 
 /************************** Static global variables ***************************/
 /** @brief Stores the last allocated process ID. */
-static U32Atomic sLastPID;
+static T_U32Atomic sLastPID;
 /** @brief Stores the last allocated thread ID. */
-static U32Atomic sLastTID;
+static T_U32Atomic sLastTID;
 /** @brief Stores the scheduler state. */
 static bool sIsInit = false;
 /** @brief Tables that contains the existing processes. */
