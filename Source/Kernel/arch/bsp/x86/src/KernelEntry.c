@@ -119,7 +119,7 @@ void X64KernelEntry(void)
   /* Initialize the kernel heap */
   KernelHeapInit();
   KERNEL_SUCCESS("Kernel heap initialized.\n");
-  TEST_POINT_FUNCTION_CALL(KernelHeapTest, TEST_KHEAP_ENABLED);
+  TEST_POINT_FUNCTION(KernelHeapTest, TEST_KHEAP_ENABLED);
 
   /* Initialize the device tree */
   DeviceTreeInit((uintptr_t)&_KERNEL_DEV_TREE_BASE);
@@ -186,11 +186,14 @@ void X64KernelEntry(void)
 >>>>>>> 3cf6ad3 (Started porting tests)
 
   TEST_POINT_FUNCTION(PanicTest, TEST_PANIC_ENABLED);
+  TEST_POINT_FUNCTION(CriticalTest, TEST_CRITICAL_ENABLED);
   TEST_POINT_FUNCTION(UHashtableTest, TEST_OS_UHASHTABLE_ENABLED);
   TEST_POINT_FUNCTION(VectorTest, TEST_OS_VECTOR_ENABLED);
+  TEST_POINT_FUNCTION(InterruptsTest, TEST_INTERRUPT_ENABLED);
+  TEST_POINT_FUNCTION(DeviceTreeTest, TEST_DEVTREE_ENABLED);
   TEST_POINT_FUNCTION(VirtualFSTest, TEST_VFS_ENABLED);
 
-  #if 0
+#if 0
   /* TODO: Remove */
   extern void TestKernel(void);
   TestKernel();
