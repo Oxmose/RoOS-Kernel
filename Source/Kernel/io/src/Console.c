@@ -23,11 +23,14 @@
  ******************************************************************************/
 
 /* Included headers */
+#include <IOCTL.h>
 #include <string.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <VirtualFS.h>
 #include <DeviceTree.h>
 #include <DebugOutput.h>
+#include <KernelOutput.h>
 #include <DriverManager.h>
 
 /* Configuration files */
@@ -49,9 +52,9 @@
 /** @brief FDT console node name */
 #define FDT_CONSOLE_NODE_NAME "console"
 /** @brief FDT property for the console input device property */
-#define FDT_CONSOLE_INPUT_DEV_PROP "inputdev"
+#define FDT_CONS_INPUT_DEV_PROP "inputdev"
 /** @brief FDT property for the console output device property */
-#define FDT_CONSOLE_OUTPUT_DEV_PROP "outputdev"
+#define FDT_CONS_OUTPUT_DEV_PROP "outputdev"
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -62,18 +65,7 @@
 /*******************************************************************************
  * MACROS
  ******************************************************************************/
-/**
- * @brief Execute a function if it exists.
- *
- * @param[in] FUNC The function to execute.
- * @param[in, out] ... Function parameters.
- */
-#define EXEC_IF_SET(DRIVER, FUNC, ...) { \
-  if (DRIVER.FUNC != NULL)                \
-  {                                      \
-    DRIVER.FUNC(__VA_ARGS__);            \
-  }                                      \
-}
+/* None */
 
 /*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
@@ -92,55 +84,106 @@
 /* None */
 
 /************************** Static global variables ***************************/
-/** @brief Stores the console driver */
-static S_ConsoleDriver sConsoleDriver;
+/** @brief Stores the stdin file descriptor */
+static int32_t sStdinFd = -1;
+/** @brief Stores the stdout file descriptor */
+static int32_t sStdoutFd = -1;
 
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
 void ConsoleInit(void)
 {
-  memset(&sConsoleDriver, 0, sizeof(S_ConsoleDriver));
-}
+  const S_FDTNode* kpConsoleNode;
+  const char*      kpStrProp;
+  size_t           propLen;
 
-void ConsoleSetDriver(const S_ConsoleDriver* kpDriver)
-{
-  sConsoleDriver = *kpDriver;
+  /* Get the FDT console node */
+  kpConsoleNode = FDTGetNodeByName(FDT_CONSOLE_NODE_NAME);
+  if(kpConsoleNode != NULL)
+  {
+    /* Get the input device */
+    kpStrProp = FDTGetProp(kpConsoleNode, FDT_CONS_INPUT_DEV_PROP, &propLen);
+    if(kpStrProp != NULL && propLen > 0)
+    {
+      sStdinFd = VFSOpen(kpStrProp, O_RDONLY, 0);
+      if(sStdinFd < 0)
+      {
+        KERNEL_ERROR("Failed to open console input device.\n");
+      }
+    }
+
+    /* Get the output device */
+    kpStrProp = FDTGetProp(kpConsoleNode, FDT_CONS_OUTPUT_DEV_PROP, &propLen);
+    if(kpStrProp != NULL && propLen > 0)
+    {
+      sStdoutFd = VFSOpen(kpStrProp, O_RDWR, 0);
+      if(sStdoutFd < 0)
+      {
+        KERNEL_ERROR("Failed to open console output device.\n");
+      }
+    }
+  }
 }
 
 void ConsoleClear(void)
 {
-  EXEC_IF_SET(sConsoleDriver, pClear);
+  if(sStdoutFd >= 0)
+  {
+    VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_CLEAR, NULL);
+  }
 }
 
 void ConsoleGetCursor(S_ConsoleCursor* pBuffer)
 {
-  EXEC_IF_SET(sConsoleDriver, pGetCursor, pBuffer);
+  if(sStdoutFd >= 0)
+  {
+    VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_SAVE_CURSOR, pBuffer);
+  }
 }
 
 void ConsoleSetCursor(const S_ConsoleCursor* pkBuffer)
 {
-  EXEC_IF_SET(sConsoleDriver, pSetCursor, pkBuffer);
+  if(sStdoutFd >= 0)
+  {
+    VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_RESTORE_CURSOR, (void*)pkBuffer);
+  }
 }
 
 void ConsoleScroll(const E_ScrollDirection kDirection, const uint32_t kLines)
 {
-  EXEC_IF_SET(sConsoleDriver, pScroll, kDirection, kLines);
+  S_IOCTLScrollArguments args;
+
+  if(sStdoutFd >= 0)
+  {
+    args.direction = kDirection;
+    args.lineCount = kLines;
+    VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_SCROLL, &args);
+  }
 }
 
 void ConsoleSetColorScheme(const S_ColorScheme* pkColorScheme)
 {
-  EXEC_IF_SET(sConsoleDriver, pSetColorScheme, pkColorScheme);
+  if(sStdoutFd >= 0)
+  {
+    VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_SET_COLORSCHEME, (void*)pkColorScheme);
+  }
 }
 
 void ConsoleGetColorScheme(S_ColorScheme* pBuffer)
 {
-  EXEC_IF_SET(sConsoleDriver, pGetColorScheme, pBuffer);
+  if(sStdoutFd >= 0)
+  {
+    VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_SAVE_COLORSCHEME, pBuffer);
+  }
 }
 
 void ConsolePutString(const char* pkString)
 {
-  EXEC_IF_SET(sConsoleDriver, pPutString, pkString);
+  if(sStdoutFd >= 0)
+  {
+    VFSWrite(sStdoutFd, pkString, strlen(pkString));
+  }
 #if OUTPUT_DEBUG_ENABLE
   DebugOutputPutString(pkString);
 #endif
@@ -148,7 +191,10 @@ void ConsolePutString(const char* pkString)
 
 void ConsolePutChar(const char kCharacter)
 {
-  EXEC_IF_SET(sConsoleDriver, pPutChar, kCharacter);
+  if(sStdoutFd >= 0)
+  {
+    VFSWrite(sStdoutFd, &kCharacter, 1);
+  }
 #if OUTPUT_DEBUG_ENABLE
   DebugOutputPutChar(kCharacter);
 #endif
@@ -156,19 +202,26 @@ void ConsolePutChar(const char kCharacter)
 
 ssize_t ConsoleRead(char* pBuffer, size_t kBufferSize)
 {
-  if (sConsoleDriver.pRead != NULL)
+  ssize_t retVal;
+
+  if(sStdinFd >= 0)
   {
-    return sConsoleDriver.pRead(pBuffer, kBufferSize);
+    retVal = VFSRead(sStdinFd, pBuffer, kBufferSize);
   }
   else
   {
-    return -1;
+    retVal = -1;
   }
+
+  return retVal;
 }
 
 void ConsoleFlush(void)
 {
-  EXEC_IF_SET(sConsoleDriver, pFlush);
+  if(sStdoutFd >= 0)
+  {
+    VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_FLUSH, NULL);
+  }
 }
 
 /************************************ EOF *************************************/

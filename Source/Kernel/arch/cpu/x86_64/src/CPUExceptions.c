@@ -394,9 +394,6 @@ static bool _DeviceNotAvailableExceptionHandler(void)
 
 static bool _DoubleFaultHandler(void)
 {
-  volatile bool test = false;
-  while(!test){}
-  CPURestoreContext(SchedulerGetCurrentThread());
   /* Double faults will directly crash the computer */
   PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "Double fault detected", true);
 
@@ -470,8 +467,6 @@ static bool _StackSegmentFaultExceptionHandler(void)
 static bool _GeneralProtectionExceptionHandler(void)
 {
   S_KernelThread* pCurrThread;
-
-  while(CPUGetId() != 0) {}
 
   /* Fill the thread error table */
   pCurrThread = SchedulerGetCurrentThread();

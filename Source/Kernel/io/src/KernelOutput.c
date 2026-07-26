@@ -334,6 +334,7 @@ void KPrintfFlush(void)
 
   spBuffer[sBufferSize] = 0;
   sCurrentOutput.pPuts(spBuffer);
+  sCurrentOutput.pFlush();
   sBufferSize = 0;
 
   KERNEL_UNLOCK(sLock);

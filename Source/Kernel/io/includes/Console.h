@@ -136,110 +136,14 @@ typedef struct
   uint16_t background;
 } S_ColorScheme;
 
-/**
- * @brief Defines the driver for the console.
- */
+/** @brief Defines the IOCTL arguments for a scroll operation. */
 typedef struct
 {
-  /**
-   * @brief Clears the console.
-   *
-   * @details Clears the console using the driver. The background color is set
-   * to the current background color.
-   */
-  void (*pClear)(void);
-
-  /**
-   * @brief Gets the cursor attributes.
-   * @details Fills the buffer given as parameter with the current value of the
-   * cursor.
-   *
-   * @param[out] pBuffer The cursor buffer in which the current cursor
-   * position is going to be saved.
-   */
-  void (*pGetCursor)(S_ConsoleCursor* pBuffer);
-
-  /**
-   * @brief Sets the cursor attributes.
-   *
-   * @details The function will set the cursor attributes from the buffer
-   * given as parameter.
-   *
-   * @param[in] kpBuffer The buffer containing the cursor's attributes.
-   */
-  void (*pSetCursor)(const S_ConsoleCursor* kpBuffer);
-
-  /**
-   * @brief Scrolls the console in the desired direction.
-   *
-   * @details The function will use the driver to scroll of the number of lines
-   * in the desired direction.
-   *
-   * @param[in] kDirection The direction to which the console
-   * @param[in] kLines The number of lines to scroll.
-   */
-
-  void (*pScroll)(const E_ScrollDirection kDirection, const uint32_t kLines);
-
-  /**
-   * @brief Sets the color scheme of the console.
-   *
-   * @details Replaces the curent color scheme used t output data with the new
-   * one given as parameter.
-   *
-   * @param[in] pkColorScheme The new color scheme to apply to the console.
-   */
-  void (*pSetColorScheme)(const S_ColorScheme* pkColorScheme);
-
-  /**
-   * @brief Saves the color scheme of the console.
-   *
-   * @details Fills the buffer given as parameter with the current console's
-   * color scheme value.
-   *
-   * @param[out] pBuffer The buffer that will receive the current color scheme/
-   */
-  void (*pGetColorScheme)(S_ColorScheme* pBuffer);
-
-  /**
-   * @brief Puts a string to the console.
-   *
-   * @details Outputs the given string to the console using the driver.
-   *
-   * @param[in] kpString The string to output.
-   */
-  void (*pPutString)(const char* kpString);
-
-  /**
-   * @brief Puts a character to the console.
-   *
-   * @details Outputs the given character to the console using the driver.
-   *
-   * @param[in] kCharacter The character to output.
-   */
-  void (*pPutChar)(const char kCharacter);
-
-  /**
-   * @brief Reads data from the console input buffer.
-   *
-   * @details Reads data from the console input buffer. The function returns
-   * the number of bytes read. If the buffer is empty, the function is
-   * blocking until the buffer is filled with the required number of bytes.
-   *
-   * @param[out] pBuffer The buffer used to receive data.
-   * @param[in] kBufferSize The number of bytes to read.
-   *
-   * @return The function returns the number of bytes read or -1 on error.
-   */
-  ssize_t (*pRead)(char* pBuffer, const size_t kBufferSize);
-
-  /**
-   * @brief Flushes the console output.
-   *
-   * @details The function will request a flush to the console output driver.
-   */
-  void (*pFlush)(void);
-} S_ConsoleDriver;
+  /** @brief Scroll direction */
+  E_ScrollDirection direction;
+  /** @brief Scroll count */
+  uint32_t lineCount;
+} S_IOCTLScrollArguments;
 
 /*******************************************************************************
  * MACROS
@@ -269,17 +173,6 @@ typedef struct
  * no input nor output will be made.
  */
 void ConsoleInit(void);
-
-/**
- * @brief Sets the console driver to use.
- *
- * @details Sets the console driver to use. The driver must be initialized and
- * ready to use. The function will copy the driver given as parameter to the
- * internal driver used by the console.
- *
- * @param[in] kpDriver The driver to use for the console.
- */
-void ConsoleSetDriver(const S_ConsoleDriver* kpDriver);
 
 /**
  * @brief Clears the console, the background color is set to black.

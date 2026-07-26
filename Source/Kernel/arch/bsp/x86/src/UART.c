@@ -29,7 +29,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <X64Cpu.h>
-#include <Console.h>
 #include <Critical.h>
 #include <DeviceTree.h>
 #include <KernelHeap.h>
@@ -61,8 +60,6 @@
 #define UART_FDT_INT_PROP "interrupts"
 /** @brief FDT property for device path */
 #define UART_FDT_DEVICE_PROP "device"
-/** @brief FDT property for console output */
-#define UART_FDT_OUTPUT_PROP "console-output"
 
 /** @brief Serial data length flag: 5 bits. */
 #define SERIAL_DATA_LENGTH_5 0x00
@@ -156,10 +153,8 @@
  */
 #define SERIAL_LINE_STATUS_PORT(port) (port + 5)
 
-#if OUTPUT_DEBUG_ENABLE
 /** @brief Defines the port that is used to print debug data. */
 #define SERIAL_DEBUG_PORT 0x3F8
-#endif
 
 /** @brief Cast a pointer to a UART driver controler */
 #define GET_CONTROLER(PTR) ((S_UARTControler*)PTR)
@@ -379,92 +374,79 @@ static S_Driver sX86UARTDriver =
   .pDriverDettach = _UartDettach
 };
 
-/** @brief Stores the console driver controler. */
-static S_UARTControler* spConsoleDriverControler = NULL;
-
-/** @brief Stores the console driver. */
-static S_ConsoleDriver sConsoleDriver =
-{
-  .pPutChar   = _UartPutChar,
-  .pPutString = _UartPutString,
-  .pFlush     = _UartFlush
-};
-
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
 static E_Return _UartAttach(const S_FDTNode* kpFdtNode)
 {
-    const uint32_t*  kpUintProp;
-    size_t           propLen;
-    E_Return         retCode;
-    S_UARTControler* pDrvCtrl;
-    E_UARTBaudrate   baudRate;
+  const uint32_t*  kpUintProp;
+  size_t           propLen;
+  E_Return         retCode;
+  S_UARTControler* pDrvCtrl;
+  E_UARTBaudrate   baudRate;
 
-    /* Init structures */
-    pDrvCtrl = KMalloc(sizeof(S_UARTControler),
-                       ALIGN_ADDRESS,
-                       KMALLOC_FREE_POOL);
+  /* Init structures */
+  pDrvCtrl = KMalloc(sizeof(S_UARTControler),
+                      ALIGN_ADDRESS,
+                      KMALLOC_FREE_POOL);
 
-    KERNEL_SPINLOCK_INIT(pDrvCtrl->lock);
+  KERNEL_SPINLOCK_INIT(pDrvCtrl->lock);
 
-    retCode = ERR_INVALID_PARAMETER;
+  retCode = ERR_INVALID_PARAMETER;
 
-    /* Get the UART CPU communication ports */
-    kpUintProp = FDTGetProp(kpFdtNode, UART_FDT_COMM_PROP, &propLen);
+  /* Get the UART CPU communication ports */
+  kpUintProp = FDTGetProp(kpFdtNode, UART_FDT_COMM_PROP, &propLen);
+  if (kpUintProp != NULL && propLen == sizeof(uint32_t))
+  {
+    pDrvCtrl->cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
+
+    /* Get the UART CPU baudrate */
+    kpUintProp = FDTGetProp(kpFdtNode, UART_FDT_RATE_PROP, &propLen);
     if (kpUintProp != NULL && propLen == sizeof(uint32_t))
     {
-      pDrvCtrl->cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
-
-      /* Get the UART CPU baudrate */
-      kpUintProp = FDTGetProp(kpFdtNode, UART_FDT_RATE_PROP, &propLen);
-      if (kpUintProp != NULL && propLen == sizeof(uint32_t))
-      {
-        pDrvCtrl->baudrate = FDTTOCPU32(*kpUintProp);
-        retCode = NO_ERROR;
-      }
+      pDrvCtrl->baudrate = FDTTOCPU32(*kpUintProp);
+      retCode = NO_ERROR;
     }
-    else
-    {
-      retCode = ERR_INVALID_PARAMETER;
-    }
+  }
+  else
+  {
+    retCode = ERR_INVALID_PARAMETER;
+  }
 
-    if (retCode == NO_ERROR)
-    {
-      baudRate = _UartGetCanonicalRate(pDrvCtrl->baudrate);
+  if (retCode == NO_ERROR)
+  {
+    baudRate = _UartGetCanonicalRate(pDrvCtrl->baudrate);
 
-      /* Init line */
-      CPUPortWriteByte(0x00, SERIAL_DATA_PORT_2(pDrvCtrl->cpuCommPort));
-      _UartSetBaudrate(baudRate, pDrvCtrl->cpuCommPort);
-      _UartSetLine(SERIAL_DATA_LENGTH_8 | SERIAL_STOP_BIT_1,
-                   pDrvCtrl->cpuCommPort);
-      _UartSetBuffer(0xC0                   |
-                     SERIAL_ENABLE_FIFO     |
-                     SERIAL_CLEAR_RECV_FIFO |
-                     SERIAL_CLEAR_SEND_FIFO |
-                     SERIAL_FIFO_DEPTH_14,
-                     pDrvCtrl->cpuCommPort);
+    /* Init line */
+    CPUPortWriteByte(0x00, SERIAL_DATA_PORT_2(pDrvCtrl->cpuCommPort));
+    _UartSetBaudrate(baudRate, pDrvCtrl->cpuCommPort);
+    _UartSetLine(SERIAL_DATA_LENGTH_8 | SERIAL_STOP_BIT_1,
+                  pDrvCtrl->cpuCommPort);
+    _UartSetBuffer(0xC0                   |
+                    SERIAL_ENABLE_FIFO     |
+                    SERIAL_CLEAR_RECV_FIFO |
+                    SERIAL_CLEAR_SEND_FIFO |
+                    SERIAL_FIFO_DEPTH_14,
+                    pDrvCtrl->cpuCommPort);
 
-      kpUintProp = FDTGetProp(kpFdtNode, UART_FDT_OUTPUT_PROP, &propLen);
-      if (kpUintProp != NULL)
-      {
-        spConsoleDriverControler = pDrvCtrl;
-        ConsoleSetDriver(&sConsoleDriver);
-      }
+    /* TODO: Register VFS driver */
+    (void)_UartPutString; // TODO: Remove once VFS driver is done
+    (void)_UartPutChar; // TODO: Remove once VFS driver is done
+    (void)_UartFlush;
 
-      /* Register driver */
-      retCode = DriverManagerSetDeviceData(kpFdtNode, pDrvCtrl);
-      if (retCode != NO_ERROR)
-      {
-        KFree(pDrvCtrl);
-      }
-    }
-    else
+    /* Register driver */
+    retCode = DriverManagerSetDeviceData(kpFdtNode, pDrvCtrl);
+    if (retCode != NO_ERROR)
     {
       KFree(pDrvCtrl);
     }
+  }
+  else
+  {
+    KFree(pDrvCtrl);
+  }
 
-    return retCode;
+  return retCode;
 }
 
 static E_Return _UartDettach(const S_FDTNode* kpFdtNode)

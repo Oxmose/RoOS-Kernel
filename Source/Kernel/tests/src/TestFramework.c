@@ -298,7 +298,7 @@ static void _InitTestItem(const uint32_t kTestId,
 
 void _KillQEMU(void)
 {
-  while(1)
+  while (1)
   {
     __asm__ __volatile__("outw %w0, %w1" : : "ax" (0x2000), "Nd" (0x604));
     __asm__ ("hlt");
@@ -355,7 +355,7 @@ void TestFrameworkEnd(void)
   KPrintf("#-------- TESTING SECTION END --------#\n");
 
   _KillQEMU();
-  while(1)
+  while (1)
   {
     CPUInterruptDisable();
     CPUHalt();

@@ -25,6 +25,7 @@
 #include <string.h>
 #include <DeviceTree.h>
 #include <KernelError.h>
+#include <KernelOutput.h>
 
 /* Configuration files */
 #include <config.h>
@@ -43,6 +44,9 @@
 
 /** @brief Compatible property name in FDT */
 #define COMPATIBLE_PROP_NAME "compatible"
+
+/** @brief Pre init attach property name in FDT */
+#define PRE_INIT_PROP_NAME "pre-init-attach"
 
 /** @brief Status property name in FDT */
 #define STATUS_PROP_NAME "status"
@@ -87,8 +91,9 @@
  * attach function is called.
  *
  * @param[in] kpNode The node to start the walk from.
+ * @param[in] kPreInit Tells if the pre-init attach nodes should be attached.
  */
-static void _WalkFdtNodes(const S_FDTNode* kpNode);
+static void _WalkFdtNodes(const S_FDTNode* kpNode, const bool kPreInit);
 
 /*******************************************************************************
  * GLOBAL VARIABLES
@@ -107,13 +112,14 @@ extern uintptr_t _START_DRV_TABLE_ADDR;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static void _WalkFdtNodes(const S_FDTNode* kpNode)
+static void _WalkFdtNodes(const S_FDTNode* kpNode, const bool kPreInit)
 {
-  const char* kpCompatible;
-  const char* kpStatus;
-  S_Driver*   pDriver;
-  uintptr_t   driverTableCursor;
-  size_t      propLen;
+  const char*     kpCompatible;
+  const char*     kpStatus;
+  const uint32_t* kpPreInit;
+  S_Driver*       pDriver;
+  uintptr_t       driverTableCursor;
+  size_t          propLen;
 
   if (kpNode != NULL)
   {
@@ -121,34 +127,40 @@ static void _WalkFdtNodes(const S_FDTNode* kpNode)
     kpStatus = FDTGetProp(kpNode, STATUS_PROP_NAME, &propLen);
     if (kpStatus == NULL || (propLen == 5 && strcmp(kpStatus, "okay") == 0))
     {
-      /* Get the node compatible */
-      kpCompatible = FDTGetProp(kpNode, COMPATIBLE_PROP_NAME, &propLen);
-      if (kpCompatible != NULL && propLen > 0)
+      /* Check pre-init state */
+      kpPreInit = FDTGetProp(kpNode, PRE_INIT_PROP_NAME, &propLen);
+      if ((kpPreInit != NULL && kPreInit == true) ||
+          (kpPreInit == NULL && kPreInit == false))
       {
-        /* Get the head of the registered drivers section */
-        driverTableCursor = (uintptr_t)&_START_DRV_TABLE_ADDR;
-        pDriver = *(S_Driver**)driverTableCursor;
-
-        /* Compare with the list of registered drivers */
-        while (pDriver != NULL)
+        /* Get the node compatible */
+        kpCompatible = FDTGetProp(kpNode, COMPATIBLE_PROP_NAME, &propLen);
+        if (kpCompatible != NULL && propLen > 0)
         {
-          if (strcmp(pDriver->pCompatible, kpCompatible) == 0)
-          {
-            pDriver->pDriverAttach(kpNode);
-          }
-          driverTableCursor += sizeof(uintptr_t);
+          /* Get the head of the registered drivers section */
+          driverTableCursor = (uintptr_t)&_START_DRV_TABLE_ADDR;
           pDriver = *(S_Driver**)driverTableCursor;
+
+          /* Compare with the list of registered drivers */
+          while (pDriver != NULL)
+          {
+            if (strcmp(pDriver->pCompatible, kpCompatible) == 0)
+            {
+              pDriver->pDriverAttach(kpNode);
+            }
+            driverTableCursor += sizeof(uintptr_t);
+            pDriver = *(S_Driver**)driverTableCursor;
+          }
         }
       }
     }
 
     /* Got to next nodes */
-    _WalkFdtNodes(FDTGetChild(kpNode));
-    _WalkFdtNodes(FDTGetNextNode(kpNode));
+    _WalkFdtNodes(FDTGetChild(kpNode), kPreInit);
+    _WalkFdtNodes(FDTGetNextNode(kpNode), kPreInit);
   }
 }
 
-void DriverManagerInit(void)
+void DriverManagerInit(const bool kPreInit)
 {
   const S_FDTNode* kpFdtRootNode;
   S_Driver*        pDriver;
@@ -160,6 +172,12 @@ void DriverManagerInit(void)
 
   while (pDriver != NULL)
   {
+    KERNEL_DEBUG(DRIVER_MGR_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "%s -> %s - %s",
+                 kPreInit ? "Pre Init:" : "Init:",
+                 pDriver->pName,
+                 pDriver->pDescription)
     driverTableCursor += sizeof(uintptr_t);
     pDriver           = *(S_Driver**)driverTableCursor;
   }
@@ -169,7 +187,7 @@ void DriverManagerInit(void)
   if (kpFdtRootNode != NULL)
   {
     /* Perform the registration */
-    _WalkFdtNodes(kpFdtRootNode);
+    _WalkFdtNodes(kpFdtRootNode, kPreInit);
   }
 }
 

@@ -61,7 +61,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_UINT(ID, COND, EXPECTED, VALUE, TEST_ENABLED) { \
-  if(TEST_ENABLED)                                                        \
+  if (TEST_ENABLED)                                                        \
   {                                                                       \
     TestFrameworkAssertUint(ID, COND, EXPECTED, VALUE);                   \
   }                                                                       \
@@ -80,7 +80,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_INT(ID, COND, EXPECTED, VALUE, TEST_ENABLED)  { \
-  if(TEST_ENABLED)                                                        \
+  if (TEST_ENABLED)                                                        \
   {                                                                       \
     TestFrameworkAssertInt(ID, COND, EXPECTED, VALUE);                    \
   }                                                                       \
@@ -99,7 +99,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_HUINT(ID, COND, EXPECTED, VALUE, TEST_ENABLED) {  \
-  if(TEST_ENABLED)                                                          \
+  if (TEST_ENABLED)                                                          \
   {                                                                         \
     TestFrameworkAssertHuint(ID, COND, EXPECTED, VALUE);                    \
   }                                                                         \
@@ -118,7 +118,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_HINT(ID, COND, EXPECTED, VALUE, TEST_ENABLED) {   \
-  if(TEST_ENABLED)                                                          \
+  if (TEST_ENABLED)                                                          \
   {                                                                         \
     TestFrameworkAssertHint(ID, COND, EXPECTED, VALUE);                     \
   }                                                                         \
@@ -137,7 +137,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_UBYTE(ID, COND, EXPECTED, VALUE, TEST_ENABLED) {  \
-  if(TEST_ENABLED)                                                          \
+  if (TEST_ENABLED)                                                          \
   {                                                                         \
     TestFrameworkAssertUbyte(ID, COND, EXPECTED, VALUE);                    \
   }                                                                         \
@@ -156,7 +156,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_BYTE(ID, COND, EXPECTED, VALUE, TEST_ENABLED) { \
-  if(TEST_ENABLED)                                                        \
+  if (TEST_ENABLED)                                                        \
   {                                                                       \
     TestFrameworkAssertByte(ID, COND, EXPECTED, VALUE);                   \
   }                                                                       \
@@ -175,7 +175,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_UDWORD(ID, COND, EXPECTED, VALUE, TEST_ENABLED) { \
-  if(TEST_ENABLED)                                                          \
+  if (TEST_ENABLED)                                                          \
   {                                                                         \
     TestFrameworkAssertUdword(ID, COND, EXPECTED, VALUE);                   \
   }                                                                         \
@@ -194,7 +194,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_DWORD(ID, COND, EXPECTED, VALUE, TEST_ENABLED) {  \
-  if(TEST_ENABLED)                                                          \
+  if (TEST_ENABLED)                                                          \
   {                                                                         \
     TestFrameworkAssertDword(ID, COND, EXPECTED, VALUE);                    \
   }                                                                         \
@@ -213,7 +213,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_FLOAT(ID, COND, EXPECTED, VALUE, TEST_ENABLED) {  \
-  if(TEST_ENABLED)                                                          \
+  if (TEST_ENABLED)                                                          \
   {                                                                         \
     TestFrameworkAssertFloat(ID, COND, EXPECTED, VALUE);                    \
   }                                                                         \
@@ -232,7 +232,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_DOUBLE(ID, COND, EXPECTED, VALUE, TEST_ENABLED) { \
-  if(TEST_ENABLED)                                                          \
+  if (TEST_ENABLED)                                                          \
   {                                                                         \
     TestFrameworkAssertDouble(ID, COND, EXPECTED, VALUE);                   \
   }                                                                         \
@@ -251,7 +251,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_RCODE(ID, COND, EXPECTED, VALUE, TEST_ENABLED) {  \
-  if(TEST_ENABLED)                                                          \
+  if (TEST_ENABLED)                                                          \
   {                                                                         \
     TestFrameworkAssertErrCode(ID, COND, EXPECTED, VALUE);                  \
   }                                                                         \
@@ -270,7 +270,7 @@
  * @param[in] TEST_ENABLED The test point enabled state.
  */
 #define TEST_POINT_ASSERT_POINTER(ID, COND, EXPECTED, VALUE, TEST_ENABLED) {  \
-  if(TEST_ENABLED)                                                            \
+  if (TEST_ENABLED)                                                            \
   {                                                                           \
     TestFrameworkAssertPointer(ID, COND, EXPECTED, VALUE);                    \
   }                                                                           \
@@ -285,11 +285,28 @@
  * @param[in] FUNCTION_NAME The function to call.
  * @param[in] TEST_ENABLED The enabled state of the test point.
  */
-#define TEST_POINT_FUNCTION_CALL(FUNCTION_NAME, TEST_ENABLED){              \
-  if(TEST_ENABLED)                                                          \
-  {                                                                         \
-    FUNCTION_NAME();                                                        \
-  }                                                                         \
+#define TEST_POINT_FUNCTION(FUNCTION_NAME, TEST_ENABLED){              \
+  if (TEST_ENABLED)                                                     \
+  {                                                                    \
+    FUNCTION_NAME();                                                   \
+  }                                                                    \
+}
+
+/**
+ * @brief Call a function only when testing is enabled.
+ *
+ * @details This macro invokes the provided function only if the supplied
+ * test point enable flag is true.
+ *
+ * @param[in] FUNCTION_NAME The function to call.
+ * @param[in] ARGS A void* argument to use with the function call.
+ * @param[in] TEST_ENABLED The enabled state of the test point.
+ */
+#define TEST_POINT_FUNCTION_ARGS(FUNCTION_NAME, ARGS, TEST_ENABLED){   \
+  if (TEST_ENABLED)                                                     \
+  {                                                                    \
+    FUNCTION_NAME(ARGS);                                               \
+  }                                                                    \
 }
 
 /**
@@ -573,7 +590,9 @@ void TestFrameworkAssertPointer(const uint32_t  kTestId,
 
 #define TEST_POINT_ASSERT_RCODE(ID, COND, EXPECTED, VALUE, TEST_ENABLED)
 
-#define TEST_POINT_FUNCTION_CALL(FUNCTION_NAME, TEST_ENABLED)
+#define TEST_POINT_FUNCTION(FUNCTION_NAME, TEST_ENABLED)
+
+#define TEST_POINT_FUNCTION_ARGS(FUNCTION_NAME, ARGS, TEST_ENABLED)
 
 #define TEST_FRAMEWORK_START()
 

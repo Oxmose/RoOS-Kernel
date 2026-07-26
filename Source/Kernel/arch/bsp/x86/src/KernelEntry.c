@@ -27,9 +27,9 @@
 #include <CPU.h>
 #include <Panic.h>
 #include <Memory.h>
-#include <stddef.h> /* TODO Remove */
 #include <Console.h>
 #include <Scheduler.h>
+#include <VirtualFS.h>
 #include <KernelHeap.h>
 #include <DeviceTree.h>
 #include <DebugOutput.h>
@@ -116,10 +116,6 @@ void X64KernelEntry(void)
 
   KERNEL_INFO("Starting kernel...\n");
 
-  /* Initialize the console */
-  ConsoleInit();
-  KERNEL_SUCCESS("Console initialized.\n");
-
   /* Initialize the kernel heap */
   KernelHeapInit();
   KERNEL_SUCCESS("Kernel heap initialized.\n");
@@ -141,9 +137,25 @@ void X64KernelEntry(void)
   MemoryInit();
   KERNEL_SUCCESS("Memory manager initialized.\n");
 
+  /* Initialize the pre-init drivers */
+  DriverManagerInit(true);
+  KERNEL_SUCCESS("Drivers Pre Init initialized.\n");
+
+  /* Initilize the scheduler */
+  SchedulerInit();
+  KERNEL_SUCCESS("Scheduler initialized.\n");
+
+  /* Initialize the virtual filesystem */
+  VirtualFileSystemInit();
+  KERNEL_SUCCESS("VFS initialized.\n");
+
   /* Initialize the drivers */
-  DriverManagerInit();
+  DriverManagerInit(false);
   KERNEL_SUCCESS("Drivers initialized.\n");
+
+  /* Initialize the console */
+  ConsoleInit();
+  KERNEL_SUCCESS("Console initialized.\n");
 
   /* Initialize the time manager */
   TimeManagerInit();
@@ -156,17 +168,15 @@ void X64KernelEntry(void)
   CPUStartSMP();
   KERNEL_SUCCESS("SMP started.\n");
 
-  /* Initilize the scheduler */
-  SchedulerInit();
-  KERNEL_SUCCESS("Scheduler initialized.\n");
-
   KERNEL_INFO("Kernel started successfully.\n");
 
   /* Add library and core tests here */
-  TEST_POINT_FUNCTION_CALL(PanicTest, TEST_PANIC_ENABLED);
-  TEST_POINT_FUNCTION_CALL(UHashtableTest, TEST_OS_UHASHTABLE_ENABLED);
+  TEST_POINT_FUNCTION(PanicTest, TEST_PANIC_ENABLED);
+  TEST_POINT_FUNCTION(UHashtableTest, TEST_OS_UHASHTABLE_ENABLED);
+  TEST_POINT_FUNCTION(VectorTest, TEST_OS_VECTOR_ENABLED);
+  TEST_POINT_FUNCTION(VirtualFSTest, TEST_VFS_ENABLED);
 
-  #if 0
+  #if 1
   /* TODO: Remove */
   extern void TestKernel(void);
   TestKernel();
