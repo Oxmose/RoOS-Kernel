@@ -179,6 +179,29 @@
 #define TEST_KHEAP_FREE_ALIGN(X)    (300 + X)
 #define TEST_KHEAP_FREE_RANGE(X)    (400 + X)
 #define TEST_KHEAP_FREE_ALLOC(X)    (500 + X)
+/** @brief Vector test */
+#define TEST_VECTOR_CREATE_ID(X)      (X)
+#define TEST_VECTOR_GET_ID(X)         (100 + X)
+#define TEST_VECTOR_INSERT_ID(X)      (200 + X)
+#define TEST_VECTOR_POP_ID(X)         (300 + X)
+#define TEST_VECTOR_RESIZE_ID(X)      (400 + X)
+#define TEST_VECTOR_SHRINK_ID(X)      (500 + X)
+#define TEST_VECTOR_COPY_ID(X)        (600 + X)
+#define TEST_VECTOR_CLEAR_ID(X)       (700 + X)
+#define TEST_VECTOR_DESTROY_ID(X)     (800 + X)
+#define TEST_VECTOR_PUSHBURST_ID(X)   (900 + X)
+#define TEST_VECTOR_GETBURST_ID(X)    (1000 + X)
+#define TEST_VECTOR_SETBURST_ID(X)    (2000 + X)
+#define TEST_VECTOR_INSERTBURST_ID(X) (2100 + X)
+#define TEST_VECTOR_POPBURST_ID(X)    (2200 + X)
+
+/** @brief VFS test */
+#define TEST_VFS_CLEAN_PATH(X)       (X)
+#define TEST_VFS_NEXT_TOKEN(X)       (100 + X)
+#define TEST_VFS_FIND_NODE(X)        (200 + X)
+#define TEST_VFS_ADD_NODE(X)         (300 + X)
+#define TEST_VFS_REGISTER_DRIVER(X)  (400 + X)
+#define TEST_VFS_REMOVE_NODE(X)      (500 + X)
 
 /** @brief Current test name */
 #define TEST_FRAMEWORK_TEST_NAME "Kernel Scheduler"
@@ -239,6 +262,10 @@ void VFSRegDriverTest(void* pArgs);
 void VFSRemoveDriverTest(void* pArgs);
 void VFSCreateFDTest(void* pArgs);
 void VFSDestroyFDTest(void* pArgs);
+<<<<<<< HEAD
+=======
+void VFSGenericTest(void* pArgs);
+>>>>>>> e52ba86 (Added VFS, needs testing)
 void VirtualFSTest(void);
 
 #endif /* #ifdef _TESTING_FRAMEWORK_ENABLED */

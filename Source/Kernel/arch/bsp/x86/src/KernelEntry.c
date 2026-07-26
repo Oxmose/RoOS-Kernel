@@ -185,7 +185,12 @@ void X64KernelEntry(void)
   TEST_POINT_FUNCTION_CALL(CriticalTest, TEST_CRITICAL_ENABLED);
 >>>>>>> 3cf6ad3 (Started porting tests)
 
-#if 0
+  TEST_POINT_FUNCTION(PanicTest, TEST_PANIC_ENABLED);
+  TEST_POINT_FUNCTION(UHashtableTest, TEST_OS_UHASHTABLE_ENABLED);
+  TEST_POINT_FUNCTION(VectorTest, TEST_OS_VECTOR_ENABLED);
+  TEST_POINT_FUNCTION(VirtualFSTest, TEST_VFS_ENABLED);
+
+  #if 0
   /* TODO: Remove */
   extern void TestKernel(void);
   TestKernel();

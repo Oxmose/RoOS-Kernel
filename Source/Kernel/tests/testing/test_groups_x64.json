@@ -20,6 +20,10 @@
     "testname": "INTERRUPT"
   },
   {
+    "name": "Virtual File System",
+    "testname": "VFS"
+  },
+  {
     "name": "UHashTable",
     "testname": "OS_UHASHTABLE"
   },

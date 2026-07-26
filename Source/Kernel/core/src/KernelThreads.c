@@ -1,4 +1,4 @@
-#if 0
+#if 1
 #include <CPU.h>
 #include <Console.h>
 #include <Scheduler.h>
