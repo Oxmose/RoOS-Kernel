@@ -1,7 +1,15 @@
 [
   {
+    "name": "Virtual File System",
+    "testname": "VFS"
+  },
+  {
     "name": "UHashTable",
     "testname": "OS_UHASHTABLE"
+  },
+  {
+    "name": "Vector",
+    "testname": "OS_VECTOR"
   },
   {
     "name": "Kernel Panic",

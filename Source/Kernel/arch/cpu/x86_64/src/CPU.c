@@ -191,7 +191,7 @@
 #define USER_THREAD_INIT_RFLAGS 0x202 /* INT | PARITY */
 
 /** @brief Double fault special stack size */
-#define DOUBLE_FAULT_STACK_SIZE 512
+#define DOUBLE_FAULT_STACK_SIZE 128
 
 /** @brief IPI send flag CPU mask */
 #define CPU_IPI_SEND_TO_CPU_MASK (CPU_IPI_SEND_TO(0xFFFFFFFF));
@@ -305,6 +305,8 @@ typedef struct
   bool cpu1GBPageSupport;
   /** @brief Store the advances CPU information */
   S_CPUInformation cpuInfo;
+  /** @brief Stores the kernel-allocated CPU Id */
+  uint32_t cpuId;
 } S_CPUConfig;
 
 /*******************************************************************************
@@ -486,7 +488,7 @@ static S_CPUIDTEntry sIDT[IDT_ENTRY_COUNT] __attribute__((aligned(8)));
 static S_IDTPtr sIDTPtr __attribute__((aligned(8)));
 
 /** @brief Stores the Double Fault Exception Special Stack */
-static uint8_t sDFStack[DOUBLE_FAULT_STACK_SIZE] __attribute__((aligned(8)));
+static uint8_t sDFStack[DOUBLE_FAULT_STACK_SIZE * SOC_MAX_CPU_COUNT] __attribute__((aligned(8)));
 
 /** @brief Queues used to communicate with IPIs. */
 static S_FastQueue*** spIPIRequestQueue;
@@ -499,6 +501,9 @@ static const S_LAPICTimerDriver* kspLAPICTimerDriver = NULL;
 
 /** @brief Stores the CPUs LAPIS identifiers. */
 static uint32_t spCPUIds[SOC_MAX_CPU_COUNT];
+
+/** @brief Stores the booted CPU state. */
+static volatile bool sAllCPUBooted;
 
 /** @brief Stores the CPU interrupt handlers entry point */
 static uintptr_t sIntHandlerTable[IDT_ENTRY_COUNT] =
@@ -951,8 +956,8 @@ static void _SetupTSS(S_CPUConfig* pCPUConfig)
 
   /* Setup the ISTs */
   pCPUConfig->tss.ist1      = (uintptr_t)sDFStack +
-                              DOUBLE_FAULT_STACK_SIZE -
-                              ALIGN_16_BYTES;
+                              (DOUBLE_FAULT_STACK_SIZE *
+                               (pCPUConfig->cpuId + 1)) - ALIGN_16_BYTES;
   pCPUConfig->tss.rsp0      = ALIGN_DOWN(pCPUConfig->kernelStackEnd -
                                          ALIGN_16_BYTES,
                                          ALIGN_16_BYTES);
@@ -1177,13 +1182,15 @@ void CPUInit(void)
   /* Set the main CPU kernel stack */
   spCPUConfiguration[0]->kernelStackEnd = ((uintptr_t)&_KERNEL_STACKS_BASE) +
                                            KERNEL_STACK_SIZE - 1;
-
+  spCPUConfiguration[0]->cpuId = 0;
   /* Setup the main CPU GDT and TSS */
   _SetupTSS(spCPUConfiguration[0]);
   _SetupGDT(spCPUConfiguration[0]);
 
   /* Validate architecture */
   _ValidateArchitecture();
+
+  sAllCPUBooted = false;
 }
 
 void CPUStartSMP(void)
@@ -1225,6 +1232,8 @@ void CPUStartSMP(void)
   while (_bootedCPUCount < sNumberOfCPUs)
   {
   }
+
+  sAllCPUBooted = true;
 }
 
 void CPUAPInit(const uint8_t kCPUId)
@@ -1242,6 +1251,7 @@ void CPUAPInit(const uint8_t kCPUId)
   spCPUConfiguration[kCPUId]->kernelStackEnd =
     ((uintptr_t)&_KERNEL_STACKS_BASE) +
     (((kCPUId + 1) * KERNEL_STACK_SIZE) - 1);
+  spCPUConfiguration[kCPUId]->cpuId = kCPUId;
 
   /* Setup the main CPU GDT and TSS */
   _SetupTSS(spCPUConfiguration[kCPUId]);
@@ -1261,7 +1271,7 @@ void CPUAPInit(const uint8_t kCPUId)
   KERNEL_INFO("Started CPU %d\n", _bootedCPUCount - 1);
 
   /* Wait release and schedule */
-  while (SchedulerIsInitialized() != true)
+  while (sAllCPUBooted != true)
   {}
   SchedulerSchedule();
 
@@ -1286,7 +1296,8 @@ uint32_t CPUGetCount(void)
 
 uintptr_t CPUGetStackEnd(const uint32_t kCPUId)
 {
-  return spCPUConfiguration[kCPUId]->kernelStackEnd;
+  return ((uintptr_t)&_KERNEL_STACKS_BASE) +
+         (((kCPUId + 1) * KERNEL_STACK_SIZE) - 1);
 }
 
 size_t CPUGetStackSize(void)

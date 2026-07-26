@@ -1,4 +1,4 @@
-#if 0
+#if 1
 #include <CPU.h>
 #include <Console.h>
 #include <Scheduler.h>
@@ -26,7 +26,7 @@ void* StatsInfoRoutine(void* args)
   {
     ConsoleClear();
     ConsoleSetCursor(&cursor);
-    KPrintfDebug("TimeTest\n");
+    KPrintfDebug(" TimeTest\n");
 
     KPrintf("> Data From Core %d\n", CPUGetId());
     for (i = 0; i < cpuCount; ++i)

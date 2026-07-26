@@ -23,13 +23,13 @@
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
+#include <stdbool.h>
 #include <DeviceTree.h>
 #include <KernelError.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-
 /* None */
 
 /*******************************************************************************
@@ -107,11 +107,13 @@ typedef struct
 /**
  * @brief Initializes the driver manager.
  *
+ * @param[in] kPreInit Tells if the pre-init-attach driver should be probed.
+ *
  * @details Initializes the driver manager. This function will walk the FDT
  * and try to probe the registered drivers to initialize them and attach them.
  * In case of hard error, a panic is raised.
  */
-void DriverManagerInit(void);
+void DriverManagerInit(const bool kPreInit);
 
 /**
  * @brief Registers the device data of a node.
