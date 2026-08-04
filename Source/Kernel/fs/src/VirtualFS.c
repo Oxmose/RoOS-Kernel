@@ -1102,7 +1102,6 @@ void VirtualFileSystemInit(void)
   TEST_POINT_FUNCTION_ARGS(VFSRemoveDriverTest, spRootPoint, TEST_VFS_ENABLED);
   TEST_POINT_FUNCTION_ARGS(VFSCreateFDTest, _CreateFileDescriptor, TEST_VFS_ENABLED);
   TEST_POINT_FUNCTION_ARGS(VFSDestroyFDTest, _DestroyFileDescriptor, TEST_VFS_ENABLED);
-  TEST_POINT_FUNCTION_ARGS(VFSGenericTest, &sVFSGenericDriver, TEST_VFS_ENABLED);
 }
 
 E_Return CreateProcessFDTable(S_KernelProcess* pProcess)

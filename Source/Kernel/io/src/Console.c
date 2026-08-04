@@ -182,11 +182,7 @@ void ConsolePutString(const char* pkString)
 {
   if(sStdoutFd >= 0)
   {
-<<<<<<< HEAD
     VFSWrite(sStdoutFd, pkString, strnlen(pkString, 0xFFFFFFFF));
-=======
-    VFSWrite(sStdoutFd, pkString, strlen(pkString));
->>>>>>> e52ba86 (Added VFS, needs testing)
   }
 #if OUTPUT_DEBUG_ENABLE
   DebugOutputPutString(pkString);
