@@ -26,10 +26,12 @@
 
 /* Included headers */
 #include <Panic.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 #include <X64Cpu.h>
 #include <Critical.h>
+#include <VirtualFS.h>
 #include <DeviceTree.h>
 #include <KernelHeap.h>
 #include <KernelError.h>
@@ -217,6 +219,10 @@ typedef struct
   E_UARTBaudrate baudrate;
   /** @brief Driver's lock */
   S_KernelSpinlock lock;
+  /** @brief Device path */
+  const char* kpDevicePath;
+  /** @brief VFS driver */
+  T_VFSDriver* pVFSDriver;
 } S_UARTControler;
 
 /*******************************************************************************
@@ -327,30 +333,75 @@ static inline void _UartWrite(const uint16_t kPort, const uint8_t kData);
 static E_UARTBaudrate _UartGetCanonicalRate(const uint32_t kBaudrate);
 
 /**
- * @brief Outputs a character to the UART console.
+ * @brief UART VFS open hook.
  *
- * @details Outputs a character to the UART console. This function is used by
- * the console driver to output data to the UART.
+ * @details UART VFS open hook. This function returns a handle to control the
+ * UART driver through VFS.
  *
- * @param[in] kCharacter The character to output to the UART console.
+ * @param[in, out] pDrvCtrl The UART driver that was registered in the VFS.
+ * @param[in] kpPath The path in the UART driver mount point.
+ * @param[in] flags The open flags, must be O_RDWR.
+ * @param[in] mode Unused.
+ *
+ * @return The function returns an internal handle used by the driver during
+ * file operations.
  */
-static void _UartPutChar(const char kCharacter);
+static void* _VFSOpen(void*       pDrvCtrl,
+                      const char* kpPath,
+                      int         flags,
+                      int         mode);
 
 /**
- * @brief Outputs a string to the UART console.
+ * @brief UART VFS close hook.
  *
- * @details Outputs a string to the UART console. This function is used by the
- * console driver to output data to the UART.
+ * @details UART VFS close hook. This function closes a handle that was created
+ * when calling the open function.
+ *
+ * @param[in, out] pDrvCtrl The UART driver that was registered in the VFS.
+ * @param[in] pHandle The handle that was created when calling the open
+ * function.
+ *
+ * @return The function returns 0 on success and -1 on error;
  */
-static void _UartPutString(const char* kpString);
+static int32_t _VFSClose(void* pDrvCtrl, void* pHandle);
 
 /**
- * @brief Flushes the UART console.
+ * @brief UART VFS Read hook.
  *
- * @details Flushes the UART console. This function is used by the console
- * driver to flush the UART console.
+ * @details UART VFS read hook. This function reads data from the UART
+ * framebuffer.
+ *
+ * @param[in, out] pDrvCtrl The UART driver that was registered in the VFS.
+ * @param[in] pHandle The handle that was created when calling the open
+ * function.
+ * @param[in] pBuffer The buffer that contains the string to write.
+ * @param[in] count The number of bytes of the string to write.
+ *
+ * @return The function returns the number of bytes written or -1 on error;
  */
-static void _UartFlush(void);
+static ssize_t _VFSRead(void*  pDrvCtrl,
+                        void*  pHandle,
+                        void*  pBuffer,
+                        size_t count);
+
+/**
+ * @brief UART VFS write hook.
+ *
+ * @details UART VFS write hook. This function writes a string to the UART
+ * framebuffer.
+ *
+ * @param[in, out] pDrvCtrl The UART driver that was registered in the VFS.
+ * @param[in] pHandle The handle that was created when calling the open
+ * function.
+ * @param[in] kpBuffer The buffer that contains the string to write.
+ * @param[in] count The number of bytes of the string to write.
+ *
+ * @return The function returns the number of bytes written or -1 on error;
+ */
+static ssize_t _VFSWrite(void*       pDrvCtrl,
+                         void*       pHandle,
+                         const void* kpBuffer,
+                         size_t      count);
 
 /*******************************************************************************
  * GLOBAL VARIABLES
@@ -380,6 +431,7 @@ static S_Driver sX86UARTDriver =
 static E_Return _UartAttach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t*  kpUintProp;
+  const char*      kpStrProp;
   size_t           propLen;
   E_Return         retCode;
   S_UARTControler* pDrvCtrl;
@@ -405,13 +457,17 @@ static E_Return _UartAttach(const S_FDTNode* kpFdtNode)
     if (kpUintProp != NULL && propLen == sizeof(uint32_t))
     {
       pDrvCtrl->baudrate = FDTTOCPU32(*kpUintProp);
-      retCode = NO_ERROR;
+
+      /* Get the device path */
+      kpStrProp = FDTGetProp(kpFdtNode, UART_FDT_DEVICE_PROP, &propLen);
+      if (kpStrProp != NULL && propLen > 0)
+      {
+        pDrvCtrl->kpDevicePath = kpStrProp;
+        retCode = NO_ERROR;
+      }
     }
   }
-  else
-  {
-    retCode = ERR_INVALID_PARAMETER;
-  }
+
 
   if (retCode == NO_ERROR)
   {
@@ -429,15 +485,27 @@ static E_Return _UartAttach(const S_FDTNode* kpFdtNode)
                     SERIAL_FIFO_DEPTH_14,
                     pDrvCtrl->cpuCommPort);
 
-    /* TODO: Register VFS driver */
-    (void)_UartPutString; // TODO: Remove once VFS driver is done
-    (void)_UartPutChar; // TODO: Remove once VFS driver is done
-    (void)_UartFlush;
-
-    /* Register driver */
-    retCode = DriverManagerSetDeviceData(kpFdtNode, pDrvCtrl);
-    if (retCode != NO_ERROR)
+    /* Register VFS driver */
+    pDrvCtrl->pVFSDriver = RegisterVFSDriver(pDrvCtrl->kpDevicePath,
+                                             NULL,
+                                             _VFSOpen,
+                                             _VFSClose,
+                                             _VFSRead,
+                                             _VFSWrite,
+                                             NULL,
+                                             NULL);
+    if (pDrvCtrl->pVFSDriver != VFS_DRIVER_INVALID)
     {
+      /* Register driver */
+      retCode = DriverManagerSetDeviceData(kpFdtNode, pDrvCtrl);
+      if (retCode != NO_ERROR)
+      {
+        KFree(pDrvCtrl);
+      }
+    }
+    else
+    {
+      retCode = ERR_UNAUTHORIZED_ACTION;
       KFree(pDrvCtrl);
     }
   }
@@ -499,23 +567,87 @@ static E_UARTBaudrate _UartGetCanonicalRate(const uint32_t kBaudrate)
   return 115200 / kBaudrate;
 }
 
-void _UartPutString(const char* kpString)
+static void* _VFSOpen(void*       pDrvCtrl,
+                      const char* kpPath,
+                      int         flags,
+                      int         mode)
 {
-  while (*kpString != '\0')
+  (void)pDrvCtrl;
+  (void)mode;
+
+  /* The path must be empty */
+  if(*kpPath != 0)
   {
-    _UartWrite(SERIAL_DEBUG_PORT, *kpString);
-    ++kpString;
+    return (void*)-1;
   }
+
+  /* The flags must be O_RDWR */
+  if(flags != O_RDWR)
+  {
+    return (void*)-1;
+  }
+
+  /* We don't need a handle, return NULL */
+  return NULL;
 }
 
-void _UartPutChar(const char kCharacter)
+static int32_t _VFSClose(void* pDrvCtrl, void* pHandle)
 {
-  _UartWrite(SERIAL_DEBUG_PORT, kCharacter);
+  (void)pDrvCtrl;
+
+  if(pHandle == (void*)-1)
+  {
+    return -1;
+  }
+
+  /* Nothing to do */
+  return 0;
 }
 
-void _UartFlush(void)
+static ssize_t _VFSWrite(void*       pDrvCtrl,
+                         void*       pHandle,
+                         const void* kpBuffer,
+                         size_t      count)
 {
-  // Nothing to do, only here for compatibility with other architectures.
+  const char* pCursor;
+  size_t      coutSave;
+
+  if(pHandle == (void*)-1)
+  {
+    return -1;
+  }
+
+  pCursor = (char*)kpBuffer;
+
+  /* Output each character of the string */
+  coutSave = count;
+  while(pCursor != NULL && *pCursor != 0 && count > 0)
+  {
+    _UartWrite(GET_CONTROLER(pDrvCtrl)->cpuCommPort, *pCursor);
+    ++pCursor;
+    --count;
+  }
+
+  return coutSave - count;
+}
+
+static ssize_t _VFSRead(void*  pDrvCtrl,
+                        void*  pHandle,
+                        void*  pBuffer,
+                        size_t count)
+{
+  (void)pDrvCtrl;
+  (void)pBuffer;
+  (void)count;
+
+  if(pHandle == (void*)-1)
+  {
+    return -1;
+  }
+
+  /* Not implemented */
+
+  return -1;
 }
 
 #if OUTPUT_DEBUG_ENABLE

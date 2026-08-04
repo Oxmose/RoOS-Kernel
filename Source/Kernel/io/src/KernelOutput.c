@@ -36,7 +36,7 @@
 #include <KernelOutput.h>
 
 /* Unit test header */
-/* None TODO */
+/* No unit test: this module is tested in real-world conditions. */
 
 /*******************************************************************************
  * CONSTANTS
