@@ -36,6 +36,7 @@
 #define TEST_SCHEDULER_ENABLED                    1
 #define TEST_VFS_ENABLED                          0
 #define TEST_OS_VECTOR_ENABLED                    0
+#define TEST_CRITICAL_ENABLED                     0
 
 /*************************************************
  * TEST IDENTIFIERS
@@ -91,6 +92,20 @@
 #define TEST_VFS_ADD_NODE(X)         (300 + X)
 #define TEST_VFS_REGISTER_DRIVER(X)  (400 + X)
 #define TEST_VFS_REMOVE_NODE(X)      (500 + X)
+#define TEST_VFS_FD_CREATE(X)        (600 + X)
+#define TEST_VFS_FD_DESTROY(X)       (700 + X)
+#define TEST_VFS_GENERIC(X)          (800 + X)
+#define TEST_VFS_OPEN(X)             (900 + X)
+#define TEST_VFS_CLOSE(X)            (1000 + X)
+#define TEST_VFS_READ(X)             (1100 + X)
+#define TEST_VFS_WRITE(X)            (1200 + X)
+#define TEST_VFS_READDIR(X)          (1300 + X)
+#define TEST_VFS_IOCTL(X)            (1400 + X)
+#define TEST_VFS_MOUNT(X)            (1500 + X)
+#define TEST_VFS_UNMOUNT(X)          (1600 + X)
+#define TEST_VFS_REMOVE_DRIVER(X)    (1700 + X)
+#define TEST_VFS_FD_TABLE_CREATE(X)  (1800 + X)
+#define TEST_VFS_FD_TABLE_DESTROY(X) (1900 + X)
 
 /** @brief Current test name */
 #define TEST_FRAMEWORK_TEST_NAME "Kernel Scheduler"
@@ -145,7 +160,6 @@ void VFSRegDriverTest(void* pArgs);
 void VFSRemoveDriverTest(void* pArgs);
 void VFSCreateFDTest(void* pArgs);
 void VFSDestroyFDTest(void* pArgs);
-void VFSGenericTest(void* pArgs);
 void VirtualFSTest(void);
 
 #endif /* #ifdef _TESTING_FRAMEWORK_ENABLED */

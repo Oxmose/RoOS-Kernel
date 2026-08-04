@@ -176,7 +176,7 @@ void X64KernelEntry(void)
   TEST_POINT_FUNCTION(VectorTest, TEST_OS_VECTOR_ENABLED);
   TEST_POINT_FUNCTION(VirtualFSTest, TEST_VFS_ENABLED);
 
-  #if 1
+  #if 0
   /* TODO: Remove */
   extern void TestKernel(void);
   TestKernel();

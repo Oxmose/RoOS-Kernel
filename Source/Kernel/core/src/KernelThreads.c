@@ -1,4 +1,4 @@
-#if 1
+#if 0
 #include <CPU.h>
 #include <Console.h>
 #include <Scheduler.h>
@@ -13,19 +13,14 @@ void* StatsInfoRoutine(void* args)
   double usage;
   uint32_t cpuCount;
   const S_ScheduleContextStatistics *pStats;
-  S_ConsoleCursor cursor;
 
   (void)args;
 
   ConsoleClear();
   cpuCount = CPUGetCount();
-  cursor.x = 0;
-  cursor.y = 0;
 
   while (true)
   {
-    ConsoleClear();
-    ConsoleSetCursor(&cursor);
     KPrintfDebug(" TimeTest\n");
 
     KPrintf("> Data From Core %d\n", CPUGetId());
