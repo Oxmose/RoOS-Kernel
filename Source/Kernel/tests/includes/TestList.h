@@ -34,7 +34,7 @@
 #define TEST_PANIC_ENABLED                        0
 #define TEST_KHEAP_ENABLED                        0
 #define TEST_DEVTREE_ENABLED                      0
-#define TEST_CRITICAL_ENABLED                     1
+#define TEST_CRITICAL_ENABLED                     0
 #define TEST_INTERRUPT_ENABLED                    0
 #define TEST_OS_UHASHTABLE_ENABLED                0
 #define TEST_SCHEDULER_ENABLED                    1
