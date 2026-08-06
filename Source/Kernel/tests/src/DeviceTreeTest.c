@@ -67,10 +67,62 @@
  * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
 void _WalkNodes(const S_FDTNode* pkNode, const uint8_t kLevel);
+static uint32_t _CountNodes(const S_FDTNode* pkNode);
+static uint32_t _CountProperties(const S_FDTNode* pkNode);
+static bool _HasProperty(const S_FDTNode* pkNode, const char* kpName);
 
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
+static uint32_t _CountNodes(const S_FDTNode* pkNode)
+{
+  if (pkNode == NULL)
+  {
+    return 0;
+  }
+
+  return 1 + _CountNodes(FDTGetChild(pkNode)) +
+         _CountNodes(FDTGetNextNode(pkNode));
+}
+
+static uint32_t _CountProperties(const S_FDTNode* pkNode)
+{
+  const S_FDTProperty* pkProp;
+  uint32_t count;
+
+  count = 0;
+  pkProp = FDTGetFirstProp(pkNode);
+  while (pkProp != NULL)
+  {
+    ++count;
+    pkProp = FDTGetNextProp(pkProp);
+  }
+
+  return count;
+}
+
+static bool _HasProperty(const S_FDTNode* pkNode, const char* kpName)
+{
+  const S_FDTProperty* pkProp;
+
+  if (pkNode == NULL || kpName == NULL)
+  {
+    return false;
+  }
+
+  pkProp = FDTGetFirstProp(pkNode);
+  while (pkProp != NULL)
+  {
+    if (strcmp(pkProp->pName, kpName) == 0)
+    {
+      return true;
+    }
+    pkProp = FDTGetNextProp(pkProp);
+  }
+
+  return false;
+}
+
 void _WalkNodes(const S_FDTNode* pkNode, const uint8_t kLevel)
 {
   uint8_t i;
@@ -104,10 +156,19 @@ void _WalkNodes(const S_FDTNode* pkNode, const uint8_t kLevel)
 void DeviceTreeTest(void)
 {
   const S_FDTNode*       pkNode;
+  const S_FDTNode*       pkRoot;
   const S_FDTProperty*   pkProp;
   const void*            pProp;
-  size_t                 propLen;
+  const void*            pNullProp;
+  const S_FDTProperty*   pkNullProp;
+  const S_FDTNode*       pkCpus;
+  const S_FDTNode*       pkMissingNode;
   const S_FDTMemoryNode* pMemNode;
+  const S_FDTMemoryNode* pReservedMemNode;
+  size_t                 propLen;
+  uint32_t               nodeCount;
+  uint32_t               propCount;
+  size_t                 nullLen;
 
   /* TEST CORRECT PARSING */
   pkNode = FDTGetRoot();
@@ -334,6 +395,138 @@ void DeviceTreeTest(void)
                           (uintptr_t)0xDEADC0DE,
                           (uintptr_t)pkNode,
                           TEST_DEVTREE_ENABLED);
+
+  /* EXTENDED NULL AND STRUCTURAL TESTS */
+  nullLen = 0xDEADBEEF;
+  pNullProp = FDTGetProp(NULL, "compatible", &nullLen);
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_NULL_INPUT0,
+                            pNullProp == NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pNullProp,
+                            TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_NULL_INPUT1,
+                         nullLen == 0,
+                         0,
+                         nullLen,
+                         TEST_DEVTREE_ENABLED);
+
+  pkNullProp = FDTGetFirstProp(NULL);
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_NULL_INPUT2,
+                            pkNullProp == NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pkNullProp,
+                            TEST_DEVTREE_ENABLED);
+
+  pkNullProp = FDTGetNextProp(NULL);
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_NULL_INPUT3,
+                            pkNullProp == NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pkNullProp,
+                            TEST_DEVTREE_ENABLED);
+
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_NULL_INPUT4,
+                            FDTGetChild(NULL) == NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)FDTGetChild(NULL),
+                            TEST_DEVTREE_ENABLED);
+
+  pkRoot = FDTGetRoot();
+  nodeCount = _CountNodes(pkRoot);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_COUNT0,
+                         nodeCount >= 12,
+                         12,
+                         nodeCount,
+                         TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_COUNT1,
+                         nodeCount <= 128,
+                         128,
+                         nodeCount,
+                         TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_COUNT2,
+                         nodeCount > 0,
+                         1,
+                         nodeCount,
+                         TEST_DEVTREE_ENABLED);
+
+  pkCpus = FDTGetNodeByName("cpus");
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_TREE_NAME0,
+                            pkCpus != NULL,
+                            (uintptr_t)0xDEADC0DE,
+                            (uintptr_t)pkCpus,
+                            TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_NAME1,
+                         strcmp(pkCpus->pName, "cpus") == 0,
+                         0,
+                         strcmp(pkCpus->pName, "cpus"),
+                         TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_TREE_NAME2,
+                            FDTGetNodeByName(pkCpus->pName) == pkCpus,
+                            (uintptr_t)pkCpus,
+                            (uintptr_t)FDTGetNodeByName(pkCpus->pName),
+                            TEST_DEVTREE_ENABLED);
+
+  propCount = _CountProperties(pkCpus);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_PROP0,
+                         propCount >= 2,
+                         2,
+                         propCount,
+                         TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_BYTE(TEST_DEVTREE_TREE_PROP1,
+                         _HasProperty(pkCpus, "#address-cells") == true,
+                         1,
+                         _HasProperty(pkCpus, "#address-cells") == true,
+                         TEST_DEVTREE_ENABLED);
+
+  pkMissingNode = FDTGetNodeByHandle(0xFFFFFFFFU);
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_TREE_HANDLE0,
+                            pkMissingNode == NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pkMissingNode,
+                            TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_TREE_HANDLE1,
+                            FDTGetNodeByHandle(1) != NULL,
+                            (uintptr_t)0xDEADC0DE,
+                            (uintptr_t)FDTGetNodeByHandle(1),
+                            TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_HANDLE2,
+                         strcmp(FDTGetNodeByHandle(1)->pName, "acpi@E0000") == 0,
+                         0,
+                         strcmp(FDTGetNodeByHandle(1)->pName, "acpi@E0000"),
+                         TEST_DEVTREE_ENABLED);
+
+  pMemNode = FDTGetMemory();
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_TREE_MEM0,
+                            pMemNode != NULL,
+                            (uintptr_t)0xDEADC0DE,
+                            (uintptr_t)pMemNode,
+                            TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_MEM1,
+                         pMemNode->baseAddress == 0x0,
+                         0x0,
+                         (uint64_t)pMemNode->baseAddress,
+                         TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_MEM2,
+                         pMemNode->size != 0,
+                         1,
+                         (uint64_t)(pMemNode->size != 0),
+                         TEST_DEVTREE_ENABLED);
+
+  pReservedMemNode = FDTGetReservedMemory();
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_TREE_RES0,
+                            pReservedMemNode != NULL,
+                            (uintptr_t)0xDEADC0DE,
+                            (uintptr_t)pReservedMemNode,
+                            TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_RES1,
+                         pReservedMemNode->size != 0,
+                         1,
+                         (uint64_t)(pReservedMemNode->size != 0),
+                         TEST_DEVTREE_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_RES2,
+                         pReservedMemNode->baseAddress <= 0xFFFFFFFFU,
+                         0xFFFFFFFFU,
+                         (uint64_t)pReservedMemNode->baseAddress,
+                         TEST_DEVTREE_ENABLED);
 
   TEST_FRAMEWORK_END();
 }

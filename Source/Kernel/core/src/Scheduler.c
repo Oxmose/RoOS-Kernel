@@ -870,13 +870,16 @@ bool SchedulerSchedule(void)
   /* Update the memory configuration */
   CPUUpdateMemoryConfig(pCurrThread);
 
-  /* Notify that the old thread is ready to be scheduled */
-  pOldThread->isScheduled = false;
-
   /* Wait for the thread to be schedulable */
-  while (pCurrThread->isScheduled == true) {}
+  while (pCurrThread->isScheduled == true && pOldThread != pCurrThread) {}
   CPUMemoryFenceAcquire();
   pCurrThread->isScheduled = true;
+
+  /* Notify that the old thread is ready to be scheduled */
+  if (pOldThread != pCurrThread)
+  {
+    pOldThread->isScheduled = false;
+  }
 
   /* Restore the context, we will never return from this call */
   CPURestoreContext(pCurrThread);

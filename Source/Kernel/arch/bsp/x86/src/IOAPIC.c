@@ -43,11 +43,11 @@
 /* Configuration files */
 #include <config.h>
 
+/* Unit test header */
+/* No unit test: this module is tested in real-world conditions. */
+
 /* Header file */
 #include <IOAPIC.h>
-
-/* Unit test header */
-/* TODO */
 
 /*******************************************************************************
  * CONSTANTS
