@@ -40,7 +40,7 @@
  ******************************************************************************/
 
 /** @brief Defines an unsigned 32 bits atomic value. */
-typedef volatile uint32_t U32Atomic;
+typedef volatile uint32_t T_U32Atomic;
 
 /** @brief Defines a regular spinlock. */
 typedef volatile uint32_t T_Spinlock;
@@ -198,7 +198,7 @@ void KernelUnlock(S_KernelSpinlock* pLock);
  *
  * @return The value of the atomic before incrementing is returned.
  */
-uint32_t AtomicIncrement32(U32Atomic* pValue);
+uint32_t AtomicIncrement32(T_U32Atomic* pValue);
 
 /**
  * @brief Atomically decrements a value in memory.
@@ -210,7 +210,7 @@ uint32_t AtomicIncrement32(U32Atomic* pValue);
  *
  * @return The value of the atomic before incrementing is returned.
  */
-uint32_t AtomicDecrement32(U32Atomic* pValue);
+uint32_t AtomicDecrement32(T_U32Atomic* pValue);
 
 #endif /* #ifndef __CPU_CRITICAL_H_ */
 

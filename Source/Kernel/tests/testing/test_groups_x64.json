@@ -1,7 +1,31 @@
 [
   {
+    "name": "Kernel Queues",
+    "testname": "OS_KQUEUE"
+  },
+  {
+    "name": "Kernel Fast Queues",
+    "testname": "OS_FAST_QUEUES"
+  },
+  {
     "name": "Virtual File System",
     "testname": "VFS"
+  },
+  {
+    "name": "Kernel Heap",
+    "testname": "KHEAP"
+  },
+  {
+    "name": "Device Tree",
+    "testname": "DEVTREE"
+  },
+  {
+    "name": "Kernel Critical Sections",
+    "testname": "CRITICAL"
+  },
+  {
+    "name": "Interrupt",
+    "testname": "INTERRUPT"
   },
   {
     "name": "UHashTable",

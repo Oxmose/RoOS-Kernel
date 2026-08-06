@@ -37,7 +37,12 @@ TARGET_LIST = [
 
 TEST_TIMEOUT = 120
 
+
+totalAssert = 0
+
 def Validate(jsonTestsuite):
+    global totalAssert
+
     print(COLORS.OKCYAN + COLORS.BOLD + "#--------------------------------------------------#" + COLORS.ENDC)
     print(COLORS.OKCYAN + COLORS.BOLD + "| roOs Test Suite                                  |" + COLORS.ENDC)
     print(COLORS.OKCYAN + COLORS.BOLD + "#--------------------------------------------------#" + COLORS.ENDC)
@@ -48,6 +53,8 @@ def Validate(jsonTestsuite):
     print(COLORS.OKCYAN +"|--------------------------------------------------#" + COLORS.ENDC)
     print(COLORS.OKCYAN +"| {:14d} | {:14d} | {:14d} |".format(jsonTestsuite["number_of_tests"], jsonTestsuite["success"], jsonTestsuite["failures"]) + COLORS.ENDC)
     print(COLORS.OKCYAN +"#--------------------------------------------------#" + COLORS.ENDC)
+
+    totalAssert += int(jsonTestsuite["number_of_tests"])
 
     outComeStr = ""
 
@@ -183,9 +190,9 @@ if __name__ == "__main__":
     testListFileName   = sys.argv[3]
     testOutputFileName = sys.argv[4]
 
-    error   = 0
-    success = 0
-    total   = 0
+    error      = 0
+    success    = 0
+    total      = 0
 
     if target not in TARGET_LIST:
         print("Error: Unknown target {}, only {} are supported".format(target, TARGET_LIST))
@@ -247,6 +254,7 @@ if __name__ == "__main__":
     print(COLORS.OKBLUE + COLORS.BOLD + "| Total:  {:<68} |".format(total)  + COLORS.ENDC)
     print(COLORS.OKBLUE + COLORS.BOLD + "| Sucess: {:<68} |".format(success)  + COLORS.ENDC)
     print(COLORS.OKBLUE + COLORS.BOLD + "| Errors: {:<68} |".format(error)  + COLORS.ENDC)
+    print(COLORS.OKBLUE + COLORS.BOLD + "| Assertions: {:<63} |".format(totalAssert)  + COLORS.ENDC)
     print(COLORS.OKBLUE + COLORS.BOLD + "#==============================================================================#"  + COLORS.ENDC)
 
     exit(error)

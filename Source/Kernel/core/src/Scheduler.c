@@ -278,9 +278,9 @@ S_ScheduleContext** ppSchedulerContext;
 
 /************************** Static global variables ***************************/
 /** @brief Stores the last allocated process ID. */
-static U32Atomic sLastPID;
+static T_U32Atomic sLastPID;
 /** @brief Stores the last allocated thread ID. */
-static U32Atomic sLastTID;
+static T_U32Atomic sLastTID;
 /** @brief Stores the scheduler state. */
 static bool sIsInit = false;
 /** @brief Tables that contains the existing processes. */
@@ -870,13 +870,16 @@ bool SchedulerSchedule(void)
   /* Update the memory configuration */
   CPUUpdateMemoryConfig(pCurrThread);
 
-  /* Notify that the old thread is ready to be scheduled */
-  pOldThread->isScheduled = false;
-
   /* Wait for the thread to be schedulable */
-  while (pCurrThread->isScheduled == true) {}
+  while (pCurrThread->isScheduled == true && pOldThread != pCurrThread) {}
   CPUMemoryFenceAcquire();
   pCurrThread->isScheduled = true;
+
+  /* Notify that the old thread is ready to be scheduled */
+  if (pOldThread != pCurrThread)
+  {
+    pOldThread->isScheduled = false;
+  }
 
   /* Restore the context, we will never return from this call */
   CPURestoreContext(pCurrThread);
