@@ -31,7 +31,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* None TODO */
+/* No unit test: this module is tested in real-world conditions. */
 
 /* Header file */
 #include <X64Cpu.h>
@@ -63,7 +63,7 @@
 #define CPU_ASSERT(COND, MSG, ERROR) {            \
   if ((COND) == false)                            \
   {                                               \
-    PANIC(ERROR, MODULE_NAME, MSG, false);        \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false); \
   }                                               \
 }
 
@@ -395,7 +395,11 @@ static bool _DeviceNotAvailableExceptionHandler(void)
 static bool _DoubleFaultHandler(void)
 {
   /* Double faults will directly crash the computer */
-  PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "Double fault detected", true);
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "Double fault detected",
+        true,
+        false);
 
   return true;
 }

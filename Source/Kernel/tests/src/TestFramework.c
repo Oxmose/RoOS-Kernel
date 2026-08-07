@@ -135,7 +135,7 @@ typedef union
 #define TEST_ASSERT(COND, MSG, ERROR) {                 \
   if ((COND) == false)                                  \
   {                                                     \
-    PANIC(ERROR, MODULE_NAME, MSG, false);              \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);       \
   }                                                     \
 }
 

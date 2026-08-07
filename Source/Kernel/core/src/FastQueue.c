@@ -30,7 +30,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* TODO */
+#include <TestFramework.h>
 
 /* Header file */
 #include <FastQueue.h>
@@ -65,7 +65,7 @@
 #define FQUEUE_ASSERT(COND, MSG, ERROR) {                \
   if ((COND) == false)                                   \
   {                                                      \
-    PANIC(ERROR, MODULE_NAME, MSG, false);               \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);        \
   }                                                      \
 }
 
@@ -116,8 +116,8 @@ void FQueueDestroy(S_FastQueue* pQueue)
                 ERR_INVALID_PARAMETER);
 
   /* Free the memory */
-  KFree(pQueue->pBuffer);
-  KFree(pQueue);
+  KFree(pQueue->pBuffer, KMALLOC_FREE_POOL);
+  KFree(pQueue, KMALLOC_FREE_POOL);
 }
 
 void FQueuePush(S_FastQueue* pQueue, const void* kpData)

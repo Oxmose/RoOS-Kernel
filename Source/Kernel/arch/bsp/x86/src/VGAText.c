@@ -125,9 +125,9 @@ typedef struct
  * @param[in] ERROR The error code to use in case of kernel panic.
  */
 #define VGA_ASSERT(COND, MSG, ERROR) {                    \
-  if ((COND) == false)                                     \
+  if ((COND) == false)                                    \
   {                                                       \
-    PANIC(ERROR, MODULE_NAME, MSG, false);                \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);         \
   }                                                       \
 }
 
@@ -690,23 +690,23 @@ static inline void _PrintChar(const uint32_t kLine,
                               const uint32_t kColumn,
                               const char     kCharacter)
 {
-    volatile uint16_t* pScreenMem;
+  volatile uint16_t* pScreenMem;
 
-    KERNEL_LOCK(sVGADriverCtrl.bufferLock);
+  KERNEL_LOCK(sVGADriverCtrl.bufferLock);
 
-    if ((uint8_t)kLine < sVGADriverCtrl.lineCount &&
-       (uint8_t)kColumn < sVGADriverCtrl.columnCount)
-    {
-      /* Get address to inject */
-      pScreenMem = GET_FRAME_BUFFER_AT(kLine, kColumn);
+  if ((uint8_t)kLine < sVGADriverCtrl.lineCount &&
+      (uint8_t)kColumn < sVGADriverCtrl.columnCount)
+  {
+    /* Get address to inject */
+    pScreenMem = GET_FRAME_BUFFER_AT(kLine, kColumn);
 
-      /* Inject the character with the current colorscheme */
-      *pScreenMem = kCharacter |
-                    ((sVGADriverCtrl.screenScheme.background << 8) & 0xF000) |
-                    ((sVGADriverCtrl.screenScheme.foreground << 8) & 0x0F00);
-    }
+    /* Inject the character with the current colorscheme */
+    *pScreenMem = kCharacter |
+                  ((sVGADriverCtrl.screenScheme.background << 8) & 0xF000) |
+                  ((sVGADriverCtrl.screenScheme.foreground << 8) & 0x0F00);
+  }
 
-    KERNEL_UNLOCK(sVGADriverCtrl.bufferLock);
+  KERNEL_UNLOCK(sVGADriverCtrl.bufferLock);
 }
 
 static void _ProcessChar(const char kCharacter)

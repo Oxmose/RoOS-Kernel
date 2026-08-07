@@ -155,9 +155,9 @@ typedef struct
  * @param[in] ERROR The error code to use in case of kernel panic.
  */
 #define HPET_ASSERT(COND, MSG, ERROR) {                   \
-  if ((COND) == false)                                     \
+  if ((COND) == false)                                    \
   {                                                       \
-    PANIC(ERROR, MODULE_NAME, MSG, false);                \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);         \
   }                                                       \
 }
 
@@ -267,7 +267,9 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   /* Init structures */
   memset(&sDrvCtrl, 0, sizeof(S_HPETControler));
 
-  pTimerDrv = KMalloc(sizeof(S_KernelTimer), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+  pTimerDrv = KMalloc(sizeof(S_KernelTimer),
+                      ALIGN_ADDRESS,
+                      KMALLOC_NO_FREE_POOL);
   memset(pTimerDrv, 0, sizeof(S_KernelTimer));
   pTimerDrv->pEnable     = _Enable;
   pTimerDrv->pDisable    = _Disable;
@@ -276,31 +278,18 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
 
   /* Get interrupt lines */
   kpUintProp = FDTGetProp(pkFdtNode, HPET_FDT_INT_PROP, &propLen);
-  if (kpUintProp != NULL && propLen == sizeof(uint32_t) * 2)
-  {
-    sDrvCtrl.interruptNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
+  HPET_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
+              "Failed to get the HPET interrupt",
+              ERR_INVALID_VALUE);
 
-    /* Initializes the HPET */
-    retCode = _Init(&sDrvCtrl, pkFdtNode);
-    if (retCode == NO_ERROR)
-    {
-        /* Set the API driver */
-      retCode = DriverManagerSetDeviceData(pkFdtNode, pTimerDrv);
-      if (retCode != NO_ERROR)
-      {
-        KFree(pTimerDrv);
-      }
-    }
-    else
-    {
-      KFree(pTimerDrv);
-    }
-  }
-  else
-  {
-    KFree(pTimerDrv);
-    retCode = ERR_INVALID_VALUE;
-  }
+  sDrvCtrl.interruptNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
+
+  /* Initializes the HPET */
+  retCode = _Init(&sDrvCtrl, pkFdtNode);
+  HPET_ASSERT(retCode == NO_ERROR, "Failed to initialize the HPET", retCode);
+  /* Set the API driver */
+  retCode = DriverManagerSetDeviceData(pkFdtNode, pTimerDrv);
+  HPET_ASSERT(retCode == NO_ERROR, "Failed to set the HPET driver", retCode);
 
   return retCode;
 }

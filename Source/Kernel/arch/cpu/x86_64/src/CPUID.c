@@ -35,7 +35,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* None TODO */
+#include <TestFramework.h>
 
 /* Header file */
 #include <CPUID.h>
@@ -855,10 +855,10 @@
  * @param[in] ERROR The error code.
  *
 */
-#define CPU_ASSERT(COND, MSG, ERROR) {            \
+#define CPUID_ASSERT(COND, MSG, ERROR) {          \
   if ((COND) == false)                            \
   {                                               \
-    PANIC(ERROR, MODULE_NAME, MSG, false);        \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false); \
   }                                               \
 }
 
@@ -1594,7 +1594,7 @@ static void _GetVendorInfo(S_CPUInformation* pCpuInf)
   }
   else
   {
-    PANIC(ERR_NOT_SUPPORTED, MODULE_NAME, "CPU is not supported.", false);
+    PANIC(ERR_NOT_SUPPORTED, MODULE_NAME, "CPU not supported.", false, false);
   }
 }
 

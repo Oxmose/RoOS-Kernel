@@ -78,7 +78,7 @@
 #define KICKSTART_ASSERT(COND, MSG, ERROR) {            \
   if ((COND) == false)                                  \
   {                                                     \
-    PANIC(ERROR, MODULE_NAME, MSG, false);              \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);       \
   }                                                     \
 }
 
@@ -192,7 +192,7 @@ void X64KernelEntry(void)
   SchedulerSchedule();
 
   /* Once the scheduler is started, we should never come back here. */
-  PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "Entry returned.", false);
+  PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "Entry returned.", false, false);
 }
 
 /************************************ EOF *************************************/

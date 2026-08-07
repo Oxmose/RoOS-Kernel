@@ -356,7 +356,7 @@ static void _TestKHeapFree(void)
   }
   for (i = 199; i >= 0; --i)
   {
-    KFree((void*)sAllocated[i]);
+    KFree((void*)sAllocated[i], KMALLOC_FREE_POOL);
     sSecondAllocated[i] = (uintptr_t)KMalloc(32, ALIGN_8_BYTES, KMALLOC_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_ALLOC(600 + i * 3),
                               (sAllocated[i] & 0x7) == 0,
@@ -373,7 +373,7 @@ static void _TestKHeapFree(void)
                               sAllocated[i],
                               sSecondAllocated[i],
                               TEST_KHEAP_ENABLED);
-    KFree((void*)sSecondAllocated[i]);
+    KFree((void*)sSecondAllocated[i], KMALLOC_FREE_POOL);
   }
 }
 

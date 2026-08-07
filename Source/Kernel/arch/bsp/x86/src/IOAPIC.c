@@ -134,9 +134,9 @@ typedef struct S_IOAPICControler
  * @param[in] ERROR The error code to use in case of kernel panic.
  */
 #define IOAPIC_ASSERT(COND, MSG, ERROR) {                 \
-  if ((COND) == false)                                     \
+  if ((COND) == false)                                    \
   {                                                       \
-    PANIC(ERROR, MODULE_NAME, MSG, false);                \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);         \
   }                                                       \
 }
 
@@ -312,10 +312,10 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
 
   /* Get IRQ offset */
   kpUintProp = FDTGetProp(pkFdtNode, IOAPIC_FDT_INTOFF_PROP, &propLen);
-  if (kpUintProp != NULL && propLen == sizeof(uint32_t))
-  {
-    sIntOffset = (uint8_t)FDTTOCPU32(*kpUintProp);
-  }
+  IOAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
+                "Invalid int-offset property",
+                ERR_INVALID_VALUE);
+  sIntOffset = (uint8_t)FDTTOCPU32(*kpUintProp);
 
   /* Get the handles */
   kpACPINodeProp = FDTGetProp(pkFdtNode,
@@ -324,117 +324,86 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   kpLAPICNodeProp = FDTGetProp(pkFdtNode,
                                IOAPIC_FDT_LAPIC_NODE_PROP,
                                &lapicPropLen);
+  IOAPIC_ASSERT(kpACPINodeProp != NULL && acpiPropLen == sizeof(uint32_t) &&
+                kpLAPICNodeProp != NULL && lapicPropLen == sizeof(uint32_t),
+                "Invalid acpi-node or lapic-node property",
+                ERR_INVALID_VALUE);
 
-  if (sIntOffset != 0xFF &&
-      kpACPINodeProp != NULL && acpiPropLen == sizeof(uint32_t) &&
-      kpLAPICNodeProp != NULL && lapicPropLen == sizeof(uint32_t))
+  /* Get the drivers */
+  skpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpACPINodeProp));
+  pLAPICDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpLAPICNodeProp));
+  IOAPIC_ASSERT(skpACPIDriver != NULL && pLAPICDriver != NULL,
+                "Invalid acpi or lapic driver",
+                ERR_INVALID_VALUE);
+
+
+  /* Set IRQ EOI for delegated by the LAPIC */
+  sIOAPICDriver.pSetIRQEOI = pLAPICDriver->pSetIRQEOI;
+
+  /* Get the IOAPICs */
+  kpIOAPICNode = skpACPIDriver->pGetIOAPICList();
+  while (kpIOAPICNode != NULL)
   {
-    /* Get the drivers */
-    skpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpACPINodeProp));
-    pLAPICDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpLAPICNodeProp));
+    pNewDrvCtrl = KMalloc(sizeof(S_IOAPICControler),
+                          ALIGN_ADDRESS,
+                          KMALLOC_NO_FREE_POOL);
+    memset(pNewDrvCtrl, 0, sizeof(S_IOAPICControler));
+    /* Link IO APIC controller */
+    pNewDrvCtrl->pNext = spDrvCtrl;
+    spDrvCtrl = pNewDrvCtrl;
 
-    if (skpACPIDriver != NULL && pLAPICDriver != NULL)
+    KERNEL_SPINLOCK_INIT(pNewDrvCtrl->lock);
+
+    /* Map the IO APIC */
+    ioApicPhysAddr = kpIOAPICNode->ioApic.ioApicAddr & ~PAGE_SIZE_MASK;
+    toMap = IOAPIC_MEM_SIZE + (ioApicPhysAddr & PAGE_SIZE_MASK);
+    toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
+
+    pNewDrvCtrl->baseAddr = (uintptr_t)MemoryKernelMap(
+                                            (void*)ioApicPhysAddr,
+                                            toMap,
+                                            MEMMGR_MAP_HARDWARE |
+                                            MEMMGR_MAP_KERNEL   |
+                                            MEMMGR_MAP_RW,
+                                            &retCode);
+    IOAPIC_ASSERT(retCode == NO_ERROR,
+                  "Failed to map IO-APIC memory",
+                  retCode);
+
+    pNewDrvCtrl->baseAddr |= kpIOAPICNode->ioApic.ioApicAddr &
+                              PAGE_SIZE_MASK;
+    pNewDrvCtrl->mappingSize = toMap;
+
+    /* Setup the controller */
+    pNewDrvCtrl->identifier = kpIOAPICNode->ioApic.ioApicId;
+    pNewDrvCtrl->gsib = kpIOAPICNode->ioApic.globalSystemInterruptBase;
+
+    /* Get the version and max IRQ number */
+    ioapicVerRegister = _Read(pNewDrvCtrl, IOAPICVER);
+    pNewDrvCtrl->version = (ioapicVerRegister & IOAPIC_VERSION_MASK) >>
+                            IOAPIC_VERSION_SHIFT;
+    pNewDrvCtrl->gsil = pNewDrvCtrl->gsil + 1 +
+        ((ioapicVerRegister & IOAPIC_REDIR_MASK) >> IOAPIC_REDIR_SHIFT);
+
+    /* Disable all IRQ for this  IOAPIC */
+    for (i = pNewDrvCtrl->gsib; i < pNewDrvCtrl->gsil; ++i)
     {
-      /* Set IRQ EOI for delegated by the LAPIC */
-      sIOAPICDriver.pSetIRQEOI = pLAPICDriver->pSetIRQEOI;
-
-      /* Get the IOAPICs */
-      kpIOAPICNode = skpACPIDriver->pGetIOAPICList();
-      while (kpIOAPICNode != NULL)
-      {
-        pNewDrvCtrl = KMalloc(sizeof(S_IOAPICControler),
-                              ALIGN_ADDRESS,
-                              KMALLOC_FREE_POOL);
-        memset(pNewDrvCtrl, 0, sizeof(S_IOAPICControler));
-        /* Link IO APIC controller */
-        pNewDrvCtrl->pNext = spDrvCtrl;
-        spDrvCtrl = pNewDrvCtrl;
-
-        KERNEL_SPINLOCK_INIT(pNewDrvCtrl->lock);
-
-        /* Map the IO APIC */
-        ioApicPhysAddr = kpIOAPICNode->ioApic.ioApicAddr & ~PAGE_SIZE_MASK;
-        toMap = IOAPIC_MEM_SIZE + (ioApicPhysAddr & PAGE_SIZE_MASK);
-        toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
-
-        pNewDrvCtrl->baseAddr = (uintptr_t)MemoryKernelMap(
-                                                (void*)ioApicPhysAddr,
-                                                toMap,
-                                                MEMMGR_MAP_HARDWARE |
-                                                MEMMGR_MAP_KERNEL   |
-                                                MEMMGR_MAP_RW,
-                                                &retCode);
-        if (retCode == NO_ERROR)
-        {
-          pNewDrvCtrl->baseAddr |= kpIOAPICNode->ioApic.ioApicAddr &
-                                    PAGE_SIZE_MASK;
-          pNewDrvCtrl->mappingSize = toMap;
-
-          /* Setup the controller */
-          pNewDrvCtrl->identifier = kpIOAPICNode->ioApic.ioApicId;
-          pNewDrvCtrl->gsib = kpIOAPICNode->ioApic.globalSystemInterruptBase;
-
-          /* Get the version and max IRQ number */
-          ioapicVerRegister = _Read(pNewDrvCtrl, IOAPICVER);
-          pNewDrvCtrl->version = (ioapicVerRegister & IOAPIC_VERSION_MASK) >>
-                                  IOAPIC_VERSION_SHIFT;
-          pNewDrvCtrl->gsil = pNewDrvCtrl->gsil + 1 +
-              ((ioapicVerRegister & IOAPIC_REDIR_MASK) >> IOAPIC_REDIR_SHIFT);
-
-          /* Disable all IRQ for this  IOAPIC */
-          for (i = pNewDrvCtrl->gsib; i < pNewDrvCtrl->gsil; ++i)
-          {
-            _SetIRQMaskFor(pNewDrvCtrl, i, false);
-          }
-
-          /* Go to next */
-          kpIOAPICNode = kpIOAPICNode->pNext;
-        }
-        else
-        {
-          while (spDrvCtrl != NULL)
-          {
-            pNewDrvCtrl = spDrvCtrl->pNext;
-            if (spDrvCtrl->baseAddr != (uintptr_t)NULL)
-            {
-              retCode = MemoryKernelUnmap((void*)spDrvCtrl->baseAddr,
-                                          spDrvCtrl->mappingSize);
-              IOAPIC_ASSERT(retCode == NO_ERROR,
-                            "Failed to unmap memory",
-                            ERR_UNAUTHORIZED_ACTION);
-            }
-            KFree(spDrvCtrl);
-            spDrvCtrl = pNewDrvCtrl;
-          }
-          break;
-
-          retCode = ERR_NO_MEMORY;
-        }
-      }
-
-      /* Register if needed */
-      if (retCode == NO_ERROR &&
-          FDTGetProp(pkFdtNode, IOAPIC_FDT_INT_DRIVER_PROP, &propLen) != NULL)
-      {
-        /* Register as interrupt controler */
-        retCode = InterruptSetDriver(&sIOAPICDriver);
-        IOAPIC_ASSERT(retCode == NO_ERROR,
-                      "Failed to register IO-APIC in interrupt manager",
-                      retCode);
-      }
+      _SetIRQMaskFor(pNewDrvCtrl, i, false);
     }
-    else
-    {
-      retCode = ERR_INVALID_VALUE;
-    }
-  }
-  else
-  {
-    retCode = ERR_INVALID_VALUE;
+
+    /* Go to next */
+    kpIOAPICNode = kpIOAPICNode->pNext;
   }
 
-  /* IO APIC is mandatory */
-  IOAPIC_ASSERT(retCode == NO_ERROR, "Failed to init IOAPIC", retCode);
+  /* Register if needed */
+  if (FDTGetProp(pkFdtNode, IOAPIC_FDT_INT_DRIVER_PROP, &propLen) != NULL)
+  {
+    /* Register as interrupt controler */
+    retCode = InterruptSetDriver(&sIOAPICDriver);
+    IOAPIC_ASSERT(retCode == NO_ERROR,
+                  "Failed to register IO-APIC in interrupt manager",
+                  retCode);
+  }
 
   return retCode;
 }
