@@ -27,6 +27,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <Critical.h>
+#include <KernelHeap.h>
 #include <KernelQueue.h>
 
 /*******************************************************************************
@@ -129,6 +130,9 @@ typedef struct S_KernelProcess
 
   /** @brief Stores the memory management data for the process */
   void* pMemoryData;
+
+  /** @brief Stores the information for the process heap. */
+  S_ProcessHeap* pHeap;
 } S_Process;
 
 /** @brief This is the representation of the thread for the kernel. */

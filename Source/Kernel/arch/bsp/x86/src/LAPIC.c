@@ -264,7 +264,7 @@ typedef struct
 #define LAPIC_ASSERT(COND, MSG, ERROR) {                \
   if ((COND) == false)                                  \
   {                                                     \
-    PANIC(ERROR, MODULE_NAME, MSG, false);              \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);       \
   }                                                     \
 }
 
@@ -604,68 +604,53 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
 
   /* Get the ACPI pHandle */
   kpUintProp = FDTGetProp(pkFdtNode, LAPIC_FDT_ACPI_NODE_PROP, &propLen);
-  if (kpUintProp != NULL && propLen == sizeof(uint32_t))
-  {
-    /* Get the ACPI driver */
-    skpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-    if (skpACPIDriver != NULL)
-    {
-      /* Map the IO APIC */
-      lapicPhysAddr = skpACPIDriver->pGetLAPICBaseAddress() & ~PAGE_SIZE_MASK;
-      toMap = LAPIC_MEMORY_SIZE + (lapicPhysAddr & PAGE_SIZE_MASK);
-      toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
+  LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
+               "Failed to get ACPI handle for LAPIC",
+               ERR_INVALID_VALUE);
 
-      sDrvCtrl.baseAddr = (uintptr_t)MemoryKernelMap((void*)lapicPhysAddr,
-                                                     toMap,
-                                                     MEMMGR_MAP_HARDWARE |
-                                                     MEMMGR_MAP_KERNEL   |
-                                                     MEMMGR_MAP_RW,
-                                                     &retCode);
-      if (sDrvCtrl.baseAddr != (uintptr_t)NULL && retCode == NO_ERROR)
-      {
-        sDrvCtrl.baseAddr |= skpACPIDriver->pGetLAPICBaseAddress() &
-                             PAGE_SIZE_MASK;
-        sDrvCtrl.mappingSize = toMap;
+  /* Get the ACPI driver */
+  skpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
+  LAPIC_ASSERT(skpACPIDriver != NULL,
+               "Failed to get ACPI driver for LAPIC",
+               ERR_NOT_FOUND);
 
-        /* Get the LAPIC list */
-        sDrvCtrl.pLAPICList = skpACPIDriver->pGetLAPICList();
+  /* Map the IO APIC */
+  lapicPhysAddr = skpACPIDriver->pGetLAPICBaseAddress() & ~PAGE_SIZE_MASK;
+  toMap = LAPIC_MEMORY_SIZE + (lapicPhysAddr & PAGE_SIZE_MASK);
+  toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
 
-        /* Enable all interrupts */
-        _Write(sDrvCtrl.baseAddr, LAPIC_TPR, 0);
+  sDrvCtrl.baseAddr = (uintptr_t)MemoryKernelMap((void*)lapicPhysAddr,
+                                                  toMap,
+                                                  MEMMGR_MAP_HARDWARE |
+                                                  MEMMGR_MAP_KERNEL   |
+                                                  MEMMGR_MAP_RW,
+                                                  &retCode);
+  LAPIC_ASSERT(sDrvCtrl.baseAddr != (uintptr_t)NULL && retCode == NO_ERROR,
+               "Failed to map LAPIC",
+               retCode);
 
-        /* Set logical destination mode */
-        _Write(sDrvCtrl.baseAddr, LAPIC_DFR, 0xffffffff);
-        _Write(sDrvCtrl.baseAddr, LAPIC_LDR, 0x01000000);
+  sDrvCtrl.baseAddr |= skpACPIDriver->pGetLAPICBaseAddress() &
+                        PAGE_SIZE_MASK;
+  sDrvCtrl.mappingSize = toMap;
 
-        /* Set spurious interrupt vector */
-        _Write(sDrvCtrl.baseAddr, LAPIC_SVR, 0x100 | sDrvCtrl.spuriousIntLine);
+  /* Get the LAPIC list */
+  sDrvCtrl.pLAPICList = skpACPIDriver->pGetLAPICList();
 
-        /* Set the API driver */
-        retCode = DriverManagerSetDeviceData(pkFdtNode, &sLAPICAPIDriver);
-        if (retCode == NO_ERROR)
-        {
-          /* Register the driver in the CPU manager */
-          CPURegisterLAPICDriver(&sLAPICAPIDriver);
-        }
-        else
-        {
-          retCode = MemoryKernelUnmap((void*)sDrvCtrl.baseAddr,
-                                      sDrvCtrl.mappingSize);
-          LAPIC_ASSERT(retCode == NO_ERROR, "Failed to unmap LAPIC", retCode);
-        }
-      }
-    }
-    else
-    {
-      retCode = ERR_INVALID_VALUE;
-    }
-  }
-  else
-  {
-    retCode = ERR_INVALID_VALUE;
-  }
-  /* LAPIC is mandatory */
-  LAPIC_ASSERT(retCode == NO_ERROR, "Failed to init LAPIC", retCode);
+  /* Enable all interrupts */
+  _Write(sDrvCtrl.baseAddr, LAPIC_TPR, 0);
+
+  /* Set logical destination mode */
+  _Write(sDrvCtrl.baseAddr, LAPIC_DFR, 0xffffffff);
+  _Write(sDrvCtrl.baseAddr, LAPIC_LDR, 0x01000000);
+
+  /* Set spurious interrupt vector */
+  _Write(sDrvCtrl.baseAddr, LAPIC_SVR, 0x100 | sDrvCtrl.spuriousIntLine);
+
+  /* Set the API driver */
+  retCode = DriverManagerSetDeviceData(pkFdtNode, &sLAPICAPIDriver);
+  LAPIC_ASSERT(retCode == NO_ERROR, "Failed to set LAPIC API driver", retCode);
+  /* Register the driver in the CPU manager */
+  CPURegisterLAPICDriver(&sLAPICAPIDriver);
 
   return retCode;
 }
@@ -881,7 +866,7 @@ static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
       pDrvCtrl->divider = LAPICT_DIVIDER_128;
       break;
     default:
-      PANIC(ERR_NOT_SUPPORTED, MODULE_NAME, "Invalid Timer Divider.", false);
+      PANIC(ERR_NOT_SUPPORTED, MODULE_NAME, "Invalid Divider.", false, false);
   }
 
   /* Get the LAPIC pHandle */
@@ -986,7 +971,7 @@ static bool _TimerDummyHandler(void)
   PANIC(ERR_UNAUTHORIZED_ACTION,
         MODULE_NAME,
         "LAPIC Timer Dummy handler called",
-        true);
+        true, false);
 
   return false;
 }

@@ -102,7 +102,7 @@
 #define TIME_ASSERT(COND, MSG, ERROR) {                   \
   if ((COND) == false)                                    \
   {                                                       \
-    PANIC(ERROR, MODULE_NAME, MSG, false);                \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);         \
   }                                                       \
 }
 
@@ -272,11 +272,11 @@ static void _AddAuxTimer(const S_KernelTimer* kpTimer)
   /* Create queue is it does not exist */
   if (spAuxTimersQueue == NULL)
   {
-    spAuxTimersQueue = KQueueCreate();
+    spAuxTimersQueue = KQueueCreate(KMALLOC_NO_FREE_POOL);
   }
 
   /* Create the new node */
-  pNewNode = KQueueCreateNode((void*)kpTimer);
+  pNewNode = KQueueCreateNode((void*)kpTimer, KMALLOC_NO_FREE_POOL);
 
   /* Add the timer to the queue */
   KQueuePush(pNewNode, spAuxTimersQueue);

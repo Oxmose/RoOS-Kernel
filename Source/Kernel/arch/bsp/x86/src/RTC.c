@@ -132,9 +132,9 @@ typedef struct
  * @param[in] ERROR The error code to use in case of kernel panic.
  */
 #define RTC_ASSERT(COND, MSG, ERROR) {                    \
-  if ((COND) == false)                                     \
+  if ((COND) == false)                                    \
   {                                                       \
-    PANIC(ERROR, MODULE_NAME, MSG, false);                \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);         \
   }                                                       \
 }
 
@@ -436,7 +436,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
 
 static bool _DummyHandler(void)
 {
-  PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "RTC Dummy handler", true);
+  PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "RTC Dummy handler", true, false);
 
   return false;
 }

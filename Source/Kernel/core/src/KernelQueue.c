@@ -35,7 +35,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* TODO */
+#include <TestFramework.h>
 
 /* Header file */
 #include <KernelQueue.h>
@@ -66,11 +66,12 @@
  * @param[in] COND The condition that should be true.
  * @param[in] MSG The message to display in case of kernel panic.
  * @param[in] ERROR The error code to use in case of kernel panic.
+ * @param[in] IS_PROCESS Tells if the panic comes from a process.
  */
-#define KQUEUE_ASSERT(COND, MSG, ERROR) {                \
+#define KQUEUE_ASSERT(COND, MSG, ERROR, IS_PROCESS) {    \
   if ((COND) == false)                                   \
   {                                                      \
-    PANIC(ERROR, MODULE_NAME, MSG, false);               \
+    PANIC(ERROR, MODULE_NAME, MSG, false, IS_PROCESS);   \
   }                                                      \
 }
 
@@ -95,25 +96,32 @@
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-S_KernelQueueNode* KQueueCreateNode(void* pData)
+S_KernelQueueNode* KQueueCreateNode(void* pData, const E_KMallocPool kHeapPool)
 {
   S_KernelQueueNode* pNewNode;
 
   /* Create new node */
   pNewNode = KMalloc(sizeof(S_KernelQueueNode),
                      ALIGN_ADDRESS,
-                     KMALLOC_FREE_POOL);
+                     kHeapPool);
 
-  /* Init the structure */
-  memset(pNewNode, 0, sizeof(S_KernelQueueNode));
-  pNewNode->pData = pData;
+  if (pNewNode != NULL)
+  {
+    /* Init the structure */
+    memset(pNewNode, 0, sizeof(S_KernelQueueNode));
+    pNewNode->pData     = pData;
+    pNewNode->allocPool = kHeapPool;
+  }
 
   return pNewNode;
 }
 
 void KQueueInitNode(S_KernelQueueNode* pNode, void* pData)
 {
-  KQUEUE_ASSERT(pNode != NULL, "Initialized NULL node", ERR_INVALID_PARAMETER);
+  KQUEUE_ASSERT(pNode != NULL,
+                "Initialized NULL node",
+                ERR_INVALID_PARAMETER,
+                false);
 
   memset(pNode, 0, sizeof(S_KernelQueueNode));
   pNode->pData = pData;
@@ -123,25 +131,30 @@ void KQueueDestroyNode(S_KernelQueueNode** ppNode)
 {
   KQUEUE_ASSERT((ppNode != NULL && *ppNode != NULL),
                 "Tried to delete a NULL node",
-                ERR_INVALID_PARAMETER);
+                ERR_INVALID_PARAMETER,
+                false);
 
   KQUEUE_ASSERT((*ppNode)->pQueuePtr == NULL,
                 "Tried to delete an enlisted node",
-                ERR_UNAUTHORIZED_ACTION);
+                ERR_UNAUTHORIZED_ACTION,
+                (*ppNode)->allocPool == KMALLOC_PROCESS_HEAP);
 
-  KFree(*ppNode);
+  KFree(*ppNode, (*ppNode)->allocPool);
   *ppNode = NULL;
 }
 
-S_KernelQueue* KQueueCreate(void)
+S_KernelQueue* KQueueCreate(const E_KMallocPool kHeapPool)
 {
   S_KernelQueue* pNewQueue;
 
   /* Create new queue */
-  pNewQueue = KMalloc(sizeof(S_KernelQueue), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
-
-  /* Init the structure */
-  memset(pNewQueue, 0, sizeof(S_KernelQueue));
+  pNewQueue = KMalloc(sizeof(S_KernelQueue), ALIGN_ADDRESS, kHeapPool);
+  if (pNewQueue != NULL)
+  {
+    /* Init the structure */
+    memset(pNewQueue, 0, sizeof(S_KernelQueue));
+    pNewQueue->allocPool = kHeapPool;
+  }
 
   return pNewQueue;
 }
@@ -150,13 +163,15 @@ void KQueueDestroy(S_KernelQueue** ppQueue)
 {
   KQUEUE_ASSERT((ppQueue != NULL && *ppQueue != NULL),
                 "Tried to delete a NULL queue",
-                ERR_INVALID_PARAMETER);
+                ERR_INVALID_PARAMETER,
+                false);
 
   KQUEUE_ASSERT(((*ppQueue)->pHead == NULL && (*ppQueue)->pTail == NULL),
                 "Tried to delete a non empty queue",
-                ERR_UNAUTHORIZED_ACTION);
+                ERR_UNAUTHORIZED_ACTION,
+                (*ppQueue)->allocPool == KMALLOC_PROCESS_HEAP);
 
-  KFree(*ppQueue);
+  KFree(*ppQueue, (*ppQueue)->allocPool);
   *ppQueue = NULL;
 }
 
@@ -164,10 +179,12 @@ void KQueuePush(S_KernelQueueNode* pNode, S_KernelQueue* pQueue)
 {
   KQUEUE_ASSERT((pNode != NULL && pQueue != NULL),
                 "Cannot push with NULL knode or NULL kqueue",
-                ERR_INVALID_PARAMETER);
+                ERR_INVALID_PARAMETER,
+                false);
   KQUEUE_ASSERT(pNode->pQueuePtr == NULL,
                 "Tried to push an enlisted node",
-                ERR_UNAUTHORIZED_ACTION);
+                ERR_UNAUTHORIZED_ACTION,
+                pNode->allocPool == KMALLOC_PROCESS_HEAP);
 
   /* If this queue is empty */
   if (pQueue->pHead == NULL)
@@ -194,7 +211,8 @@ void KQueuePush(S_KernelQueueNode* pNode, S_KernelQueue* pQueue)
                  pNode->pNext == NULL         ||
                  pNode->pPrev == NULL),
                 "Cycle detected in KQueue",
-                ERR_UNAUTHORIZED_ACTION);
+                ERR_UNAUTHORIZED_ACTION,
+                pNode->allocPool == KMALLOC_PROCESS_HEAP);
 }
 
 
@@ -206,10 +224,12 @@ void KQueuePushPrio(S_KernelQueueNode* pNode,
 
   KQUEUE_ASSERT((pNode != NULL && pQueue != NULL),
                 "Cannot push with NULL knode or NULL kqueue",
-                ERR_INVALID_PARAMETER);
+                ERR_INVALID_PARAMETER,
+                false);
   KQUEUE_ASSERT(pNode->pQueuePtr == NULL,
                 "Tried to push an enlisted node",
-                ERR_UNAUTHORIZED_ACTION);
+                ERR_UNAUTHORIZED_ACTION,
+                pNode->allocPool == KMALLOC_PROCESS_HEAP);
 
   pNode->priority = kPriority;
 
@@ -262,7 +282,8 @@ void KQueuePushPrio(S_KernelQueueNode* pNode,
                  pNode->pNext == NULL ||
                  pNode->pPrev == NULL),
                 "Cycle detected in KQueue",
-                ERR_UNAUTHORIZED_ACTION);
+                ERR_UNAUTHORIZED_ACTION,
+                pNode->allocPool == KMALLOC_PROCESS_HEAP);
 }
 
 S_KernelQueueNode* KQueuePop(S_KernelQueue* pQueue)
@@ -271,7 +292,8 @@ S_KernelQueueNode* KQueuePop(S_KernelQueue* pQueue)
 
   KQUEUE_ASSERT(pQueue != NULL,
                 "Cannot pop NULL kqueue",
-                ERR_INVALID_PARAMETER);
+                ERR_INVALID_PARAMETER,
+                false);
 
   /* Check for empty queue. */
   if (pQueue->pHead != NULL)
@@ -310,7 +332,8 @@ S_KernelQueueNode* KQueueFind(S_KernelQueue* pQueue, const void* kpData)
 
   KQUEUE_ASSERT(pQueue != NULL,
                 "Cannot find in NULL kqueue",
-                ERR_INVALID_PARAMETER);
+                ERR_INVALID_PARAMETER,
+                false);
 
   /* Search for the data */
   pNode = pQueue->pHead;
@@ -326,10 +349,12 @@ void KQueueRemove(S_KernelQueue* pQueue, S_KernelQueueNode* pNode)
 {
   KQUEUE_ASSERT((pNode != NULL && pQueue != NULL),
                 "Cannot remove with NULL knode or NULL kqueue",
-                ERR_INVALID_PARAMETER);
+                ERR_INVALID_PARAMETER,
+                false);
   KQUEUE_ASSERT((pNode->pQueuePtr == pQueue),
                 "Cannot remove with knode from different queue.",
-                ERR_INVALID_PARAMETER);
+                ERR_INVALID_PARAMETER,
+                pNode->allocPool == KMALLOC_PROCESS_HEAP);
 
   /* Manage link */
   if (pNode->pPrev != NULL && pNode->pNext != NULL)
@@ -364,7 +389,8 @@ size_t KQueueSize(const S_KernelQueue* kpQueue)
 {
   KQUEUE_ASSERT(kpQueue != NULL,
                 "Cannot get size of NULL kqueue",
-                ERR_INVALID_PARAMETER);
+                ERR_INVALID_PARAMETER,
+                false);
 
   return kpQueue->size;
 }
@@ -376,7 +402,8 @@ void KQueueClean(S_KernelQueue* pQueue)
 
   KQUEUE_ASSERT(pQueue != NULL,
                 "Cannot clean NULL kqueue",
-                ERR_INVALID_PARAMETER);
+                ERR_INVALID_PARAMETER,
+                false);
 
   pNode = pQueue->pHead;
   while (pNode != NULL)

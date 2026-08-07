@@ -487,80 +487,97 @@ void KernelPanic(const uint32_t kErrorCode,
                  const char*    kpMsg,
                  const char*    kpFile,
                  const size_t   kLine,
-                 const bool     kFromInterrupt)
+                 const bool     kFromInterrupt,
+                 const bool     kIsProcess)
 {
   const S_VirtualCPU* kpVCPU;
   S_VirtualCPU        buildVCPU;
   S_IPIParameters     ipiParams;
 
-  /* We don't need interrupt anymore */
-  InterruptDisable();
-
-  /* Lock the panic */
-  SpinlockAcquire(&sLock);
-
-  /* Send the CPUs IPI */
-  ipiParams.function = IPI_FUNC_PANIC;
-  ipiParams.pData    = NULL;
-  CPUSendIPI(CPU_IPI_BROADCAST_TO_OTHER, &ipiParams);
-
-  /* Build the VCPU when not in an interrupt context */
-  if (kFromInterrupt == false)
+  if (kIsProcess == false)
   {
-    _BuildVCPU(&buildVCPU);
-    kpVCPU = &buildVCPU;
+    /* We don't need interrupt anymore */
+    InterruptDisable();
+
+    /* Lock the panic */
+    SpinlockAcquire(&sLock);
+
+    /* Send the CPUs IPI */
+    ipiParams.function = IPI_FUNC_PANIC;
+    ipiParams.pData    = NULL;
+    CPUSendIPI(CPU_IPI_BROADCAST_TO_OTHER, &ipiParams);
+
+    /* Build the VCPU when not in an interrupt context */
+    if (kFromInterrupt == false)
+    {
+      _BuildVCPU(&buildVCPU);
+      kpVCPU = &buildVCPU;
+    }
+    else
+    {
+      kpVCPU = CPUGetVirtualCPU(SchedulerGetCurrentThread());
+    }
+
+    /* Set the parameters */
+    sPanicCode     = kErrorCode;
+    skpPanicModule = kpModule;
+    skpPanicMsg    = kpMsg;
+    skpPanicFile   = kpFile;
+    sPanicLine     = kLine;
+
+    _PrintHeader(kpVCPU, kFromInterrupt);
+    _PrintCpuState(kpVCPU);
+    _PrintCpuFlags(kpVCPU);
+    _PrintStackTrace((uintptr_t*)kpVCPU->cpuState.rbp);
+
+    /* Print panic information */
+    _PanicPrintf("                              ==== Information ====\n");
+    if (skpPanicFile != NULL)
+    {
+      _PanicPrintf("%s at line %d\n", skpPanicFile, sPanicLine);
+    }
+    if (skpPanicModule != NULL && skpPanicModule[0] != 0)
+    {
+      _PanicPrintf("[%s] | ", skpPanicModule);
+    }
+    if (skpPanicMsg != NULL)
+    {
+      _PanicPrintf("%s (Error %d)\n", skpPanicMsg, sPanicCode);
+    }
+
+
+
+    /* Test point */
+  #if TEST_PANIC_ENABLED
+    TEST_POINT_ASSERT_RCODE(PANIC_TEST_SUCCESS_ID,
+                            true,
+                            NO_ERROR,
+                            NO_ERROR,
+                            TEST_PANIC_ENABLED);
+    TEST_FRAMEWORK_END();
+  #endif
+
+
+
+    /* Wait intefinitely */
+    while (1)
+    {
+      InterruptDisable();
+      CPUHalt();
+    }
   }
   else
   {
-    kpVCPU = CPUGetVirtualCPU(SchedulerGetCurrentThread());
-  }
+    /* Kill the process */
+    /* TODO */
 
-  /* Set the parameters */
-  sPanicCode     = kErrorCode;
-  skpPanicModule = kpModule;
-  skpPanicMsg    = kpMsg;
-  skpPanicFile   = kpFile;
-  sPanicLine     = kLine;
+    while (1)
+    {
+      InterruptDisable();
+      CPUHalt();
+    }
 
-  _PrintHeader(kpVCPU, kFromInterrupt);
-  _PrintCpuState(kpVCPU);
-  _PrintCpuFlags(kpVCPU);
-  _PrintStackTrace((uintptr_t*)kpVCPU->cpuState.rbp);
-
-  /* Print panic information */
-  _PanicPrintf("                              ==== Information ====\n");
-  if (skpPanicFile != NULL)
-  {
-    _PanicPrintf("%s at line %d\n", skpPanicFile, sPanicLine);
-  }
-  if (skpPanicModule != NULL && skpPanicModule[0] != 0)
-  {
-    _PanicPrintf("[%s] | ", skpPanicModule);
-  }
-  if (skpPanicMsg != NULL)
-  {
-    _PanicPrintf("%s (Error %d)\n", skpPanicMsg, sPanicCode);
-  }
-
-
-
-  /* Test point */
-#if TEST_PANIC_ENABLED
-  TEST_POINT_ASSERT_RCODE(PANIC_TEST_SUCCESS_ID,
-                          true,
-                          NO_ERROR,
-                          NO_ERROR,
-                          TEST_PANIC_ENABLED);
-  TEST_FRAMEWORK_END();
-#endif
-
-
-
-  /* Wait intefinitely */
-  while (1)
-  {
-    InterruptDisable();
-    CPUHalt();
+    //SchedulerKillCurrentProcess(kErrorCode);
   }
 }
 

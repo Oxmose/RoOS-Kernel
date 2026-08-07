@@ -48,9 +48,11 @@
  * @param[in] MODULE The module that generated the panic. Can be empty when not
  * relevant.
  * @param[in] MSG The panic message used for kernel panic.
+ * @param[in] INT_CTX Tells if the panic is called from an interrupt context.
+ * @param[in] IS_PROCESS Tells if the panic is called from a process context.
  */
-#define PANIC(ERROR, MODULE, MSG, INT_CTX) {                    \
-  KernelPanic(ERROR, MODULE, MSG, __FILE__, __LINE__, INT_CTX); \
+#define PANIC(ERROR, MODULE, MSG, INT_CTX, IS_PROCESS) {                    \
+  KernelPanic(ERROR, MODULE, MSG, __FILE__, __LINE__, INT_CTX, IS_PROCESS); \
 }
 
 /*******************************************************************************
@@ -83,13 +85,15 @@
  * @param[in] kLine The line at which the panic was called.
  * @param[in] kFromInterrupt Tells if the panic is called from an interrupt
  * context.
+ * @param[in] kIsProcess Tells if the panic is called from a process context.
  */
 void KernelPanic(const uint32_t kErrorCode,
                  const char*    kpModule,
                  const char*    kpMsg,
                  const char*    kpFile,
                  const size_t   kLine,
-                 const bool     kFromInterrupt);
+                 const bool     kFromInterrupt,
+                 const bool     kIsProcess);
 
 /**
  * @brief Called by secondary CPUs when a primary CPU enters panic.

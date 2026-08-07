@@ -70,7 +70,7 @@
 #define INTERRUPT_ASSERT(COND, MSG, ERROR) {              \
   if ((COND) == false)                                    \
   {                                                       \
-    PANIC(ERROR, MODULE_NAME, MSG, false);                \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);         \
   }                                                       \
 }
 
@@ -193,7 +193,11 @@ void InterruptMainHandler(void)
     else
     {
       handler = NULL;
-      PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "Unhandled interrupt", true);
+      PANIC(ERR_UNAUTHORIZED_ACTION,
+            MODULE_NAME,
+            "Unhandled interrupt",
+            true,
+            false);
     }
 
     /* Execute the handler */
@@ -218,7 +222,8 @@ void InterruptMainHandler(void)
   PANIC(ERR_UNAUTHORIZED_ACTION,
         MODULE_NAME,
         "Interrupt Handler Returned.",
-        true);
+        true,
+        false);
 }
 
 void InterruptInit(void)

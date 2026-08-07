@@ -142,9 +142,9 @@ typedef struct
  * @param[in] ERROR The error code to use in case of kernel panic.
  */
 #define PIC_ASSERT(COND, MSG, ERROR) {                    \
-  if ((COND) == false)                                     \
+  if ((COND) == false)                                    \
   {                                                       \
-    PANIC(ERROR, MODULE_NAME, MSG, false);                \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);         \
   }                                                       \
 }
 

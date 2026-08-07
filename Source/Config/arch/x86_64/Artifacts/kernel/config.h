@@ -26,6 +26,9 @@
  */
 #define KERNEL_STACK_SIZE 0x1000
 
+/* Kernel process heap default size */
+#define KERNEL_PROCESS_HEAP_SIZE 0x80000
+
 /* Maximal number of CPU supported by the architecture */
 #define SOC_MAX_CPU_COUNT 64
 
@@ -38,6 +41,9 @@
 
 /* Kernel log level */
 #define KERNEL_LOG_LEVEL DEBUG_LOG_LEVEL
+
+/* Enable stack protection */
+#define _STACK_PROT 1
 
 /*******************************************************************************
  * DEBUG Configuration
