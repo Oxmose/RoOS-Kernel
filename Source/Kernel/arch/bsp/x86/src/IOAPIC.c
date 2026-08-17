@@ -179,7 +179,7 @@ static void _SetIRQMask(const uint32_t kIRQNumber, const bool kEnabled);
  * @param[in] kEnabled Must be set to true to enable the IRQ or false
  * to disable the IRQ.
  */
-static inline void _SetIRQMaskFor (S_IOAPICControler* pCtrl,
+static inline void _SetIRQMaskFor(S_IOAPICControler* pCtrl,
                                   const uint32_t     kIRQNumber,
                                   const bool         kEnabled);
 

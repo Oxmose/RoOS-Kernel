@@ -910,13 +910,13 @@ static E_Return _GetFileDescriptor(S_FDTable*         pTable,
   E_Return error;
 
   /* Check that the FD is valid */
-  if((size_t)kFd < pTable->pFDTable->size)
+  if ((size_t)kFd < pTable->pFDTable->size)
   {
     /* Check that the FD is open */
     error = VectorGet(pTable->pFDTable, kFd, (void**)ppInternalFd);
     VFS_ASSERT(error == NO_ERROR, "Invalid FD Get.", error, true);
 
-    if(*ppInternalFd != NULL)
+    if (*ppInternalFd != NULL)
     {
       error = NO_ERROR;
     }
@@ -968,7 +968,7 @@ static int32_t _GenericClose(void* pDrvCtrl, void* pHandle)
   (void)pDrvCtrl;
 
   /* Check if it was correctly opened */
-  if(pHandle != NULL && pHandle != (void*)-1)
+  if (pHandle != NULL && pHandle != (void*)-1)
   {
     KFree(pHandle, KMALLOC_PROCESS_HEAP);
     retVal = 0;
@@ -1019,22 +1019,22 @@ static int32_t _GenericReadDir(void*             pDriverData,
   (void)pDriverData;
 
   /* Check if it was correctly opened */
-  if(pHandle != NULL && pHandle != (void*)-1)
+  if (pHandle != NULL && pHandle != (void*)-1)
   {
     pDesc = pHandle;
     if (pDesc->pMountPt != NULL)
     {
       retVal = 1;
 
-      if(pDesc->pNextChildCursor == NULL)
+      if (pDesc->pNextChildCursor == NULL)
       {
         pDesc->pNextChildCursor = pDesc->pMountPt->pFirstChild;
-        if(pDesc->pNextChildCursor == NULL)
+        if (pDesc->pNextChildCursor == NULL)
         {
           retVal = 0;
         }
       }
-      else if(pDesc->pNextChildCursor == (void*)-1)
+      else if (pDesc->pNextChildCursor == (void*)-1)
       {
         retVal = -1;
       }
@@ -1054,7 +1054,7 @@ static int32_t _GenericReadDir(void*             pDriverData,
         pDirEntry->type = VFS_FILE_TYPE_DIR;
 
         /* Check if there is another sibling */
-        if(pDesc->pNextChildCursor->pNextSibling != NULL)
+        if (pDesc->pNextChildCursor->pNextSibling != NULL)
         {
           pDesc->pNextChildCursor = pDesc->pNextChildCursor->pNextSibling;
           retVal = 1;
@@ -1675,9 +1675,9 @@ E_Return VFSMount(const char* kpPath,
     driverTableCursor = (uintptr_t)&_START_FS_TABLE_ADDR;
     pDriver = *(S_FSDriver**)driverTableCursor;
 
-    while(pDriver != NULL)
+    while (pDriver != NULL)
     {
-      if(strcmp(pDriver->pName, kpFsName) == 0)
+      if (strcmp(pDriver->pName, kpFsName) == 0)
       {
         break;
       }
@@ -1702,7 +1702,7 @@ E_Return VFSMount(const char* kpPath,
                                        pDriver->pReadDir,
                                        pDriver->pIOCTL);
 
-        if(pNewDriver != VFS_DRIVER_INVALID)
+        if (pNewDriver != VFS_DRIVER_INVALID)
         {
           /* Add the driver data for unmount */
           pNewDriver->pMount   = pDriver->pMount;

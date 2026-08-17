@@ -32,6 +32,7 @@
  ************************************************/
 /** @brief Panic test enabled flag */
 #define TEST_PANIC_ENABLED                        0
+#define TEST_OS_KMUTEX_ENABLED                    0
 #define TEST_KHEAP_ENABLED                        0
 #define TEST_DEVTREE_ENABLED                      0
 #define TEST_CRITICAL_ENABLED                     0
@@ -358,6 +359,15 @@
 #define TEST_KQUEUE_DELETENODEBURST1_ID(IDVAL) \
     (TEST_KQUEUE_DELETENODEBURST0_ID(40) + IDVAL)
 
+/** @brief Kernel mutex tests */
+#define TEST_KMUTEX_CREATE_TEST(X)    (X)
+#define TEST_KMUTEX_EXC_ID(X)         (1000 + X)
+#define TEST_KMUTEX_RECURSIVE_ID(X)   (10000 + X)
+#define TEST_KMUTEX_ORDER_TEST(X)     (100000 + X)
+#define TEST_KMUTEX_FIFO_TEST(X)      (1000000 + X)
+#define TEST_KMUTEX_TRYLOCK_TEST(X)   (10000000 + X)
+#define TEST_KMUTEX_ELEVATION_PRIO(X) (100000000 + X)
+
 /** @brief Current test name */
 #define TEST_FRAMEWORK_TEST_NAME "Kernel Scheduler"
 
@@ -412,7 +422,8 @@ void FastQueuesTest(void);
 void KQueuesTest(void);
 /** @brief CPUID test function */
 void CPUIDTest(void);
-
+/** @brief Kernel mutex test function */
+void KernelMutexTest(void);
 /** @brief VFS test functions */
 void VFSCleanPathTest(void* pArgs);
 void VFSFindNodeTest(void* pArgs);
@@ -424,6 +435,7 @@ void VFSCreateFDTest(void* pArgs);
 void VFSDestroyFDTest(void* pArgs);
 void VFSGenericTest(void* pArgs);
 void VirtualFSTest(void);
+
 
 #endif /* #ifdef _TESTING_FRAMEWORK_ENABLED */
 

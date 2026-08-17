@@ -100,14 +100,14 @@ void ConsoleInit(void)
 
   /* Get the FDT console node */
   kpConsoleNode = FDTGetNodeByName(FDT_CONSOLE_NODE_NAME);
-  if(kpConsoleNode != NULL)
+  if (kpConsoleNode != NULL)
   {
     /* Get the input device */
     kpStrProp = FDTGetProp(kpConsoleNode, FDT_CONS_INPUT_DEV_PROP, &propLen);
-    if(kpStrProp != NULL && propLen > 0)
+    if (kpStrProp != NULL && propLen > 0)
     {
       sStdinFd = VFSOpen(kpStrProp, O_RDONLY, 0);
-      if(sStdinFd < 0)
+      if (sStdinFd < 0)
       {
         KERNEL_ERROR("Failed to open console input device.\n");
       }
@@ -115,10 +115,10 @@ void ConsoleInit(void)
 
     /* Get the output device */
     kpStrProp = FDTGetProp(kpConsoleNode, FDT_CONS_OUTPUT_DEV_PROP, &propLen);
-    if(kpStrProp != NULL && propLen > 0)
+    if (kpStrProp != NULL && propLen > 0)
     {
       sStdoutFd = VFSOpen(kpStrProp, O_RDWR, 0);
-      if(sStdoutFd < 0)
+      if (sStdoutFd < 0)
       {
         KERNEL_ERROR("Failed to open console output device.\n");
       }
@@ -128,7 +128,7 @@ void ConsoleInit(void)
 
 void ConsoleClear(void)
 {
-  if(sStdoutFd >= 0)
+  if (sStdoutFd >= 0)
   {
     VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_CLEAR, NULL);
   }
@@ -136,7 +136,7 @@ void ConsoleClear(void)
 
 void ConsoleGetCursor(S_ConsoleCursor* pBuffer)
 {
-  if(sStdoutFd >= 0)
+  if (sStdoutFd >= 0)
   {
     VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_SAVE_CURSOR, pBuffer);
   }
@@ -144,7 +144,7 @@ void ConsoleGetCursor(S_ConsoleCursor* pBuffer)
 
 void ConsoleSetCursor(const S_ConsoleCursor* pkBuffer)
 {
-  if(sStdoutFd >= 0)
+  if (sStdoutFd >= 0)
   {
     VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_RESTORE_CURSOR, (void*)pkBuffer);
   }
@@ -154,7 +154,7 @@ void ConsoleScroll(const E_ScrollDirection kDirection, const uint32_t kLines)
 {
   S_IOCTLScrollArguments args;
 
-  if(sStdoutFd >= 0)
+  if (sStdoutFd >= 0)
   {
     args.direction = kDirection;
     args.lineCount = kLines;
@@ -164,7 +164,7 @@ void ConsoleScroll(const E_ScrollDirection kDirection, const uint32_t kLines)
 
 void ConsoleSetColorScheme(const S_ColorScheme* pkColorScheme)
 {
-  if(sStdoutFd >= 0)
+  if (sStdoutFd >= 0)
   {
     VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_SET_COLORSCHEME, (void*)pkColorScheme);
   }
@@ -172,7 +172,7 @@ void ConsoleSetColorScheme(const S_ColorScheme* pkColorScheme)
 
 void ConsoleGetColorScheme(S_ColorScheme* pBuffer)
 {
-  if(sStdoutFd >= 0)
+  if (sStdoutFd >= 0)
   {
     VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_SAVE_COLORSCHEME, pBuffer);
   }
@@ -180,7 +180,7 @@ void ConsoleGetColorScheme(S_ColorScheme* pBuffer)
 
 void ConsolePutString(const char* pkString)
 {
-  if(sStdoutFd >= 0)
+  if (sStdoutFd >= 0)
   {
     VFSWrite(sStdoutFd, pkString, strnlen(pkString, 0xFFFFFFFF));
   }
@@ -191,7 +191,7 @@ void ConsolePutString(const char* pkString)
 
 void ConsolePutChar(const char kCharacter)
 {
-  if(sStdoutFd >= 0)
+  if (sStdoutFd >= 0)
   {
     VFSWrite(sStdoutFd, &kCharacter, 1);
   }
@@ -204,7 +204,7 @@ ssize_t ConsoleRead(char* pBuffer, size_t kBufferSize)
 {
   ssize_t retVal;
 
-  if(sStdinFd >= 0)
+  if (sStdinFd >= 0)
   {
     retVal = VFSRead(sStdinFd, pBuffer, kBufferSize);
   }
@@ -218,7 +218,7 @@ ssize_t ConsoleRead(char* pBuffer, size_t kBufferSize)
 
 void ConsoleFlush(void)
 {
-  if(sStdoutFd >= 0)
+  if (sStdoutFd >= 0)
   {
     VFSIOCTL(sStdoutFd, VFS_IOCTL_CONS_FLUSH, NULL);
   }

@@ -1,5 +1,13 @@
 [
   {
+    "name": "Kernel CPUID",
+    "testname": "CPUID"
+  },
+  {
+    "name": "Kernel Mutex",
+    "testname": "OS_KMUTEX"
+  },
+  {
     "name": "Kernel Queues",
     "testname": "OS_KQUEUE"
   },

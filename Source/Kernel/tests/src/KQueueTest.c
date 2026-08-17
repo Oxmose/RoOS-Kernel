@@ -86,9 +86,9 @@ void KQueuesTest(void)
     uint32_t       unsorted[10] = {0, 3, 5, 7, 4, 1, 8, 9, 6, 2};
 
     int8_t j = -1;
-    for(uint32_t i = 0; i < 40; ++i)
+    for (uint32_t i = 0; i < 40; ++i)
     {
-        if(i % 4 == 0)
+        if (i % 4 == 0)
         {
             ++j;
         }
@@ -161,7 +161,7 @@ void KQueuesTest(void)
                              TEST_OS_KQUEUE_ENABLED);
 
     /* Create more nodes */
-    for(uint8_t i = 0; i < 40; ++i)
+    for (uint8_t i = 0; i < 40; ++i)
     {
         nodes[i] = KQueueCreateNode((void*) (uintptr_t)unsorted[i % 10], KMALLOC_FREE_POOL);
         TEST_POINT_ASSERT_UDWORD(TEST_KQUEUE_CREATE_NODEBURST0_ID(i),
@@ -172,7 +172,7 @@ void KQueuesTest(void)
     }
 
     /* Enqueue nodes with prio */
-    for(uint8_t i = 0; i < 40; ++i)
+    for (uint8_t i = 0; i < 40; ++i)
     {
         old_size = queue->size;
         KQueuePushPrio(nodes[i], queue, (uintptr_t)nodes[i]->pData);
@@ -184,7 +184,7 @@ void KQueuesTest(void)
     }
 
     /* Dequeue nodes and check order */
-    for(uint8_t i = 0; i < 40; ++i)
+    for (uint8_t i = 0; i < 40; ++i)
     {
         old_size = queue->size;
         nodes[i] = KQueuePop(queue);
@@ -213,7 +213,7 @@ void KQueuesTest(void)
 
 
     /* Delete nodes */
-    for(uint8_t i = 0; i < 40; ++i)
+    for (uint8_t i = 0; i < 40; ++i)
     {
         KQueueDestroyNode(&nodes[i]);
         TEST_POINT_ASSERT_UDWORD(TEST_KQUEUE_DELETENODEBURST0_ID(i),
@@ -224,7 +224,7 @@ void KQueuesTest(void)
     }
 
     /* Create more nodes */
-    for(uint8_t i = 0; i < 40; ++i)
+    for (uint8_t i = 0; i < 40; ++i)
     {
         nodes[i] = KQueueCreateNode((void*) (uintptr_t)unsorted[i % 10], KMALLOC_FREE_POOL);
         TEST_POINT_ASSERT_UDWORD(TEST_KQUEUE_CREATE_NODEBURST1_ID(i),
@@ -235,7 +235,7 @@ void KQueuesTest(void)
     }
 
     /* Enqueue without prio */
-    for(uint8_t i = 0; i < 40; ++i)
+    for (uint8_t i = 0; i < 40; ++i)
     {
         old_size = queue->size;
         KQueuePush(nodes[i], queue);
@@ -268,7 +268,7 @@ void KQueuesTest(void)
                              TEST_OS_KQUEUE_ENABLED);
 
     /* Dequeue nodes and check "non order" */
-    for(uint8_t i = 0; i < 40; ++i)
+    for (uint8_t i = 0; i < 40; ++i)
     {
         old_size = queue->size;
         nodes[i] = KQueuePop(queue);
@@ -312,7 +312,7 @@ void KQueuesTest(void)
                              TEST_OS_KQUEUE_ENABLED);
 
     /* Delete nodes */
-    for(uint8_t i = 0; i < 40; ++i)
+    for (uint8_t i = 0; i < 40; ++i)
     {
         KQueueDestroyNode(&nodes[i]);
         TEST_POINT_ASSERT_UDWORD(TEST_KQUEUE_DELETENODEBURST1_ID(i),

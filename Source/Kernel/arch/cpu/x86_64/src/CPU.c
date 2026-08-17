@@ -197,7 +197,7 @@
 #define CPU_IPI_SEND_TO_CPU_MASK (CPU_IPI_SEND_TO(0xFFFFFFFF));
 
 /** @brief Size in number of elements of the IPI queues */
-#define IPI_QUEUE_SIZE 10
+#define IPI_QUEUE_SIZE 50
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
