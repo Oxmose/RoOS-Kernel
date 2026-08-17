@@ -50,7 +50,7 @@
 #define KMUTEX_FLAG_PRIO_ELEVATION 0x00000008
 
 /** @brief Mutex flag: priority elevation value. */
-#define KMUTEX_FLAG_PRIOTITY(X) (X << 16)
+#define KMUTEX_FLAG_PRIORITY(X) ((X) << 16)
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -114,9 +114,9 @@ E_Return KernelMutexInit(S_KernelMutex* pMutex, const uint32_t kFlags);
 /**
  * @brief Destroys the mutex given as parameter.
  *
- * @details Destroys the mutex given as parameter. Also unlock all the
- * threads locked on this mutex. Using a destroyed mutex produces
- * undefined behaviors.
+ * @details Destroys the mutex given as parameter. Using a destroyed mutex
+ * produces undefined behaviors.The function will not destroy the mutex if
+ * threads are waiting on it.
  *
  * @param[in, out] pMutex The mutex to destroy.
  *

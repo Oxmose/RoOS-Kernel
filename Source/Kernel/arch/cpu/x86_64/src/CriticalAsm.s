@@ -70,7 +70,7 @@ align 4
 
 SpinlockAcquire:
   lock bts dword [rdi], 0
-  jc   SpinlockAcquire
+  jc   __pauseSpinlockPause
   ret
 
 __pauseSpinlockPause:
@@ -86,6 +86,9 @@ __pauseSpinlockPause:
 ;     Input: rdi: Address of the lock
 
 SpinlockRelease:
+  ; Ensure prior memory operations are globally visible before releasing
+  ; the lock. This provides the required release semantics on x86.
+  mfence
   mov  dword [rdi], 0
   ret
 

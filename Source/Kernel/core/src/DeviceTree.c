@@ -679,45 +679,45 @@ static S_FDTNode* _ParseNode(uint32_t*     pOffset,
 
 static void _ParseReservedMemory(void)
 {
-    uint64_t*        pCursor;
-    uintptr_t        startAddr;
-    uintptr_t        size;
-    S_FDTMemoryNode* pNode;
-    S_FDTMemoryNode* pNodeCursor;
+  uint64_t*        pCursor;
+  uintptr_t        startAddr;
+  uintptr_t        size;
+  S_FDTMemoryNode* pNode;
+  S_FDTMemoryNode* pNodeCursor;
 
-    /* Register the first node */
-    pCursor   = (uint64_t*)sFDTDesc.pResMemory;
+  /* Register the first node */
+  pCursor   = (uint64_t*)sFDTDesc.pResMemory;
+  startAddr = (uintptr_t)FDTTOCPU64(pCursor[0]);
+  size      = (uintptr_t)FDTTOCPU64(pCursor[1]);
+
+  while (startAddr != 0 && size != 0)
+  {
+    pNode = KMalloc(sizeof(S_FDTMemoryNode),
+                    ALIGN_ADDRESS,
+                    KMALLOC_NO_FREE_POOL);
+
+    pNode->baseAddress = startAddr;
+    pNode->size        = size;
+
+    pNode->pNextNode = NULL;
+
+    if (sFDTDesc.pFirstReservedMemoryNode != NULL)
+    {
+      pNodeCursor = sFDTDesc.pFirstReservedMemoryNode;
+      while (pNodeCursor->pNextNode != NULL)
+      {
+        pNodeCursor = pNodeCursor->pNextNode;
+      }
+      pNodeCursor->pNextNode = pNode;
+    }
+    else
+    {
+      sFDTDesc.pFirstReservedMemoryNode = pNode;
+    }
+
+    pCursor   += 2;
     startAddr = (uintptr_t)FDTTOCPU64(pCursor[0]);
     size      = (uintptr_t)FDTTOCPU64(pCursor[1]);
-
-    while (startAddr != 0 && size != 0)
-    {
-      pNode = KMalloc(sizeof(S_FDTMemoryNode),
-                      ALIGN_ADDRESS,
-                      KMALLOC_NO_FREE_POOL);
-
-      pNode->baseAddress = startAddr;
-      pNode->size        = size;
-
-      pNode->pNextNode = NULL;
-
-      if (sFDTDesc.pFirstReservedMemoryNode != NULL)
-      {
-        pNodeCursor = sFDTDesc.pFirstMemoryNode;
-        while (pNodeCursor->pNextNode != NULL)
-        {
-          pNodeCursor = pNodeCursor->pNextNode;
-        }
-        pNodeCursor->pNextNode = pNode;
-      }
-      else
-      {
-        sFDTDesc.pFirstMemoryNode = pNode;
-      }
-
-      pCursor   += 2;
-      startAddr = (uintptr_t)FDTTOCPU64(pCursor[0]);
-      size      = (uintptr_t)FDTTOCPU64(pCursor[1]);
   }
 }
 

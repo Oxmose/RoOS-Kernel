@@ -848,7 +848,7 @@ static void _TestElevationMutex(void)
   char            name[32] = "MUTEX_ELEVATION_TEST\0";
 
   error = KernelMutexInit(&mutex,
-                          KMUTEX_FLAG_PRIO_ELEVATION | KMUTEX_FLAG_PRIOTITY(10) |
+                          KMUTEX_FLAG_PRIO_ELEVATION | KMUTEX_FLAG_PRIORITY(10) |
                           KMUTEX_FLAG_QUEUING_PRIO);
   TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ELEVATION_PRIO(18),
                           error == NO_ERROR,

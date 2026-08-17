@@ -1,7 +1,7 @@
 /*******************************************************************************
- * @file KernelMutex.h
+ * @file KernelMutex.c
  *
- * @see KernelMutex.c
+ * @see KernelMutex.h
  *
  * @author Alexy Torres Aurora Dugo
  *
@@ -89,8 +89,10 @@ E_Return KernelMutexInit(S_KernelMutex* pMutex, const uint32_t kFlags)
   E_Return error;
   uint32_t priority;
 
-  if ((kFlags & KMUTEX_FLAG_QUEUING_FIFO) != KMUTEX_FLAG_QUEUING_FIFO ||
-     (kFlags & KMUTEX_FLAG_QUEUING_PRIO) != KMUTEX_FLAG_QUEUING_PRIO)
+     if (((kFlags & (KMUTEX_FLAG_QUEUING_FIFO | KMUTEX_FLAG_QUEUING_PRIO)) ==
+           KMUTEX_FLAG_QUEUING_FIFO) ||
+         ((kFlags & (KMUTEX_FLAG_QUEUING_FIFO | KMUTEX_FLAG_QUEUING_PRIO)) ==
+          KMUTEX_FLAG_QUEUING_PRIO))
   {
     priority = (kFlags >> 16);
     if (((kFlags & KMUTEX_FLAG_PRIO_ELEVATION) == KMUTEX_FLAG_PRIO_ELEVATION &&
@@ -129,10 +131,22 @@ E_Return KernelMutexInit(S_KernelMutex* pMutex, const uint32_t kFlags)
 
 E_Return KernelMutexDestroy(S_KernelMutex* pMutex)
 {
-  /* Destroy the waiting queue */
-  KQueueDestroy(&pMutex->pWaitingList);
+  E_Return error;
 
-  return NO_ERROR;
+  KERNEL_LOCK(pMutex->lock);
+  if (pMutex->lockState != 0)
+  {
+    /* Destroy the waiting queue */
+    KQueueDestroy(&pMutex->pWaitingList);
+    error = NO_ERROR;
+  }
+  else
+  {
+    error = ERR_UNAUTHORIZED_ACTION;
+  }
+  KERNEL_UNLOCK(pMutex->lock);
+
+  return error;
 }
 
 E_Return KernelMutexLock(S_KernelMutex* pMutex)
@@ -295,7 +309,7 @@ E_Return KernelMutexTryLock(S_KernelMutex* pMutex, int32_t* pLockState)
   if (pMutex->lockState == 0)
   {
     if ((pMutex->flags & KMUTEX_FLAG_RECURSIVE) == KMUTEX_FLAG_RECURSIVE &&
-       pCurThread != pMutex->pAcquiredThread)
+       pCurThread == pMutex->pAcquiredThread)
     {
       /* If the mutex is recursive, allow the lock */
       if (pMutex->level < MUTEX_MAX_RECURSIVENESS)
