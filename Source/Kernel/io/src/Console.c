@@ -36,11 +36,11 @@
 /* Configuration files */
 #include <config.h>
 
+/* Unit test header */
+/* No unit test: this module is tested in real-world conditions. */
+
 /* Header file */
 #include <Console.h>
-
-/* Unit test header */
-/* None TODO */
 
 /*******************************************************************************
  * CONSTANTS
@@ -182,7 +182,7 @@ void ConsolePutString(const char* pkString)
 {
   if(sStdoutFd >= 0)
   {
-    VFSWrite(sStdoutFd, pkString, strlen(pkString));
+    VFSWrite(sStdoutFd, pkString, strnlen(pkString, 0xFFFFFFFF));
   }
 #if OUTPUT_DEBUG_ENABLE
   DebugOutputPutString(pkString);

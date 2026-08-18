@@ -29,6 +29,8 @@
 #include <VirtualFS.h>
 #include <KernelHeap.h>
 #include <KernelError.h>
+#include <KernelQueue.h>
+#include <Vector.h>
 
 /* Configuration files */
 #include <config.h>
@@ -67,6 +69,30 @@ typedef struct S_VFSNode
   struct S_VFSNode* pParent;
 } S_VFSNode;
 
+typedef struct
+{
+  S_Vector* pFDTable;
+  S_KernelQueue* pFDPool;
+  S_KernelSpinlock lock;
+} S_FDTable;
+
+typedef struct
+{
+  char* pFilePath;
+  void* pFileHandle;
+  S_FSDriver* pDriver;
+  uint32_t refCount;
+  S_KernelSpinlock lock;
+} S_FileDescriptorShared;
+
+typedef struct
+{
+  uint32_t tableId;
+  S_FileDescriptorShared* pShared;
+  int openMode;
+  int openFlags;
+} S_FileDescriptor;
+
 typedef ssize_t (*T_VFSCleanPath)(char* pCleanPath, const char* kpOriginalPath);
 typedef S_VFSNode* (*T_VFSFindNode)(S_VFSNode*   pRoot,
                                 const char*  kpPath,
@@ -77,6 +103,13 @@ typedef void (*T_VFSAddDriverNode)(S_VFSNode*  pRoot,
                                    size_t      pathLen,
                                    void* pDriver);
 typedef bool (*T_RemoveDriverNode)(S_VFSNode* pRoot);
+typedef int32_t (*T_CreateFD)(S_FDTable*  pTable,
+                               S_FSDriver* pDriver,
+                               void*       pFileHandle,
+                               const char* kpPath,
+                               const int   kFlags,
+                               const int   kMode);
+typedef void (*T_DestroyFD)(S_FDTable* pTable, const int32_t kFD);
 
 /*******************************************************************************
  * MACROS
@@ -97,6 +130,9 @@ typedef bool (*T_RemoveDriverNode)(S_VFSNode* pRoot);
 static char buffer[VFS_PATH_MAX_LENGTH];
 static S_VFSNode sNodePool[50];
 static uint32_t sTestValue = 0;
+static S_FSDriver driver0;
+static S_FSDriver driver1;
+static S_FSDriver driver2;
 
 /*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
@@ -192,49 +228,459 @@ static void _TestNextToken(void)
 
 static void _TestCreateFDTable(void)
 {
-  /* TODO */
-}
-static void _TestDestroyFDTable(void)
-{
-  /* TODO */
-}
-static void _TestVFSGeneric(void)
-{
-  /* TODO */
-}
-static void _TestVFSOpen(void)
-{
-  /* TODO */
-}
-static void _TestVFSClose(void)
-{
-  /* TODO */
-}
-static void _TestVFSRead(void)
-{
-  /* TODO */
-}
-static void _TestVFSWrite(void)
-{
-  /* TODO */
-}
-static void _TestVFSReadDir(void)
-{
-  /* TODO */
-}
-static void _TestVFSIOCTL(void)
-{
-  /* TODO */
-}
-static void _TestVFSMount(void)
-{
-  /* TODO */
-}
-static void _TestVFSUnmount(void)
-{
-  /* TODO */
+  S_KernelProcess process;
+  S_FDTable* pTable;
+  E_Return retCode;
+
+  memset(&process, 0, sizeof(process));
+  retCode = CreateProcessFDTable(&process);
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_TABLE_CREATE(0),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+
+  pTable = (S_FDTable*)process.pFileDescriptorTable;
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_TABLE_CREATE(1),
+                            pTable != NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pTable,
+                            TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_FD_TABLE_CREATE(2),
+                           pTable->pFDTable->size == 32,
+                           32,
+                           pTable->pFDTable->size,
+                           TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_FD_TABLE_CREATE(3),
+                           pTable->pFDPool->size == 32,
+                           32,
+                           pTable->pFDPool->size,
+                           TEST_VFS_ENABLED);
+
+  DestroyProcessFDTable(&process);
 }
 
+static void _TestDestroyFDTable(void)
+{
+  S_KernelProcess process;
+  E_Return retCode;
+
+  memset(&process, 0, sizeof(process));
+  retCode = CreateProcessFDTable(&process);
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_TABLE_DESTROY(0),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+
+  DestroyProcessFDTable(&process);
+
+  /* Just see if we are back without crashing */
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_TABLE_DESTROY(1),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+}
+
+static void _TestVFSGeneric(void)
+{
+  S_FSDriver* pDriver;
+  int32_t fd;
+  int32_t retVal;
+  S_DirectoryEntry dirEntry;
+  char buffer[16];
+
+  pDriver = RegisterVFSDriver("/test0/sub",
+                              (void*)0xC0DEAABB,
+                              _DummyOpen,
+                              _DummyClose,
+                              _DummyRead,
+                              _DummyWrite,
+                              _DummyReadDir,
+                              _DummyIOCTL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_GENERIC(0),
+                            pDriver != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pDriver,
+                            TEST_VFS_ENABLED);
+
+  fd = VFSOpen("/test0", O_RDONLY, 0);
+  TEST_POINT_ASSERT_INT(TEST_VFS_GENERIC(1),
+                        fd >= 0,
+                        0,
+                        fd,
+                        TEST_VFS_ENABLED);
+
+  retVal = VFSRead(fd, buffer, sizeof(buffer));
+  TEST_POINT_ASSERT_DWORD(TEST_VFS_GENERIC(2),
+                          retVal == -1,
+                          -1,
+                          retVal,
+                          TEST_VFS_ENABLED);
+  retVal = VFSWrite(fd, "x", 1);
+  TEST_POINT_ASSERT_DWORD(TEST_VFS_GENERIC(3),
+                          retVal == -1,
+                          -1,
+                          retVal,
+                          TEST_VFS_ENABLED);
+
+  memset(&dirEntry, 0, sizeof(dirEntry));
+  retVal = VFSReaddir(fd, &dirEntry);
+  TEST_POINT_ASSERT_INT(TEST_VFS_GENERIC(4),
+                        retVal == 0,
+                        0,
+                        retVal,
+                        TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_INT(TEST_VFS_GENERIC(5),
+                        strcmp(dirEntry.pName, "sub") == 0,
+                        0,
+                        strcmp(dirEntry.pName, "sub"),
+                        TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_INT(TEST_VFS_GENERIC(6),
+                        dirEntry.filenameLength == 3,
+                        3,
+                        dirEntry.filenameLength,
+                        TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_INT(TEST_VFS_GENERIC(7),
+                        dirEntry.type == VFS_FILE_TYPE_DIR,
+                        VFS_FILE_TYPE_DIR,
+                        dirEntry.type,
+                        TEST_VFS_ENABLED);
+  retVal = VFSIOCTL(fd, 0x1234, NULL);
+  TEST_POINT_ASSERT_DWORD(TEST_VFS_GENERIC(8),
+                          retVal == -1,
+                          -1,
+                          retVal,
+                          TEST_VFS_ENABLED);
+
+  retVal = VFSClose(fd);
+  TEST_POINT_ASSERT_INT(TEST_VFS_GENERIC(9),
+                        retVal == 0,
+                        0,
+                        retVal,
+                        TEST_VFS_ENABLED);
+}
+
+static void _TestVFSOpen(void)
+{
+  S_FSDriver* pDriver;
+  int32_t fd;
+
+  pDriver = RegisterVFSDriver("/test1",
+                              (void*)0xC0DEAABB,
+                              _DummyOpen,
+                              _DummyClose,
+                              _DummyRead,
+                              _DummyWrite,
+                              _DummyReadDir,
+                              _DummyIOCTL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_OPEN(0),
+                            pDriver != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pDriver,
+                            TEST_VFS_ENABLED);
+
+  fd = VFSOpen("/test1/file", O_RDONLY, 0);
+  TEST_POINT_ASSERT_INT(TEST_VFS_OPEN(1),
+                        fd >= 0,
+                        0,
+                        fd,
+                        TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_OPEN(2),
+                           sTestValue == 1,
+                           1,
+                           sTestValue,
+                           TEST_VFS_ENABLED);
+
+  fd = VFSOpen("/unknown", O_RDONLY, 0);
+  TEST_POINT_ASSERT_INT(TEST_VFS_OPEN(3),
+                        fd == -1,
+                        -1,
+                        fd,
+                        TEST_VFS_ENABLED);
+}
+
+static void _TestVFSClose(void)
+{
+  S_FSDriver* pDriver;
+  int32_t fd;
+  int32_t retVal;
+
+  pDriver = RegisterVFSDriver("/test2",
+                              (void*)0xC0DEAABB,
+                              _DummyOpen,
+                              _DummyClose,
+                              _DummyRead,
+                              _DummyWrite,
+                              _DummyReadDir,
+                              _DummyIOCTL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_CLOSE(0),
+                            pDriver != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pDriver,
+                            TEST_VFS_ENABLED);
+
+  fd = VFSOpen("/test2/file", O_RDONLY, 0);
+  TEST_POINT_ASSERT_INT(TEST_VFS_CLOSE(1),
+                        fd >= 0,
+                        0,
+                        fd,
+                        TEST_VFS_ENABLED);
+  sTestValue = 0;
+  retVal = VFSClose(fd);
+  TEST_POINT_ASSERT_INT(TEST_VFS_CLOSE(2),
+                        retVal == 42,
+                        42,
+                        retVal,
+                        TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_CLOSE(3),
+                           sTestValue == 2,
+                           2,
+                           sTestValue,
+                           TEST_VFS_ENABLED);
+}
+
+static void _TestVFSRead(void)
+{
+  S_FSDriver* pDriver;
+  int32_t fd;
+  ssize_t retVal;
+  char buffer[16];
+
+  pDriver = RegisterVFSDriver("/test3",
+                              (void*)0xC0DEAABB,
+                              _DummyOpen,
+                              _DummyClose,
+                              _DummyRead,
+                              _DummyWrite,
+                              _DummyReadDir,
+                              _DummyIOCTL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_READ(0),
+                            pDriver != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pDriver,
+                            TEST_VFS_ENABLED);
+
+  fd = VFSOpen("/test3/file", O_RDONLY, 0);
+  TEST_POINT_ASSERT_INT(TEST_VFS_READ(1),
+                        fd >= 0,
+                        0,
+                        fd,
+                        TEST_VFS_ENABLED);
+  sTestValue = 0;
+  retVal = VFSRead(fd, buffer, sizeof(buffer));
+  TEST_POINT_ASSERT_DWORD(TEST_VFS_READ(2),
+                          retVal == -42,
+                          -42,
+                          retVal,
+                          TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_READ(3),
+                           sTestValue == 3,
+                           3,
+                           sTestValue,
+                           TEST_VFS_ENABLED);
+}
+
+static void _TestVFSWrite(void)
+{
+  S_FSDriver* pDriver;
+  int32_t fd;
+  ssize_t retVal;
+  char buffer[16];
+
+  pDriver = RegisterVFSDriver("/test4",
+                              (void*)0xC0DEAABB,
+                              _DummyOpen,
+                              _DummyClose,
+                              _DummyRead,
+                              _DummyWrite,
+                              _DummyReadDir,
+                              _DummyIOCTL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_WRITE(0),
+                            pDriver != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pDriver,
+                            TEST_VFS_ENABLED);
+
+  fd = VFSOpen("/test4/file", O_RDWR, 0);
+  TEST_POINT_ASSERT_INT(TEST_VFS_WRITE(1),
+                        fd >= 0,
+                        0,
+                        fd,
+                        TEST_VFS_ENABLED);
+  sTestValue = 0;
+  retVal = VFSWrite(fd, buffer, sizeof(buffer));
+  TEST_POINT_ASSERT_DWORD(TEST_VFS_WRITE(2),
+                          retVal == -42,
+                          -42,
+                          retVal,
+                          TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_WRITE(3),
+                           sTestValue == 4,
+                           4,
+                           sTestValue,
+                           TEST_VFS_ENABLED);
+}
+
+static void _TestVFSReadDir(void)
+{
+  S_FSDriver* pDriver;
+  int32_t fd;
+  int32_t retVal;
+  S_DirectoryEntry dirEntry;
+
+  pDriver = RegisterVFSDriver("/test5",
+                              (void*)0xC0DEAABB,
+                              _DummyOpen,
+                              _DummyClose,
+                              _DummyRead,
+                              _DummyWrite,
+                              _DummyReadDir,
+                              _DummyIOCTL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_READDIR(0),
+                            pDriver != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pDriver,
+                            TEST_VFS_ENABLED);
+
+  fd = VFSOpen("/test5/file", O_RDONLY, 0);
+  TEST_POINT_ASSERT_INT(TEST_VFS_READDIR(1),
+                        fd >= 0,
+                        0,
+                        fd,
+                        TEST_VFS_ENABLED);
+  sTestValue = 0;
+  retVal = VFSReaddir(fd, &dirEntry);
+  TEST_POINT_ASSERT_INT(TEST_VFS_READDIR(2),
+                        retVal == 678,
+                        678,
+                        retVal,
+                        TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_READDIR(3),
+                           sTestValue == 5,
+                           5,
+                           sTestValue,
+                           TEST_VFS_ENABLED);
+}
+
+static void _TestVFSIOCTL(void)
+{
+  S_FSDriver* pDriver;
+  int32_t fd;
+  ssize_t retVal;
+
+  pDriver = RegisterVFSDriver("/test6",
+                              (void*)0xC0DEAABB,
+                              _DummyOpen,
+                              _DummyClose,
+                              _DummyRead,
+                              _DummyWrite,
+                              _DummyReadDir,
+                              _DummyIOCTL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_IOCTL(0),
+                            pDriver != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pDriver,
+                            TEST_VFS_ENABLED);
+
+  fd = VFSOpen("/test6/file", O_RDONLY, 0);
+  TEST_POINT_ASSERT_INT(TEST_VFS_IOCTL(1),
+                        fd >= 0,
+                        0,
+                        fd,
+                        TEST_VFS_ENABLED);
+  sTestValue = 0;
+  retVal = VFSIOCTL(fd, 0x1234, NULL);
+  TEST_POINT_ASSERT_DWORD(TEST_VFS_IOCTL(2),
+                          retVal == 1010,
+                          1010,
+                          retVal,
+                          TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_IOCTL(3),
+                           sTestValue == 6,
+                           6,
+                           sTestValue,
+                           TEST_VFS_ENABLED);
+}
+
+static void _TestVFSMount(void)
+{
+  E_Return retCode;
+
+  memset(&driver0, 0, sizeof(driver0));
+  driver0.pName = "test-fs";
+  driver0.pOpen = _DummyOpen;
+  driver0.pClose = _DummyClose;
+  driver0.pRead = _DummyRead;
+  driver0.pWrite = _DummyWrite;
+  driver0.pReadDir = _DummyReadDir;
+  driver0.pIOCTL = _DummyIOCTL;
+  driver0.pMount = _DummyMount;
+  driver0.pUnmount = _DummyUnmount;
+  driver0.pDriverData = (void*)0xC0DEAABB;
+
+  sTestValue = 0;
+  retCode = VFSMount("/test-mount", "/dev/test", "test-fs");
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_MOUNT(0),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_MOUNT(1),
+                           sTestValue == 7,
+                           7,
+                           sTestValue,
+                           TEST_VFS_ENABLED);
+
+  retCode = VFSUnmount("/test-mount");
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_MOUNT(2),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_MOUNT(3),
+                           sTestValue == 8,
+                           8,
+                           sTestValue,
+                           TEST_VFS_ENABLED);
+}
+
+static void _TestVFSUnmount(void)
+{
+  S_FSDriver* pDriver;
+  E_Return retCode;
+
+  pDriver = RegisterVFSDriver("/test7",
+                              (void*)0xC0DEAABB,
+                              _DummyOpen,
+                              _DummyClose,
+                              _DummyRead,
+                              _DummyWrite,
+                              _DummyReadDir,
+                              _DummyIOCTL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_UNMOUNT(0),
+                            pDriver != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pDriver,
+                            TEST_VFS_ENABLED);
+  pDriver->pUnmount = _DummyUnmount;
+  pDriver->pMount = _DummyMount;
+  sTestValue = 0;
+  retCode = VFSUnmount("/test7");
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_UNMOUNT(1),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_UNMOUNT(2),
+                           sTestValue == 8,
+                           8,
+                           sTestValue,
+                           TEST_VFS_ENABLED);
+}
+
+static uint32_t lastTestVal = 0;
 static void* _DummyOpen(void*       pDriverData,
                         const char* kpPath,
                         int32_t     flags,
@@ -243,7 +689,7 @@ static void* _DummyOpen(void*       pDriverData,
   (void)kpPath;
   (void)flags;
   (void)mode;
-  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(20),
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(63 + lastTestVal++),
                             pDriverData == (void*)0xC0DEAABB,
                             (uintptr_t)0xC0DEAABB,
                             (uintptr_t)pDriverData,
@@ -255,7 +701,7 @@ static void* _DummyOpen(void*       pDriverData,
 static int32_t _DummyClose(void* pDriverData, void* pFileHandle)
 {
   (void)pFileHandle;
-  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(23),
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(63 + lastTestVal++),
                             pDriverData == (void*)0xC0DEAABB,
                             (uintptr_t)0xC0DEAABB,
                             (uintptr_t)pDriverData,
@@ -272,7 +718,7 @@ static ssize_t _DummyRead(void*  pDriverData,
   (void)pFileHandle;
   (void)pBuffer;
   (void)count;
-  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(26),
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(63 + lastTestVal++),
                             pDriverData == (void*)0xC0DEAABB,
                             (uintptr_t)0xC0DEAABB,
                             (uintptr_t)pDriverData,
@@ -289,7 +735,7 @@ static ssize_t _DummyWrite(void*       pDriverData,
   (void)pFileHandle;
   (void)kpBuffer;
   (void)count;
-  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(29),
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(63 + lastTestVal++),
                             pDriverData == (void*)0xC0DEAABB,
                             (uintptr_t)0xC0DEAABB,
                             (uintptr_t)pDriverData,
@@ -304,7 +750,7 @@ static int32_t _DummyReadDir(void*             pDriverData,
 {
   (void)pFileHandle;
   (void)pDirEntry;
-  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(32),
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(63 + lastTestVal++),
                             pDriverData == (void*)0xC0DEAABB,
                             (uintptr_t)0xC0DEAABB,
                             (uintptr_t)pDriverData,
@@ -313,6 +759,7 @@ static int32_t _DummyReadDir(void*             pDriverData,
 
   return 678;
 }
+
 static ssize_t _DummyIOCTL(void*    pDriverData,
                               void*    pFileHandle,
                               uint32_t operation,
@@ -321,7 +768,7 @@ static ssize_t _DummyIOCTL(void*    pDriverData,
   (void)pFileHandle;
   (void)operation;
   (void)pArgs;
-  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(35),
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(63 + lastTestVal++),
                             pDriverData == (void*)0xC0DEAABB,
                             (uintptr_t)0xC0DEAABB,
                             (uintptr_t)pDriverData,
@@ -330,6 +777,7 @@ static ssize_t _DummyIOCTL(void*    pDriverData,
 
   return 1010;
 }
+
 static E_Return _DummyMount(const char* kpPath,
                      const char* kpDevPath,
                      void**      pDriverMountData)
@@ -340,6 +788,7 @@ static E_Return _DummyMount(const char* kpPath,
   sTestValue = 7;
   return NO_ERROR;
 }
+
 static E_Return _DummyUnmount(void* pDriverMountData)
 {
   (void)pDriverMountData;
@@ -2081,26 +2530,367 @@ void VFSRemoveNodeTest(void* pArgs)
 
 void VFSRemoveDriverTest(void* pArgs)
 {
-  /* TODO */
-  (void)pArgs;
+  S_FSDriver* pNewDriver[5];
+  E_Return    retCode;
+  S_VFSNode*  pRoot = (S_VFSNode*)pArgs;
+  S_VFSNode*  pNode;
+
+  pNewDriver[0] = RegisterVFSDriver("/testremove",
+                                    (void*)0xCAFEBABE,
+                                    NULL,
+                                    NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(0),
+                            pNewDriver[0] != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pNewDriver[0],
+                            TEST_VFS_ENABLED);
+  pNewDriver[1] = RegisterVFSDriver("/testremove/new",
+                                     (void*)0xDEADBEEF,
+                                     NULL,
+                                     NULL,
+                                     NULL,
+                                     NULL,
+                                     NULL,
+                                 NULL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(1),
+                            pNewDriver[1] != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pNewDriver[1],
+                            TEST_VFS_ENABLED);
+  pNewDriver[2] = RegisterVFSDriver("/testremove/new/one",
+                                 (void*)0x42424242,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(2),
+                            pNewDriver[2] != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pNewDriver[2],
+                            TEST_VFS_ENABLED);
+  pNewDriver[3] = RegisterVFSDriver("/testremove/two",
+                                 (void*)0x05050505,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(3),
+                            pNewDriver[3] != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pNewDriver[3],
+                            TEST_VFS_ENABLED);
+  pNewDriver[4] = RegisterVFSDriver("/testremove2",
+                                 (void*)0xA0A0A0A0,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(4),
+                            pNewDriver[4] != VFS_DRIVER_INVALID,
+                            (uintptr_t)VFS_DRIVER_INVALID,
+                            (uintptr_t)pNewDriver[4],
+                            TEST_VFS_ENABLED);
+
+  pNode = pRoot->pFirstChild;
+  while (pNode != NULL)
+  {
+    if (pNode->pDriver == pNewDriver[4])
+    {
+      break;
+    }
+    pNode = pNode->pNextSibling;
+  }
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(5),
+                            pNewDriver[4] == pNode->pDriver,
+                            (uintptr_t)pNewDriver[4],
+                            (uintptr_t)pNode->pDriver,
+                            TEST_VFS_ENABLED);
+  retCode = UnregisterDriver(pNewDriver[4]);
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_REMOVE_DRIVER(6),
+                            retCode == NO_ERROR,
+                            (uintptr_t)NO_ERROR,
+                            (uintptr_t)retCode,
+                            TEST_VFS_ENABLED);
+  pNode = pRoot->pFirstChild;
+  while (pNode != NULL)
+  {
+    if (pNode->pDriver == pNewDriver[4])
+    {
+      break;
+    }
+    pNode = pNode->pNextSibling;
+  }
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(7),
+                            NULL == pNode,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pNode,
+                            TEST_VFS_ENABLED);
+
+
+  pNode = pRoot->pFirstChild;
+  while (pNode != NULL)
+  {
+    if (strcmp(pNode->pMountPoint, "testremove") == 0)
+    {
+      break;
+    }
+    pNode = pNode->pNextSibling;
+  }
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(8),
+                            pNewDriver[0] == pNode->pDriver,
+                            (uintptr_t)pNewDriver[0],
+                            (uintptr_t)pNode->pDriver,
+                            TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(9),
+                            pNewDriver[0]->pDriverData == (void*)0xCAFEBABE,
+                            (uintptr_t)pNewDriver[0]->pDriverData,
+                            (uintptr_t)0xCAFEBABE,
+                            TEST_VFS_ENABLED);
+  retCode = UnregisterDriver(pNewDriver[0]);
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_REMOVE_DRIVER(10),
+                            retCode == NO_ERROR,
+                            (uintptr_t)NO_ERROR,
+                            (uintptr_t)retCode,
+                            TEST_VFS_ENABLED);
+  pNode = pRoot->pFirstChild;
+  while (pNode != NULL)
+  {
+    if (strcmp(pNode->pMountPoint, "testremove") == 0)
+    {
+      break;
+    }
+    pNode = pNode->pNextSibling;
+  }
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(11),
+                            NULL != pNode,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pNode,
+                            TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(12),
+                            NULL == pNode->pDriver,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pNode->pDriver,
+                            TEST_VFS_ENABLED);
+  pNode = pNode->pFirstChild;
+  while (pNode != NULL)
+  {
+    if (pNode->pDriver == pNewDriver[1])
+    {
+      break;
+    }
+    pNode = pNode->pNextSibling;
+  }
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(13),
+                            pNewDriver[1] == pNode->pDriver,
+                            (uintptr_t)pNewDriver[1],
+                            (uintptr_t)pNode->pDriver,
+                            TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REMOVE_DRIVER(14),
+                            pNewDriver[1]->pDriverData == (void*)0xDEADBEEF,
+                            (uintptr_t)pNewDriver[1]->pDriverData,
+                            (uintptr_t)0xDEADBEEF,
+                            TEST_VFS_ENABLED);
 }
 
+T_CreateFD pCreateFD;
 void VFSCreateFDTest(void* pArgs)
 {
-  /* TODO*/
-  (void)pArgs;
+  S_KernelProcess process;
+  S_FDTable* pTable;
+  E_Return retCode;
+  int32_t fdId;
+  S_KernelQueueNode* pNode;
+  S_FileDescriptor* pInternalFD;
+
+  pCreateFD = (T_CreateFD)pArgs;
+
+  memset(&process, 0, sizeof(process));
+  retCode = CreateProcessFDTable(&process);
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_CREATE(0),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+
+  pTable = (S_FDTable*)process.pFileDescriptorTable;
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_CREATE(1),
+                            pTable != NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pTable,
+                            TEST_VFS_ENABLED);
+
+  fdId = pCreateFD(pTable,
+                   &driver0,
+                   (void*)0x12345678,
+                   "/test/file.txt",
+                   0x5A,
+                   0x3C);
+  TEST_POINT_ASSERT_INT(TEST_VFS_FD_CREATE(2),
+                        fdId == 0,
+                        0,
+                        fdId,
+                        TEST_VFS_ENABLED);
+
+  retCode = VectorGet(pTable->pFDTable, (size_t)fdId, (void**)&pNode);
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_CREATE(3),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_CREATE(4),
+                            pNode != NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pNode,
+                            TEST_VFS_ENABLED);
+
+  pInternalFD = (S_FileDescriptor*)pNode->pData;
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_FD_CREATE(5),
+                           pInternalFD->tableId == (uint32_t)fdId,
+                           fdId,
+                           pInternalFD->tableId,
+                           TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_CREATE(6),
+                            pInternalFD->pShared != NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pInternalFD->pShared,
+                            TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_FD_CREATE(7),
+                           pInternalFD->openFlags == 0x5A,
+                           0x5A,
+                           pInternalFD->openFlags,
+                           TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_FD_CREATE(8),
+                           pInternalFD->openMode == 0x3C,
+                           0x3C,
+                           pInternalFD->openMode,
+                           TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_CREATE(9),
+                            pInternalFD->pShared->pDriver == &driver0,
+                            (uintptr_t)&driver0,
+                            (uintptr_t)pInternalFD->pShared->pDriver,
+                            TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_CREATE(10),
+                            pInternalFD->pShared->pFileHandle ==
+                            (void*)0x12345678,
+                            (uintptr_t)0x12345678,
+                            (uintptr_t)pInternalFD->pShared->pFileHandle,
+                            TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_INT(TEST_VFS_FD_CREATE(11),
+                        strcmp(pInternalFD->pShared->pFilePath,
+                               "/test/file.txt") == 0,
+                        0,
+                        strcmp(pInternalFD->pShared->pFilePath,
+                               "/test/file.txt"),
+                        TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(TEST_VFS_FD_CREATE(12),
+                           pInternalFD->pShared->refCount == 1,
+                           1,
+                           pInternalFD->pShared->refCount,
+                           TEST_VFS_ENABLED);
+
+  DestroyProcessFDTable(&process);
 }
 
 void VFSDestroyFDTest(void* pArgs)
 {
-  /* TODO */
-  (void)pArgs;
-}
+  T_DestroyFD pDestroyFD = (T_DestroyFD)pArgs;
+  S_KernelProcess process;
+  S_FDTable* pTable;
+  E_Return retCode;
+  int32_t fdId;
+  S_KernelQueueNode* pNode;
+  S_FileDescriptor* pInternalFD;
 
-void VFSGenericTest(void* pArgs)
-{
-  /* TODO */
-  (void)pArgs;
+  memset(&process, 0, sizeof(process));
+  retCode = CreateProcessFDTable(&process);
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_DESTROY(0),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+
+  pTable = (S_FDTable*)process.pFileDescriptorTable;
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_DESTROY(1),
+                            pTable != NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pTable,
+                            TEST_VFS_ENABLED);
+
+  fdId = (pCreateFD)(pTable,
+                             &driver1,
+                             (void*)0xAABBCCDD,
+                             "/destroy/test",
+                             0x11,
+                             0x22);
+  TEST_POINT_ASSERT_INT(TEST_VFS_FD_DESTROY(2),
+                        fdId == 0,
+                        0,
+                        fdId,
+                        TEST_VFS_ENABLED);
+
+  pDestroyFD(pTable, fdId);
+
+  retCode = VectorGet(pTable->pFDTable, (size_t)fdId, (void**)&pNode);
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_DESTROY(3),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_DESTROY(4),
+                            pNode == NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pNode,
+                            TEST_VFS_ENABLED);
+
+  fdId = (pCreateFD)(pTable,
+                             &driver2,
+                             (void*)0x11223344,
+                             "/destroy/again",
+                             0x33,
+                             0x44);
+  TEST_POINT_ASSERT_INT(TEST_VFS_FD_DESTROY(5),
+                        fdId == 1,
+                        1,
+                        fdId,
+                        TEST_VFS_ENABLED);
+
+  retCode = VectorGet(pTable->pFDTable, (size_t)fdId, (void**)&pNode);
+  TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_DESTROY(6),
+                          retCode == NO_ERROR,
+                          NO_ERROR,
+                          retCode,
+                          TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_DESTROY(7),
+                            pNode != NULL,
+                            (uintptr_t)NULL,
+                            (uintptr_t)pNode,
+                            TEST_VFS_ENABLED);
+
+  pInternalFD = (S_FileDescriptor*)pNode->pData;
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_DESTROY(8),
+                            pInternalFD->pShared->pDriver == &driver2,
+                            (uintptr_t)&driver2,
+                            (uintptr_t)pInternalFD->pShared->pDriver,
+                            TEST_VFS_ENABLED);
+  TEST_POINT_ASSERT_INT(TEST_VFS_FD_DESTROY(9),
+                        strcmp(pInternalFD->pShared->pFilePath,
+                               "/destroy/again") == 0,
+                        0,
+                        strcmp(pInternalFD->pShared->pFilePath,
+                               "/destroy/again"),
+                        TEST_VFS_ENABLED);
+
+  DestroyProcessFDTable(&process);
 }
 
 void VirtualFSTest(void)
@@ -2117,10 +2907,12 @@ void VirtualFSTest(void)
   _TestVFSIOCTL();
   _TestVFSMount();
   _TestVFSUnmount();
-  (void)_DummyMount;
-  (void)_DummyUnmount;
   TEST_FRAMEWORK_END();
 }
+
+VFS_REG_FS(driver0);
+VFS_REG_FS(driver1);
+VFS_REG_FS(driver2);
 
 #endif /* #ifdef _TESTING_FRAMEWORK_ENABLED */
 

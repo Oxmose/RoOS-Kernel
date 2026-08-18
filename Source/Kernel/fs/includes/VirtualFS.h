@@ -365,12 +365,12 @@ T_VFSDriver RegisterVFSDriver(const char*  kpPath,
  * @details Unregisters a registered VFS driver using its handle. The handle was
  * returned when registering the driver.
  *
- * @param[out] pDriver The pointer to the VFS driver handle. When successfully
+ * @param[out] driver The VFS driver handle. When successfully
  * unregistered, the pointer handle is set to VFS_DRIVER_INVALID.
  *
  * @return The function returns the success or error state.
  */
-E_Return UnregisterDriver(T_VFSDriver* pDriver);
+E_Return UnregisterDriver(T_VFSDriver driver);
 
 /**
  * @brief Opens and possibly create a file.
