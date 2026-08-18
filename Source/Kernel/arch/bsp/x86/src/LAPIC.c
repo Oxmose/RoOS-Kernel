@@ -199,6 +199,9 @@
 /** @brief Delay between two STARTUP IPI in NS (200us) */
 #define LAPIC_CPU_STARTUP_DELAY_NS 200000
 
+/** @brief Delay between the STARTUP IPI and waiting for the core to be booted. */
+#define LAPIC_CPU_STARTUP_WAIT_DELAY_NS 10000000
+
 /** @brief Defines the LAPIC memory size */
 #define LAPIC_MEMORY_SIZE 0x3F4
 
@@ -728,6 +731,8 @@ static void _StartCpu(const uint8_t kLAPICId)
     }
     ++tryCount;
   } while (tryCount < 5);
+
+  TimeWaitNoScheduler(LAPIC_CPU_STARTUP_WAIT_DELAY_NS);
 
   LAPIC_ASSERT(oldBootedCpuCount != _bootedCPUCount,
                "Failed to start CPU",

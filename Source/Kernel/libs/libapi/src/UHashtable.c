@@ -292,7 +292,7 @@ static E_Return _UHashtableRehash(S_UHashtable* pTable, const float kGrowth)
     /* Create a new entry table */
     ppNewEnt = pTable->allocator.pMalloc(sizeof(S_UHashtableEntry*) *
                                          newCapacity);
-    if (ppNewEnt == NULL)
+    if (ppNewEnt != NULL)
     {
       memset(ppNewEnt, 0, sizeof(S_UHashtableEntry*) * newCapacity);
       pTable->capacity  = newCapacity;

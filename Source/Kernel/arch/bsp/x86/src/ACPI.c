@@ -22,6 +22,7 @@
 /* Included headers */
 #include <CPU.h>
 #include <Panic.h>
+#include <X64Cpu.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -806,6 +807,11 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   retCode = DriverManagerSetDeviceData(pkFdtNode, &sAPIDriver);
   ACPI_ASSERT(retCode == NO_ERROR, "Failed to register ACPI", retCode);
 
+  /* Update the CPU count */
+  CPUSetCount(sAPIDriver.pGetLAPICCount());
+
+  KERNEL_INFO("ACPI Driver Initialized\n");
+
   return NO_ERROR;
 }
 
@@ -936,10 +942,16 @@ static void _ParseRSDP(const S_RSDPDescriptor* kpRsdpDesc)
   /* ACPI version check */
   if (kpRsdpDesc->revision == 0)
   {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "ACPI Revision 0 Detected");
     _ParseRSDPRevision0(kpRsdpDesc);
   }
   else if (kpRsdpDesc->revision == 2)
   {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "ACPI Revision 2 Detected");
     _ParseRSDPRevision2(kpRsdpDesc);
   }
 }
@@ -1125,6 +1137,11 @@ static void _ParseFADT(const S_FADT* kpFadtPtr)
               "Tried to parse a NULL FADT",
               ERR_INVALID_PARAMETER);
 
+  KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "ACPI FADT at %xP",
+               kpFadtPtr);
+
   /* Verify checksum */
   sum = 0;
   for (i = 0; i < kpFadtPtr->header.length; ++i)
@@ -1141,7 +1158,6 @@ static void _ParseFADT(const S_FADT* kpFadtPtr)
 static void _ParseMADT(const S_MADT* kpMadtPtr)
 {
   int32_t                  sum;
-  uint32_t                 maxCpuCount;
   uint32_t                 i;
   uintptr_t                madtEntry;
   uintptr_t                madtLimit;
@@ -1164,6 +1180,11 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
     sum += ((uint8_t*)kpMadtPtr)[i];
   }
 
+  KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "ACPI MADT at %xP",
+               kpMadtPtr);
+
   ACPI_ASSERT((sum & 0xFF) == 0, "APIC checksum failed", ERR_INVALID_VALUE);
   ACPI_ASSERT(*((uint32_t*)kpMadtPtr->header.pSignature) == ACPI_APIC_SIG,
               "Invalid APIC signature",
@@ -1171,8 +1192,6 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
 
   madtEntry = (uintptr_t)(kpMadtPtr + 1);
   madtLimit = ((uintptr_t)kpMadtPtr) + kpMadtPtr->header.length;
-
-  maxCpuCount = CPUGetCount();
 
   /* Get the LAPIC address */
   sDrvCtrl.localApicAddress = kpMadtPtr->localApicAddr;
@@ -1185,25 +1204,31 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
     /* Check entry type */
     if (pHeader->type == APIC_TYPE_LOCAL_APIC)
     {
-      if (sDrvCtrl.detectedCPUCount < maxCpuCount)
-      {
-        /* Create new LAPIC node */
-        pLAPICNode = KMalloc(sizeof(S_LAPICNode),
-                             ALIGN_ADDRESS,
-                             KMALLOC_NO_FREE_POOL);
+      KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                   MODULE_NAME,
+                   "    Local APIC CPU %d",
+                   sDrvCtrl.detectedCPUCount);
 
-        /* Fill the descriptor */
-        pLAPICNode->lapic.lapicId = ((S_LAPIC*)madtEntry)->lapicId;
-        pLAPICNode->lapic.cpuId   = ((S_LAPIC*)madtEntry)->cpuId;
-        pLAPICNode->lapic.flags   = ((S_LAPIC*)madtEntry)->flags;
+      /* Create new LAPIC node */
+      pLAPICNode = KMalloc(sizeof(S_LAPICNode),
+                            ALIGN_ADDRESS,
+                            KMALLOC_NO_FREE_POOL);
 
-        /* Link the node */
-        ADD_TO_LIST(sDrvCtrl.pLAPICList, pLAPICListCursor, pLAPICNode);
-        ++sDrvCtrl.detectedCPUCount;
-      }
+      /* Fill the descriptor */
+      pLAPICNode->lapic.lapicId = ((S_LAPIC*)madtEntry)->lapicId;
+      pLAPICNode->lapic.cpuId   = ((S_LAPIC*)madtEntry)->cpuId;
+      pLAPICNode->lapic.flags   = ((S_LAPIC*)madtEntry)->flags;
+
+      /* Link the node */
+      ADD_TO_LIST(sDrvCtrl.pLAPICList, pLAPICListCursor, pLAPICNode);
+      ++sDrvCtrl.detectedCPUCount;
     }
     else if (pHeader->type == APIC_TYPE_IO_APIC)
     {
+      KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                   MODULE_NAME,
+                   "    IO-APIC");
+
       /* Create new IO APIC node */
       pIOApicNode = KMalloc(sizeof(S_IOAPICNode),
                             ALIGN_ADDRESS,
@@ -1241,6 +1266,12 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
                   pIntOverrideListCursor,
                   pIntOverrideNode);
       ++sDrvCtrl.detectedIntOverrideCount;
+
+      KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                   MODULE_NAME,
+                   "    Interrupt Override %d => %d",
+                   pIntOverrideNode->intOverride.source,
+                   pIntOverrideNode->intOverride.interrupt);
     }
     madtEntry += pHeader->length;
   }
@@ -1261,6 +1292,11 @@ static void _ParseHPET(const S_ACPIHPETDescriptor* kpHpetPtr)
   {
     sum += ((uint8_t*)kpHpetPtr)[i];
   }
+
+  KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "ACPI HPET at %xP",
+               kpHpetPtr);
 
   ACPI_ASSERT((sum & 0xFF) == 0, "HPET Checksum failed", ERR_INVALID_VALUE);
   ACPI_ASSERT(*((uint32_t*)kpHpetPtr->header.pSignature) == ACPI_HPET_SIG,

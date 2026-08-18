@@ -28,12 +28,12 @@ MEMORY
     KERNEL_RW_DATA      (rw) :   ORIGIN = 0xFFFFFFFF80181000,    LENGTH = 64K
 
     /* 1 page / frame left blank to catch overflow */
-    KERNEL_STACKS       (rw) :   ORIGIN = 0xFFFFFFFF80192000,    LENGTH = 32K
+    KERNEL_STACKS       (rw) :   ORIGIN = 0xFFFFFFFF80192000,    LENGTH = 128K
     /* 1 page / frame left blank to catch overflow */
-    KERNEL_NON_FREE_HEAP(rw) :   ORIGIN = 0xFFFFFFFF8019B000,    LENGTH = 64K
-    KERNEL_HEAP         (rw) :   ORIGIN = 0xFFFFFFFF801AB000,    LENGTH = 256K
+    KERNEL_NON_FREE_HEAP(rw) :   ORIGIN = 0xFFFFFFFF801B2000,    LENGTH = 512K
+    KERNEL_HEAP         (rw) :   ORIGIN = 0xFFFFFFFF80232000,    LENGTH = 512K
     /* 1 page / frame left blank to catch overflow */
-    KERNEL_END_PAGE     (r)  :   ORIGIN = 0xFFFFFFFF801EB000,    LENGTH = 1K
+    KERNEL_END_PAGE     (r)  :   ORIGIN = 0xFFFFFFFF802B2000,    LENGTH = 1K
 
     KERNEL_TEST_BUFFER  (rw) :   ORIGIN = 0xFFFFFFFF803BD000,    LENGTH = 256K
     KERNEL_RAMDISK      (rw) :   ORIGIN = 0xFFFFFFFF803FD000,    LENGTH = 128K
