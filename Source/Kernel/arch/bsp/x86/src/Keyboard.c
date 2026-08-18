@@ -25,6 +25,7 @@
 #include <Panic.h>
 #include <X64Cpu.h>
 #include <stdint.h>
+#include <string.h>
 #include <stddef.h>
 #include <VirtualFS.h>
 #include <DeviceTree.h>
@@ -611,7 +612,7 @@ static bool _KeyboardInterruptHandler(void)
                            sInputCtrl.inputBufferEndCursor;
         }
 
-        if (availableSpace > 0)
+        if (availableSpace > 1)
         {
           /* Read the data */
           sInputCtrl.pInputBuffer[sInputCtrl.inputBufferEndCursor] = data;
@@ -623,11 +624,20 @@ static bool _KeyboardInterruptHandler(void)
 
         KERNEL_UNLOCK(sInputCtrl.bufferLock);
 
-        /* Post the semaphore */
-        error = KernelSemaphorePost(&sInputCtrl.inputBufferSem);
-        KBD_ASSERT(error == NO_ERROR,
-                  "Failed to post keyboard semaphore",
-                  error);
+        if (availableSpace > 1)
+        {
+          /* Post the semaphore */
+          error = KernelSemaphorePost(&sInputCtrl.inputBufferSem);
+          KBD_ASSERT(error == NO_ERROR,
+                    "Failed to post keyboard semaphore",
+                    error);
+        }
+
+        schedule = true;
+      }
+      else
+      {
+        schedule = false;
       }
     }
     else
@@ -656,6 +666,7 @@ static ssize_t _KeyboardRead(void*        pDrvCtrl,
 
   if (sKeyboardInitialized == true)
   {
+    readBytes = 0;
     toRead = kBufferSize;
     while (toRead != 0)
     {
@@ -693,6 +704,7 @@ static ssize_t _KeyboardRead(void*        pDrvCtrl,
             KBD_INPUT_BUFFER_SIZE;
       }
 
+      readBytes += bytesToRead;
       toRead -= bytesToRead;
       usedSpace -= bytesToRead;
 
