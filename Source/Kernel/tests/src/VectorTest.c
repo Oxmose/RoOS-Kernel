@@ -115,7 +115,7 @@ void VectorTest(void)
                             (uint64_t)vector->capacity,
                             TEST_OS_VECTOR_ENABLED);
 
-  for(i = 0; i < 20; ++i)
+  for (i = 0; i < 20; ++i)
   {
       err = VectorPush(vector, (void*)i);
       TEST_POINT_ASSERT_RCODE(TEST_VECTOR_PUSHBURST_ID(i * 2),
@@ -141,7 +141,7 @@ void VectorTest(void)
                             (uint64_t)vector->capacity,
                             TEST_OS_VECTOR_ENABLED);
 
-  for(i = 0; i < vector->size; ++i)
+  for (i = 0; i < vector->size; ++i)
   {
       VectorGet(vector, i, (void**)&data);
       TEST_POINT_ASSERT_RCODE(TEST_VECTOR_GETBURST_ID(i * 2),
@@ -156,7 +156,7 @@ void VectorTest(void)
                                 TEST_OS_VECTOR_ENABLED);
   }
 
-  for(i = 0; i < 30; i += 2)
+  for (i = 0; i < 30; i += 2)
   {
       err = VectorInsert(vector, (void*)(i + 100), i);
       TEST_POINT_ASSERT_RCODE(TEST_VECTOR_INSERTBURST_ID(i * 2),
@@ -182,11 +182,11 @@ void VectorTest(void)
                             (uint64_t)vector->capacity,
                             TEST_OS_VECTOR_ENABLED);
 
-  for(i = 0; i < vector->size; ++i)
+  for (i = 0; i < vector->size; ++i)
   {
       VectorGet(vector, i, (void**)&data);
 
-      if(i < 30)
+      if (i < 30)
       {
           data2 = (i % 2 ? i / 2 : i + 100);
       }
@@ -221,7 +221,7 @@ void VectorTest(void)
                             (uint64_t)vector->capacity,
                             TEST_OS_VECTOR_ENABLED);
 
-  for(i = 0; i < 6; i++)
+  for (i = 0; i < 6; i++)
   {
       data2 = 19 - i;
 
@@ -248,9 +248,9 @@ void VectorTest(void)
                             (uint64_t)vector->capacity,
                             TEST_OS_VECTOR_ENABLED);
 
-  for(i = 0; i < vector->size; ++i)
+  for (i = 0; i < vector->size; ++i)
   {
-      if(i < 35)
+      if (i < 35)
       {
           data2 = (i % 2 ? (i / 2) : i + 100);
       }
@@ -284,7 +284,7 @@ void VectorTest(void)
                             (uint64_t)vector->capacity,
                             TEST_OS_VECTOR_ENABLED);
 
-  for(i = 0; i < vector->size; i++)
+  for (i = 0; i < vector->size; i++)
   {
       err = VectorSet(vector, i, (void*)i);
       TEST_POINT_ASSERT_RCODE(TEST_VECTOR_SETBURST_ID(i * 2),
@@ -299,7 +299,7 @@ void VectorTest(void)
                                 TEST_OS_VECTOR_ENABLED);
   }
 
-  for(i = 0; i < vector->size; ++i)
+  for (i = 0; i < vector->size; ++i)
   {
       VectorGet(vector, i, (void**)&data);
       TEST_POINT_ASSERT_RCODE(TEST_VECTOR_GETBURST_ID(i * 2 + 400),
@@ -342,7 +342,7 @@ void VectorTest(void)
                             (uint64_t)vector->capacity,
                             TEST_OS_VECTOR_ENABLED);
 
-  for(i = 0; i < vector->size; ++i)
+  for (i = 0; i < vector->size; ++i)
   {
       VectorGet(vector, i, (void**)&data);
       TEST_POINT_ASSERT_RCODE(TEST_VECTOR_GETBURST_ID(i * 2 + 500),
@@ -374,7 +374,7 @@ void VectorTest(void)
                             (uint64_t)vector->capacity,
                             TEST_OS_VECTOR_ENABLED);
 
-  for(i = 0; i < 20; ++i)
+  for (i = 0; i < 20; ++i)
   {
       VectorGet(vector, i, (void**)&data);
       TEST_POINT_ASSERT_RCODE(TEST_VECTOR_GETBURST_ID(i * 2 + 600),
@@ -423,7 +423,7 @@ void VectorTest(void)
                             (uint64_t)vector->capacity,
                             TEST_OS_VECTOR_ENABLED);
 
-  for(i = 0; i < vector->size; ++i)
+  for (i = 0; i < vector->size; ++i)
   {
       VectorGet(vector, i, (void**)&data);
       TEST_POINT_ASSERT_RCODE(TEST_VECTOR_GETBURST_ID(i * 2 + 700),
@@ -450,7 +450,7 @@ void VectorTest(void)
                             (uint64_t)(uintptr_t)vector_cpy,
                             TEST_OS_VECTOR_ENABLED);
 
-  for(i = 0; i < vector->size; ++i)
+  for (i = 0; i < vector->size; ++i)
   {
       err = VectorGet(vector, i, (void**)&data);
       TEST_POINT_ASSERT_RCODE(TEST_VECTOR_GETBURST_ID(i * 4 + 800),

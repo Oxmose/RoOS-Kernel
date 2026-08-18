@@ -966,6 +966,39 @@ void SchedulerSetCurrentThreadErrored(void)
   KERNEL_EXIT_CRITICAL_LOCAL(intState);
 }
 
+void SchedulerSetCurrentThreadToWaiting(void)
+{
+  uint32_t        intState;
+  S_KernelThread* pThread;
+
+  pThread = SchedulerGetCurrentThread();
+
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  if (pThread->currentState != THREAD_STATE_WAITING)
+  {
+    pThread->previousState = pThread->currentState;
+    pThread->currentState  = THREAD_STATE_WAITING;
+  }
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
+}
+
+void SchedulerSetThreadToReady(S_KernelThread* pThread)
+{
+  S_ScheduleContext* pContext;
+
+  KERNEL_LOCK(pThread->lock);
+
+  pContext = _SelectNextContext(pThread);
+  _SetThreadToReady(pContext, pThread);
+
+  KERNEL_UNLOCK(pThread->lock);
+}
+
+void SchedulerSetThreadPriority(S_KernelThread* pThread, const uint32_t kPriority)
+{
+  pThread->priority = kPriority;
+}
+
 bool SchedulerIsInitialized(void)
 {
   return sIsInit;

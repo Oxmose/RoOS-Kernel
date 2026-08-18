@@ -128,20 +128,20 @@ void _WalkNodes(const S_FDTNode* pkNode, const uint8_t kLevel)
   uint8_t i;
   const S_FDTProperty* pProp;
 
-  if(pkNode == NULL)
+  if (pkNode == NULL)
   {
     return;
   }
 
-  for(i = 0; i < kLevel; ++i)
+  for (i = 0; i < kLevel; ++i)
   {
     KPrintf("  ");
   }
   KPrintf("-> %s\n", pkNode->pName);
   pProp = FDTGetFirstProp(pkNode);
-  while(pProp != NULL)
+  while (pProp != NULL)
   {
-    for(i = 0; i < kLevel; ++i)
+    for (i = 0; i < kLevel; ++i)
     {
       KPrintf("  ");
     }

@@ -540,13 +540,13 @@ static void* _VFSOpen(void*       pDrvCtrl,
   (void)mode;
 
   /* The path must be empty */
-  if(*kpPath != 0)
+  if (*kpPath != 0)
   {
     return (void*)-1;
   }
 
   /* The flags must be O_RDWR */
-  if(flags != O_RDWR)
+  if (flags != O_RDWR)
   {
     return (void*)-1;
   }
@@ -559,7 +559,7 @@ static int32_t _VFSClose(void* pDrvCtrl, void* pHandle)
 {
   (void)pDrvCtrl;
 
-  if(pHandle == (void*)-1)
+  if (pHandle == (void*)-1)
   {
     return -1;
   }
@@ -576,7 +576,7 @@ static ssize_t _VFSWrite(void*       pDrvCtrl,
   const char* pCursor;
   size_t      coutSave;
 
-  if(pHandle == (void*)-1)
+  if (pHandle == (void*)-1)
   {
     return -1;
   }
@@ -585,7 +585,7 @@ static ssize_t _VFSWrite(void*       pDrvCtrl,
 
   /* Output each character of the string */
   coutSave = count;
-  while(pCursor != NULL && *pCursor != 0 && count > 0)
+  while (pCursor != NULL && *pCursor != 0 && count > 0)
   {
     _UartWrite(GET_CONTROLER(pDrvCtrl)->cpuCommPort, *pCursor);
     ++pCursor;
@@ -604,7 +604,7 @@ static ssize_t _VFSRead(void*  pDrvCtrl,
   (void)pBuffer;
   (void)count;
 
-  if(pHandle == (void*)-1)
+  if (pHandle == (void*)-1)
   {
     return -1;
   }

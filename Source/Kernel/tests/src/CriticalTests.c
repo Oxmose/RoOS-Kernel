@@ -96,11 +96,11 @@ static void* _CriticalLocalRoutine(void* args)
   uint64_t save;
   uint32_t intState;
 
-  for(i = 0; i < 1000000; ++i)
+  for (i = 0; i < 1000000; ++i)
   {
     KERNEL_ENTER_CRITICAL_LOCAL(intState);
     save = criticalValueTest;
-    for(j = 0; j < 100; ++j);
+    for (j = 0; j < 100; ++j);
     criticalValueTest = save + 1;
     KERNEL_EXIT_CRITICAL_LOCAL(intState);
   }
@@ -115,11 +115,11 @@ static void* _CriticalGlobalRoutine0(void* args)
   volatile uint32_t j;
   uint64_t save;
 
-  for(i = 0; i < 1000000; ++i)
+  for (i = 0; i < 1000000; ++i)
   {
     KERNEL_LOCK(lock);
     save = criticalValueTest;
-    for(j = 0; j < 100; ++j);
+    for (j = 0; j < 100; ++j);
     criticalValueTest = save + 1;
     KERNEL_UNLOCK(lock);
   }
@@ -134,11 +134,11 @@ static void* _CriticalGlobalRoutine1(void* args)
   volatile uint32_t j;
   uint64_t save;
 
-  for(i = 0; i < 1000000; ++i)
+  for (i = 0; i < 1000000; ++i)
   {
     KernelLock(&lock);
     save = criticalValueTest;
-    for(j = 0; j < 100; ++j);
+    for (j = 0; j < 100; ++j);
     criticalValueTest = save + 1;
     KernelUnlock(&lock);
   }
@@ -154,11 +154,11 @@ static void* _SpinlockTestRoutine(void* args)
   uint64_t save;
 
 
-  for(i = 0; i < 1000000; ++i)
+  for (i = 0; i < 1000000; ++i)
   {
     SpinlockAcquire(&spinlock);
     save = lockValueTest;
-    for(j = 0; j < 100; ++j);
+    for (j = 0; j < 100; ++j);
     lockValueTest = save + 1;
     SpinlockRelease(&spinlock);
   }
@@ -171,7 +171,7 @@ static void* _AtomicIncRoutine(void* args)
   (void)args;
   uint32_t i;
 
-  for(i = 0; i < 1000000; ++i)
+  for (i = 0; i < 1000000; ++i)
   {
     AtomicIncrement32(&incValueTest);
   }
@@ -184,7 +184,7 @@ static void* _AtomicDecRoutine(void* args)
   (void)args;
   uint32_t i;
 
-  for(i = 0; i < 1000000; ++i)
+  for (i = 0; i < 1000000; ++i)
   {
     AtomicDecrement32(&decValueTest);
   }
@@ -207,7 +207,7 @@ static void _TestLocal(void)
   criticalValueTest = 0;
 
   error = NO_ERROR;
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
     error = CreateThread(&pThreads[i],
                          true,
@@ -225,7 +225,7 @@ static void _TestLocal(void)
                             TEST_CRITICAL_ENABLED);
   }
 
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
       error = JoinThread(pThreads[i], &retVal);
 
@@ -266,7 +266,7 @@ static void _TestGlobal(void)
   criticalValueTest = 0;
 
   error = NO_ERROR;
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
     error = CreateThread(&pThreads[i],
                          true,
@@ -284,7 +284,7 @@ static void _TestGlobal(void)
                             TEST_CRITICAL_ENABLED);
   }
 
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
       error = JoinThread(pThreads[i], &retVal);
 
@@ -325,7 +325,7 @@ static void _TestGlobalSecond(void)
   criticalValueTest = 0;
 
   error = NO_ERROR;
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
     error = CreateThread(&pThreads[i],
                          true,
@@ -343,7 +343,7 @@ static void _TestGlobalSecond(void)
                             TEST_CRITICAL_ENABLED);
   }
 
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
       error = JoinThread(pThreads[i], &retVal);
 
@@ -378,7 +378,7 @@ static void _TestSpinlock(void)
   lockValueTest = 0;
   error = NO_ERROR;
 
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
     CPU_MASK_RESET(cpuMask);
     CPU_MASK_SET(cpuMask, i % CPUGetCount());
@@ -398,7 +398,7 @@ static void _TestSpinlock(void)
                             TEST_CRITICAL_ENABLED);
   }
 
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
     error = JoinThread(pThreads[i], &retVal);
 
@@ -428,7 +428,7 @@ static void _TestIncrement(void)
   incValueTest = 0;
   error = NO_ERROR;
 
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
     CPU_MASK_RESET(cpuMask);
     CPU_MASK_SET(cpuMask, i % CPUGetCount());
@@ -448,7 +448,7 @@ static void _TestIncrement(void)
                             TEST_CRITICAL_ENABLED);
   }
 
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
     error = JoinThread(pThreads[i], &retVal);
 
@@ -478,7 +478,7 @@ static void _TestDecrement(void)
   decValueTest = 20 * 1000000;
   error = NO_ERROR;
 
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
     CPU_MASK_RESET(cpuMask);
     CPU_MASK_SET(cpuMask, i % CPUGetCount());
@@ -498,7 +498,7 @@ static void _TestDecrement(void)
                             TEST_CRITICAL_ENABLED);
   }
 
-  for(i = 0; i < 20 && error == NO_ERROR; ++i)
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
   {
     error = JoinThread(pThreads[i], &retVal);
 

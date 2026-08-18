@@ -925,11 +925,11 @@ static void* _DisplayRoutine(void* pArgs)
     do
     {
       traceStatus = CPUPortReadByte(VGA_CONSOLE_CURSOR_SYNC);
-    } while(traceStatus != 0);
+    } while (traceStatus != 0);
     do
     {
       traceStatus = CPUPortReadByte(VGA_CONSOLE_CURSOR_SYNC);
-    } while(traceStatus == 0);
+    } while (traceStatus == 0);
 
     _Flush();
 
@@ -962,7 +962,7 @@ static inline void _FastFill(uintptr_t      bufferAddr,
   pDestPtr = (char*)bufferAddr;
 
   /* First unaligned */
-  while(((uintptr_t)pDestPtr & 0xF) != 0 && pixelCount > 0)
+  while (((uintptr_t)pDestPtr & 0xF) != 0 && pixelCount > 0)
   {
       *(uint32_t*)pDestPtr = *(uint32_t*)replicateValue;
       pDestPtr += sizeof(uint32_t);
@@ -971,7 +971,7 @@ static inline void _FastFill(uintptr_t      bufferAddr,
 
   sseSize = pixelCount / 4;
 
-  if(sseSize > 0)
+  if (sseSize > 0)
   {
     /* Aligned */
     __asm__ __volatile__ ("movups (%0), %%xmm7\n\t"
@@ -1030,7 +1030,7 @@ static inline void _FastFill(uintptr_t      bufferAddr,
   }
 
   /* Last unaligned */
-  while(pixelCount > 0)
+  while (pixelCount > 0)
   {
     *(uint32_t*)pDestPtr = *(uint32_t*)replicateValue;
     pDestPtr += sizeof(uint32_t);
@@ -1177,10 +1177,10 @@ static void* _VFSOpen(void*       pDrvCtrl,
   (void)mode;
 
   /* The path must be empty */
-  if((*kpPath == VFS_PATH_DELIMITER && *(kpPath + 1) == 0) || *kpPath == 0)
+  if ((*kpPath == VFS_PATH_DELIMITER && *(kpPath + 1) == 0) || *kpPath == 0)
   {
     /* The flags must be O_RDWR */
-    if(flags == O_RDWR)
+    if (flags == O_RDWR)
     {
       /* We don't need a handle, return NULL */
       retVal = NULL;
@@ -1204,7 +1204,7 @@ static int32_t _VFSClose(void* pDrvCtrl, void* pHandle)
 
   (void)pDrvCtrl;
 
-  if(pHandle != (void*)-1)
+  if (pHandle != (void*)-1)
   {
     retVal = 0;
   }
@@ -1227,13 +1227,13 @@ static ssize_t _VFSWrite(void*       pDrvCtrl,
 
   (void)pDrvCtrl;
 
-  if(pHandle != (void*)-1)
+  if (pHandle != (void*)-1)
   {
     kpCharBuffer = kpBuffer;
 
     /* Output each character of the string */
     coutSave = count;
-    while(kpCharBuffer != NULL && *kpCharBuffer != 0 && count > 0)
+    while (kpCharBuffer != NULL && *kpCharBuffer != 0 && count > 0)
     {
       _ProcessChar(*kpCharBuffer);
       ++kpCharBuffer;
@@ -1259,7 +1259,7 @@ static ssize_t _VFSIOCTL(void*    pDriverData,
 
   (void)pDriverData;
 
-  if(pHandle != (void*)-1)
+  if (pHandle != (void*)-1)
   {
     /* Switch on the operation */
     retVal = 0;

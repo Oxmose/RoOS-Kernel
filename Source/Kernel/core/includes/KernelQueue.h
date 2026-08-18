@@ -68,7 +68,7 @@ typedef struct
   S_KernelQueueNode* pTail;
 
   /** @brief Current queue's size. */
-  size_t size;
+  volatile size_t size;
 
   /** @brief Queue's allocation pool. */
   E_KMallocPool allocPool;

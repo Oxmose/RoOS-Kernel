@@ -139,6 +139,11 @@ S_KernelProcess* SchedulerGetCurrentProcess(void);
  */
 void SchedulerSetCurrentThreadErrored(void);
 
+/* TODO Document */
+void SchedulerSetCurrentThreadToWaiting(void);
+void SchedulerSetThreadToReady(S_KernelThread* pThread);
+void SchedulerSetThreadPriority(S_KernelThread* pThread, const uint32_t kPriority);
+
 /**
  * @brief Tells if the scheduler has been initialized.
  *
