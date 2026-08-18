@@ -211,7 +211,7 @@ static void _ShellMount(const char* args)
 
   lastCpy   = 0;
   copyIndex = 0;
-  length    = strlen(args);
+  length    = strnlen(args, SHELL_INPUT_BUFFER_SIZE);
   for(i = 0; i < length; ++i)
   {
     if(args[i] == ' ')
@@ -347,7 +347,7 @@ static void _ShellDisplayThreads(const char* args)
               threadInfo.pid,
               threadInfo.tid,
               threadInfo.pName);
-      for(j = 0; j < THREAD_NAME_MAX_LENGTH - strlen(threadInfo.pName) - 1; ++j)
+      for(j = 0; j < THREAD_NAME_MAX_LENGTH - strnlen(threadInfo.pName, THREAD_NAME_MAX_LENGTH) - 1; ++j)
       {
         KPrintf(" ");
       }
