@@ -717,18 +717,14 @@ static void _ProcessChar(const char kCharacter)
     /* Manage end of line cursor position */
     if ((uint8_t)sVGADriverCtrl.screenCursor.x > sVGADriverCtrl.columnCount - 1)
     {
-      _SetCursor(sVGADriverCtrl.screenCursor.y + 1, 0);
+      sVGADriverCtrl.screenCursor.x = 0;
+      ++sVGADriverCtrl.screenCursor.y;
     }
 
     /* Manage end of screen cursor position */
     if ((uint8_t)sVGADriverCtrl.screenCursor.y >= sVGADriverCtrl.lineCount)
     {
       _Scroll(SCROLL_DOWN, 1);
-    }
-    else
-    {
-      /* Move cursor */
-      _SetCursor(sVGADriverCtrl.screenCursor.y, sVGADriverCtrl.screenCursor.x);
     }
 
     /* Display character and move cursor */
@@ -856,9 +852,9 @@ static void _Scroll(const E_ScrollDirection kDirection, const uint32_t kLines)
       /* Copy all the lines to the above one */
       for (i = 0; i < sVGADriverCtrl.lineCount - 1; ++i)
       {
-          memmove(GET_FRAME_BUFFER_AT(i, 0),
-                  GET_FRAME_BUFFER_AT(i + 1, 0),
-                  sizeof(uint16_t) * sVGADriverCtrl.columnCount);
+        memmove(GET_FRAME_BUFFER_AT(i, 0),
+                GET_FRAME_BUFFER_AT(i + 1, 0),
+                sizeof(uint16_t) * sVGADriverCtrl.columnCount);
       }
     }
     /* Clear last line */
@@ -888,6 +884,7 @@ static void _GetScheme(S_ColorScheme* pBuffer)
 static void _Flush(void)
 {
   uint16_t cursorPosition;
+  uint16_t *frameBufferPtr;
 
   if (sVGADriverCtrl.pFramebuffer != sVGADriverCtrl.pInternalBuffer)
   {
@@ -897,10 +894,14 @@ static void _Flush(void)
                 sVGADriverCtrl.framebufferSize);
     KERNEL_UNLOCK(sVGADriverCtrl.bufferLock);
   }
+
   /* Display new position on screen */
   cursorPosition = sVGADriverCtrl.screenCursor.x +
                    sVGADriverCtrl.screenCursor.y * sVGADriverCtrl.columnCount;
 
+  frameBufferPtr = GET_FRAME_BUFFER_AT(sVGADriverCtrl.screenCursor.y,
+                                       sVGADriverCtrl.screenCursor.x);
+  *frameBufferPtr = ' ' |((FG_WHITE | BG_BLACK) << 8);
   /* Send low part to the screen */
   CPUPortWriteByte(VGA_CONSOLE_CURSOR_COMM_LOW, sVGADriverCtrl.cpuCommPort);
   CPUPortWriteByte((int8_t)(cursorPosition & 0x00FF),

@@ -503,9 +503,9 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
     {
       /* Init semaphore */
       retCode = KernelSemaphoreInit(&sInputCtrl.inputBufferSem,
-                                    0,
                                     KSEMAPHORE_FLAG_QUEUING_PRIO |
-                                    KSEMAPHORE_FLAG_BINARY);
+                                    KSEMAPHORE_FLAG_BINARY,
+                                    0);
       if (retCode == NO_ERROR)
       {
         /* Register the interrupt */

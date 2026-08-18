@@ -147,7 +147,16 @@ static void* _IdleRoutine(void* pArgs);
  */
 static void _SchedulerThreadEntry(void);
 
-/* TODO */
+
+/**
+ * @brief Thread exit point.
+ *
+ * @details Thread exit point. This function is called when a thread routine
+ * returns. It will set the thread to the zombie state and clean its resources.
+ * The thread will be removed from the scheduler.
+ *
+ * @param[out] pThread The thread that is exiting.
+ */
 static void _SchedulerThreadExit(S_KernelThread* pThread);
 
 /**
@@ -190,11 +199,26 @@ static S_KernelThread* _ElectNextThread(S_ScheduleContext* pContext);
 /**
  * @brief Manages the state of a thhread.
  *
- * TODO
+ * @details Manages the state of a thread. This function will set the thread to
+ * the desired state and update the context's ready or sleeping list
+ * accordingly.
+ *
+ * @param[in/out] pThread The thread to manage.
  */
 static void _ManageThreadState(S_KernelThread* pThread);
 
-/* TODO */
+/**
+ * @brief Selectes the next context to schedule a thread.
+ *
+ * @details Selectes the next context to schedule a thread. This function will
+ * select the context to which the thread is mapped and return it.
+ * If the thread is not mapped to any context, the function will return NULL.
+ *
+ * @param[in] pThread The thread to select the context for.
+ *
+ * @return The pointer to the selected context is returned. If the thread is not
+ * mapped to any context, NULL is returned.
+ */
 static S_ScheduleContext* _SelectNextContext(S_KernelThread* pThread);
 
 /**
@@ -254,15 +278,58 @@ static void _SetThreadToZombie(S_KernelThread* pThread);
 static void _CleanThread(S_KernelThread* pThread);
 
 
-/* TODO */
+/**
+ * @brief Dispatches a thread state update request.
+ *
+ * @details Dispatches a thread state update request. This function will send a
+ * request to the scheduler context to update the state of a thread. The request
+ * will be processed by the scheduler context in the next scheduling cycle.
+ *
+ * @param[in] pContext The context to which the request should be sent.
+ * @param[in] pThread The thread to update the state of.
+ * @param[in] kState The state to which the thread should be set.
+ */
 static void _DispatchThreadStateUpdateRequest(S_ScheduleContext*  pContext,
                                               S_KernelThread*     pThread,
                                               const E_ThreadState kState);
+
+/**
+ * @brief Handles scheduler requests.
+ *
+ * @details Handles scheduler requests. This function will process the requests
+ * in the next scheduling cycle. It will update the state of the threads and
+ * manage the context's ready and sleeping lists accordingly.
+ *
+ * @param[in] pContext The context for which to handle requests.
+ */
 static void _HandleSchedulerRequests(S_ScheduleContext* pContext);
+
+/**
+ * @brief Requests a thread state update.
+ *
+ * @details Requests a thread state update. This function will send a request to
+ * the scheduler context to update the state of a thread. The request will be
+ * processed by the scheduler context in the next scheduling cycle.
+ *
+ * @param[in] pContext The context to which the request should be sent.
+ * @param[in] pThread The thread to update the state of.
+ * @param[in] kState The state to which the thread should be set.
+ */
 static void _RequestThreadStateUpdate(S_ScheduleContext*  pContext,
                                       S_KernelThread*     pThread,
                                       const E_ThreadState kState);
+
+/**
+ * @brief Updates the context statistics.
+ *
+ * @details Updates the context statistics. This function will update the
+ * statistics of a scheduler context. It will update context score and other
+ * statistics.
+ *
+ * @param[in] pContext The context for which to update statistics.
+ */
 static void _UpdateContextStatistics(S_ScheduleContext* pContext);
+
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
@@ -281,10 +348,10 @@ static T_U32Atomic sLastPID;
 static T_U32Atomic sLastTID;
 /** @brief Stores the scheduler state. */
 static bool sIsInit = false;
-/** @brief Tables that contains the existing processes. */
-/* TODO */
 /** @brief Store the main process */
 static S_KernelProcess* spMainProcess;
+/** @brief Stores the number of currently running threads. */
+static T_U32Atomic sCurrentThreadsCount;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -439,6 +506,8 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
     pMainProcess->pMainThread = pIdle;
   }
   KQueuePush(pNode, pMainProcess->pThreads);
+
+  AtomicDecrement32(&sCurrentThreadsCount);
 }
 
 static S_KernelThread* _ElectNextThread(S_ScheduleContext* pContext)
@@ -781,6 +850,7 @@ void SchedulerInit(void)
   sLastPID = 0;
   sLastTID = 0;
   currentTime = TimeGetUptime();
+  sCurrentThreadsCount = 0;
 
   /* Create the Main Kernel Process */
   _CreateMainProcess();
@@ -1107,6 +1177,8 @@ E_Return CreateThread(S_KernelThread**      ppThread,
             pContext = _SelectNextContext(pThread);
             _SetThreadToReady(pContext, pThread);
 
+            AtomicIncrement32(&sCurrentThreadsCount);
+
             /* Set return values */
             *ppThread = pThread;
             error = NO_ERROR;
@@ -1183,6 +1255,8 @@ E_Return JoinThread(S_KernelThread* pThread,
       /* Clean the thread */
       _CleanThread(pThread);
 
+      AtomicDecrement32(&sCurrentThreadsCount);
+
       error = NO_ERROR;
     }
     else
@@ -1199,7 +1273,7 @@ E_Return JoinThread(S_KernelThread* pThread,
   return error;
 }
 
-E_Return SleepNs(const uint64_t timeNs)
+E_Return SleepNs(const uint64_t kTimeNs)
 {
   E_Return           error;
   uint64_t           currentTime;
@@ -1212,7 +1286,7 @@ E_Return SleepNs(const uint64_t timeNs)
 
   /* Calculate the wakeup time and check for rollback */
   currentTime = TimeGetUptime();
-  wakeupTime  = currentTime + timeNs;
+  wakeupTime  = currentTime + kTimeNs;
   if (wakeupTime >= currentTime)
   {
     pThread = SchedulerGetCurrentThread();
@@ -1245,5 +1319,4 @@ const S_ScheduleContextStatistics* SchedulerGetStatistics(const uint32_t kCPU)
   pData = &ppSchedulerContext[kCPU]->stats;
   return pData;
 }
-
 /************************************ EOF *************************************/
