@@ -31,9 +31,9 @@ MEMORY
     KERNEL_STACKS       (rw) :   ORIGIN = 0xFFFFFFFF80192000,    LENGTH = 128K
     /* 1 page / frame left blank to catch overflow */
     KERNEL_NON_FREE_HEAP(rw) :   ORIGIN = 0xFFFFFFFF801B2000,    LENGTH = 512K
-    KERNEL_HEAP         (rw) :   ORIGIN = 0xFFFFFFFF80232000,    LENGTH = 512K
+    KERNEL_HEAP         (rw) :   ORIGIN = 0xFFFFFFFF80232000,    LENGTH = 1M
     /* 1 page / frame left blank to catch overflow */
-    KERNEL_END_PAGE     (r)  :   ORIGIN = 0xFFFFFFFF802B2000,    LENGTH = 1K
+    KERNEL_END_PAGE     (r)  :   ORIGIN = 0xFFFFFFFF80332000,    LENGTH = 1K
 
     KERNEL_TEST_BUFFER  (rw) :   ORIGIN = 0xFFFFFFFF803BD000,    LENGTH = 256K
     KERNEL_RAMDISK      (rw) :   ORIGIN = 0xFFFFFFFF803FD000,    LENGTH = 128K

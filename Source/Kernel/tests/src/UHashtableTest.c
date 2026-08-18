@@ -118,7 +118,7 @@ void UHashtableTest(void)
                             (uint64_t)table->capacity,
                             TEST_OS_UHASHTABLE_ENABLED);
 
-  for(i = 0; i < 26; ++i)
+  for (i = 0; i < 26; ++i)
   {
     err = UHashtableSet(table, i, (void*)(i * 10));
     TEST_POINT_ASSERT_RCODE(TEST_UHASHTABLE_SETBURST_ID(i),
@@ -139,7 +139,7 @@ void UHashtableTest(void)
                             (uint64_t)table->capacity,
                             TEST_OS_UHASHTABLE_ENABLED);
 
-  for(i = 0; i < 26; ++i)
+  for (i = 0; i < 26; ++i)
   {
     err = UHashtableGet(table, i, (void**)&data);
     TEST_POINT_ASSERT_RCODE(TEST_UHASHTABLE_GETBURST_ID(i * 2),
@@ -165,7 +165,7 @@ void UHashtableTest(void)
                             (uint64_t)table->capacity,
                             TEST_OS_UHASHTABLE_ENABLED);
 
-  for(i = 0; i < 26; i += 2)
+  for (i = 0; i < 26; i += 2)
   {
     err = UHashtableSet(table, i, (void*)(i * 100));
     TEST_POINT_ASSERT_RCODE(TEST_UHASHTABLE_SETBURST_ID(i + 26),
@@ -186,7 +186,7 @@ void UHashtableTest(void)
                            (uint64_t)table->capacity,
                            TEST_OS_UHASHTABLE_ENABLED);
 
-  for(i = 0; i < 26; i += 2)
+  for (i = 0; i < 26; i += 2)
   {
     err = UHashtableSet(table, i, (void*)(i * 1000));
     TEST_POINT_ASSERT_RCODE(TEST_UHASHTABLE_SETBURST_ID(i + 52),
@@ -207,7 +207,7 @@ void UHashtableTest(void)
                            (uint64_t)table->capacity,
                            TEST_OS_UHASHTABLE_ENABLED);
 
-  for(i = 0; i < 26; ++i)
+  for (i = 0; i < 26; ++i)
   {
     err = UHashtableGet(table, i, (void**)&data);
     TEST_POINT_ASSERT_RCODE(TEST_UHASHTABLE_GETBURST_ID(52 + i * 2),
@@ -233,9 +233,9 @@ void UHashtableTest(void)
                            (uint64_t)table->capacity,
                            TEST_OS_UHASHTABLE_ENABLED);
 
-  for(i = 0; i < 26; ++i)
+  for (i = 0; i < 26; ++i)
   {
-    if(i % 2 == 0)
+    if (i % 2 == 0)
     {
       err = UHashtableRemove(table, i, NULL);
       TEST_POINT_ASSERT_RCODE(TEST_UHASHTABLE_REMOVEBURST_ID(i),
@@ -256,11 +256,11 @@ void UHashtableTest(void)
                             (uint64_t)table->capacity,
                             TEST_OS_UHASHTABLE_ENABLED);
 
-  for(i = 0; i < 30; ++i)
+  for (i = 0; i < 30; ++i)
   {
     err = UHashtableGet(table, i, (void**)&data);
 
-    if(err != NO_ERROR)
+    if (err != NO_ERROR)
     {
       TEST_POINT_ASSERT_RCODE(TEST_UHASHTABLE_GETBURST_ID(104 + i * 2),
                               err == ERR_NOT_FOUND,
@@ -310,7 +310,7 @@ void UHashtableTest(void)
                             (uint64_t)table->capacity,
                             TEST_OS_UHASHTABLE_ENABLED);
 
-  for(i = 0; i < 30; ++i)
+  for (i = 0; i < 30; ++i)
   {
     err = UHashtableGet(table, i, (void**)&data);
     TEST_POINT_ASSERT_RCODE(TEST_UHASHTABLE_GETBURST_ID(164 + i),
@@ -349,7 +349,7 @@ void UHashtableTest(void)
                             (uint64_t)(uintptr_t)table_data,
                             TEST_OS_UHASHTABLE_ENABLED);
 
-  for(i = 0; i < 200; ++i)
+  for (i = 0; i < 200; ++i)
   {
       table_data[i] = _RandomGet();
       err = UHashtableSet(table, i, (void*)(uintptr_t)table_data[i]);
@@ -370,7 +370,7 @@ void UHashtableTest(void)
                             (uint64_t)table->capacity,
                             TEST_OS_UHASHTABLE_ENABLED);
 
-  for(i = 0; i < 200; ++i)
+  for (i = 0; i < 200; ++i)
   {
       err = UHashtableGet(table, i, (void**)&data);
 

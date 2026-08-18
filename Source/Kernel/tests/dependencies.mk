@@ -4,6 +4,7 @@ DEP_INCLUDES += -I ../libs/libc/includes
 DEP_INCLUDES += -I ../libs/libapi/includes
 DEP_INCLUDES += -I ../arch/cpu/includes
 DEP_INCLUDES += -I ../time/includes
+DEP_INCLUDES += -I ../fs/includes
 
 ifeq ($(target), x86_64)
 	DEP_INCLUDES += -I ../arch/cpu/x86_64/includes

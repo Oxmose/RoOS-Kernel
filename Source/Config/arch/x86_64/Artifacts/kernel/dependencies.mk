@@ -11,6 +11,7 @@ DEP_LIBS += -llibc
 DEP_LIBS += -lapi
 DEP_LIBS += -ltime
 DEP_LIBS += -lio
+DEP_LIBS += -lfs
 DEP_LIBS += --whole-archive -lrawdtb
 ifeq ($(TESTS), TRUE)
 DEP_LIBS += --end-group
@@ -22,6 +23,7 @@ DEP_MODULES += -L../core/bin
 DEP_MODULES += -L../libs/bin
 DEP_MODULES += -L../time/bin
 DEP_MODULES += -L../io/bin
+DEP_MODULES += -L../fs/bin
 ifeq ($(TESTS), TRUE)
 DEP_MODULES += -L../tests/bin
 endif

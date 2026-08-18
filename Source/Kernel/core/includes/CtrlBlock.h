@@ -123,9 +123,11 @@ typedef struct S_KernelProcess
   /** @brief The process' structure lock */
   S_KernelSpinlock lock;
 
-    /** @brief Stores the memory management data for the process */
-  void* pMemoryData;
+  /** @brie Stores the file descriptors used by the process. */
+  void* pFileDescriptorTable;
 
+  /** @brief Stores the memory management data for the process */
+  void* pMemoryData;
 } S_Process;
 
 /** @brief This is the representation of the thread for the kernel. */

@@ -30,6 +30,7 @@
 #include <Critical.h>
 #include <FastQueue.h>
 #include <CtrlBlock.h>
+#include <VirtualFS.h>
 #include <KernelHeap.h>
 #include <KernelError.h>
 #include <TimerManager.h>
@@ -355,6 +356,7 @@ static void _SchedulerThreadExit(S_KernelThread* pThread)
 static S_KernelProcess* _CreateMainProcess(void)
 {
   S_KernelProcess* pMainProcess;
+  E_Return         retCode;
 
   pMainProcess = KMalloc(sizeof(S_KernelProcess),
                          ALIGN_ADDRESS,
@@ -370,6 +372,11 @@ static S_KernelProcess* _CreateMainProcess(void)
   memcpy(pMainProcess->pName, MAIN_PROCESS_NAME, PROCESS_NAME_MAX_LENGTH);
 
   pMainProcess->pMemoryData = MemoryCreateProcessData();
+
+  retCode = CreateProcessFDTable(pMainProcess);
+  SCHED_ASSERT(retCode == NO_ERROR,
+               "Failed to create main process FD table.",
+               retCode);
 
   KERNEL_SPINLOCK_INIT(pMainProcess->lock);
 
@@ -824,7 +831,7 @@ void SchedulerInit(void)
 
   sIsInit = true;
 
-  TEST_POINT_FUNCTION_CALL(SchedulerTest, TEST_SCHEDULER_ENABLED);
+  TEST_POINT_FUNCTION(SchedulerTest, TEST_SCHEDULER_ENABLED);
 }
 
 bool SchedulerSchedule(void)
@@ -1111,7 +1118,7 @@ E_Return SleepNs(const uint64_t timeNs)
   /* Calculate the wakeup time and check for rollback */
   currentTime = TimeGetUptime();
   wakeupTime  = currentTime + timeNs;
-  if(wakeupTime >= currentTime)
+  if (wakeupTime >= currentTime)
   {
     pThread = SchedulerGetCurrentThread();
 

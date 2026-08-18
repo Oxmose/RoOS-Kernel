@@ -37,7 +37,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* TODO */
+#include <TestFramework.h>
 
 /* Header file */
 #include <Interrupts.h>

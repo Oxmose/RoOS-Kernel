@@ -31,7 +31,7 @@
 #include <stdbool.h>
 #include <Critical.h>
 #include <Scheduler.h>
-#include <DebugOutput.h>
+#include <KernelOutput.h>
 
 /* Configuration files */
 #include <config.h>
@@ -197,25 +197,21 @@ static void _PanicPrintf(const char* kpFmt, ...)
 {
   __builtin_va_list args;
 
-  if (kpFmt == NULL)
+  if (kpFmt != NULL)
   {
-    return;
+    __builtin_va_start(args, kpFmt);
+    sPanicBufferSize = vsnprintf(sPrintBuffer,
+                                 PANIC_PRINT_BUFFER_SIZE,
+                                 kpFmt,
+                                 args);
+    __builtin_va_end(args);
+
+    /* Display */
+    sPrintBuffer[sPanicBufferSize] = 0;
+    KPrintf(sPrintBuffer);
+    KPrintfFlush();
+    sPanicBufferSize = 0;
   }
-
-  __builtin_va_start(args, kpFmt);
-  sPanicBufferSize = vsnprintf(sPrintBuffer,
-                               PANIC_PRINT_BUFFER_SIZE,
-                               kpFmt,
-                               args);
-  __builtin_va_end(args);
-
-  /* Display */
-  sPrintBuffer[sPanicBufferSize] = 0;
-#if OUTPUT_DEBUG_ENABLE
-  /* Enable the debug output port */
-  DebugOutputPutString(sPrintBuffer);
-#endif
-  sPanicBufferSize = 0;
 }
 
 static void _PrintHeader(const S_VirtualCPU* kpVCpu, const bool kInterrupt)
@@ -529,6 +525,7 @@ void KernelPanic(const uint32_t kErrorCode,
   _PrintHeader(kpVCPU, kFromInterrupt);
   _PrintCpuState(kpVCPU);
   _PrintCpuFlags(kpVCPU);
+  _PrintStackTrace((uintptr_t*)kpVCPU->cpuState.rbp);
 
   /* Print panic information */
   _PanicPrintf("                              ==== Information ====\n");
@@ -545,8 +542,7 @@ void KernelPanic(const uint32_t kErrorCode,
     _PanicPrintf("%s (Error %d)\n", skpPanicMsg, sPanicCode);
   }
 
-  /* Print panic stack trace */
-  _PrintStackTrace((uintptr_t*)kpVCPU->cpuState.rbp);
+
 
   /* Test point */
 #if TEST_PANIC_ENABLED
@@ -557,6 +553,8 @@ void KernelPanic(const uint32_t kErrorCode,
                           TEST_PANIC_ENABLED);
   TEST_FRAMEWORK_END();
 #endif
+
+
 
   /* Wait intefinitely */
   while (1)

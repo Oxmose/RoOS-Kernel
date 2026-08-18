@@ -30,7 +30,7 @@
 #define SOC_MAX_CPU_COUNT 64
 
 /* Enable output debug through UART */
-#define OUTPUT_DEBUG_ENABLE 1
+#define OUTPUT_DEBUG_ENABLE 0
 
 /* Kernel log on UART */
 #define DEBUG_LOG_UART      1
@@ -46,5 +46,6 @@
  * Set to 1 to enable debug output for a specific module
  ******************************************************************************/
 #define ACPI_DRIVER_DEBUG_ENABLED 1
+#define DRIVER_MGR_DEBUG_ENABLED 1
 
 #endif /* ifndef __GLOBAL_CONFIG_H_ */

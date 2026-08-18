@@ -52,6 +52,7 @@ endif
 	@make -C $(KERNEL_SRC_DIR)/core
 	@make -C $(KERNEL_SRC_DIR)/time
 	@make -C $(KERNEL_SRC_DIR)/io
+	@make -C $(KERNEL_SRC_DIR)/fs
 
 ifeq ($(TESTS), TRUE)
 	# Build the tests module
@@ -100,7 +101,7 @@ endif
 	@make -C $(KERNEL_SRC_DIR)/core clean
 	@make -C $(KERNEL_SRC_DIR)/time clean
 	@make -C $(KERNEL_SRC_DIR)/io clean
-
+	@make -C $(KERNEL_SRC_DIR)/fs clean
 
 	@echo "\e[1m\e[34m\n#-------------------------------------------------------------------------------\e[22m\e[39m"
 	@echo "\e[1m\e[34m| Cleaned kernel \e[22m\e[39m"

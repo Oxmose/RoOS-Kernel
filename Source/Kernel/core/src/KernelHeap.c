@@ -679,8 +679,6 @@ void* KMalloc(const size_t        kSize,
     allocated = _KMallocFree(kSize, kAlign);
   }
 
-  while (allocated == NULL) {}
-
   KHEAP_ASSERT(allocated != NULL, "Failed to allocate memory.", ERR_NO_MEMORY);
 
   return allocated;
@@ -695,7 +693,7 @@ void KFree(void *ptr)
 
   KHEAP_ASSERT(
     sFreeHeapStart <= (uintptr_t)ptr && sFreeHeapEnd > (uintptr_t)ptr,
-    "Failed to allocate memory.",
+    "Failed to free memory.",
     ERR_NO_MEMORY);
 
 
