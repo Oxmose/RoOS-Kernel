@@ -242,7 +242,7 @@ typedef struct
 #define UART_ASSERT(COND, MSG, ERROR) {                   \
   if ((COND) == false)                                    \
   {                                                       \
-    PANIC(ERROR, MODULE_NAME, MSG);                       \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);         \
   }                                                       \
 }
 
@@ -262,18 +262,6 @@ typedef struct
  * @return The success state or the error code.
  */
 static E_Return _UartAttach(const S_FDTNode* kpFdtNode);
-
-/**
- * @brief Detaches the UART driver to the system.
- *
- * @details Detaches the UART driver to the system. This function will use the
- * FDT to de-initialize the UART hardware and retreive the UART parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared by the driver.
- *
- * @return The success state or the error code.
- */
-static E_Return _UartDettach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Sets line parameters for the desired port.
@@ -422,7 +410,6 @@ static S_Driver sX86UARTDriver =
   .pCompatible    = "x86,x86-generic-serial",
   .pVersion       = "2.1",
   .pDriverAttach  = _UartAttach,
-  .pDriverDettach = _UartDettach
 };
 
 /*******************************************************************************
@@ -439,8 +426,8 @@ static E_Return _UartAttach(const S_FDTNode* kpFdtNode)
 
   /* Init structures */
   pDrvCtrl = KMalloc(sizeof(S_UARTControler),
-                      ALIGN_ADDRESS,
-                      KMALLOC_FREE_POOL);
+                     ALIGN_ADDRESS,
+                     KMALLOC_NO_FREE_POOL);
 
   KERNEL_SPINLOCK_INIT(pDrvCtrl->lock);
 
@@ -448,84 +435,61 @@ static E_Return _UartAttach(const S_FDTNode* kpFdtNode)
 
   /* Get the UART CPU communication ports */
   kpUintProp = FDTGetProp(kpFdtNode, UART_FDT_COMM_PROP, &propLen);
-  if (kpUintProp != NULL && propLen == sizeof(uint32_t))
-  {
-    pDrvCtrl->cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
+  UART_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
+              "Failed to get the UART comm port",
+              retCode);
 
-    /* Get the UART CPU baudrate */
-    kpUintProp = FDTGetProp(kpFdtNode, UART_FDT_RATE_PROP, &propLen);
-    if (kpUintProp != NULL && propLen == sizeof(uint32_t))
-    {
-      pDrvCtrl->baudrate = FDTTOCPU32(*kpUintProp);
+  pDrvCtrl->cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
 
-      /* Get the device path */
-      kpStrProp = FDTGetProp(kpFdtNode, UART_FDT_DEVICE_PROP, &propLen);
-      if (kpStrProp != NULL && propLen > 0)
-      {
-        pDrvCtrl->kpDevicePath = kpStrProp;
-        retCode = NO_ERROR;
-      }
-    }
-  }
+  /* Get the UART CPU baudrate */
+  kpUintProp = FDTGetProp(kpFdtNode, UART_FDT_RATE_PROP, &propLen);
+  UART_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
+              "Failed to get the UART baudrate",
+              retCode);
 
+  pDrvCtrl->baudrate = FDTTOCPU32(*kpUintProp);
 
-  if (retCode == NO_ERROR)
-  {
-    baudRate = _UartGetCanonicalRate(pDrvCtrl->baudrate);
+  /* Get the device path */
+  kpStrProp = FDTGetProp(kpFdtNode, UART_FDT_DEVICE_PROP, &propLen);
+  UART_ASSERT(kpStrProp != NULL && propLen > 0,
+              "Failed to get the UART device path",
+              retCode);
 
-    /* Init line */
-    CPUPortWriteByte(0x00, SERIAL_DATA_PORT_2(pDrvCtrl->cpuCommPort));
-    _UartSetBaudrate(baudRate, pDrvCtrl->cpuCommPort);
-    _UartSetLine(SERIAL_DATA_LENGTH_8 | SERIAL_STOP_BIT_1,
-                  pDrvCtrl->cpuCommPort);
-    _UartSetBuffer(0xC0                   |
-                    SERIAL_ENABLE_FIFO     |
-                    SERIAL_CLEAR_RECV_FIFO |
-                    SERIAL_CLEAR_SEND_FIFO |
-                    SERIAL_FIFO_DEPTH_14,
-                    pDrvCtrl->cpuCommPort);
+  pDrvCtrl->kpDevicePath = kpStrProp;
 
-    /* Register VFS driver */
-    pDrvCtrl->pVFSDriver = RegisterVFSDriver(pDrvCtrl->kpDevicePath,
-                                             NULL,
-                                             _VFSOpen,
-                                             _VFSClose,
-                                             _VFSRead,
-                                             _VFSWrite,
-                                             NULL,
-                                             NULL);
-    if (pDrvCtrl->pVFSDriver != VFS_DRIVER_INVALID)
-    {
-      /* Register driver */
-      retCode = DriverManagerSetDeviceData(kpFdtNode, pDrvCtrl);
-      if (retCode != NO_ERROR)
-      {
-        KFree(pDrvCtrl);
-      }
-    }
-    else
-    {
-      retCode = ERR_UNAUTHORIZED_ACTION;
-      KFree(pDrvCtrl);
-    }
-  }
-  else
-  {
-    KFree(pDrvCtrl);
-  }
+  baudRate = _UartGetCanonicalRate(pDrvCtrl->baudrate);
+
+  /* Init line */
+  CPUPortWriteByte(0x00, SERIAL_DATA_PORT_2(pDrvCtrl->cpuCommPort));
+  _UartSetBaudrate(baudRate, pDrvCtrl->cpuCommPort);
+  _UartSetLine(SERIAL_DATA_LENGTH_8 | SERIAL_STOP_BIT_1, pDrvCtrl->cpuCommPort);
+  _UartSetBuffer(0xC0                   |
+                 SERIAL_ENABLE_FIFO     |
+                 SERIAL_CLEAR_RECV_FIFO |
+                 SERIAL_CLEAR_SEND_FIFO |
+                 SERIAL_FIFO_DEPTH_14,
+                 pDrvCtrl->cpuCommPort);
+
+  /* Register VFS driver */
+  pDrvCtrl->pVFSDriver = RegisterVFSDriver(pDrvCtrl->kpDevicePath,
+                                           NULL,
+                                           _VFSOpen,
+                                           _VFSClose,
+                                           _VFSRead,
+                                           _VFSWrite,
+                                           NULL,
+                                           NULL);
+  UART_ASSERT(pDrvCtrl->pVFSDriver != VFS_DRIVER_INVALID,
+              "Failed to register the UART driver in the VFS",
+              retCode);
+
+  /* Register driver */
+  retCode = DriverManagerSetDeviceData(kpFdtNode, pDrvCtrl);
+  UART_ASSERT(retCode == NO_ERROR,
+              "Failed to register the UART driver in the driver manager",
+              retCode);
 
   return retCode;
-}
-
-static E_Return _UartDettach(const S_FDTNode* kpFdtNode)
-{
-  S_UARTControler* pDrvCtrl;
-
-  pDrvCtrl = GET_CONTROLER(kpFdtNode->pDevData);
-
-  KFree(pDrvCtrl);
-
-  return NO_ERROR;
 }
 
 static inline void _UartSetLine(const uint8_t kAttr, const uint16_t kCom)

@@ -185,10 +185,10 @@ typedef struct
  * @param[in] MSG The message to display in case of kernel panic.
  * @param[in] ERROR The error code to use in case of kernel panic.
  */
-#define MEM_ASSERT(COND, MSG, ERROR) {                    \
+#define MEM_ASSERT(COND, MSG, ERROR, IS_PROCESS) {        \
   if ((COND) == false)                                    \
   {                                                       \
-    PANIC(ERROR, MODULE_NAME, MSG, false);                \
+    PANIC(ERROR, MODULE_NAME, MSG, false, IS_PROCESS);    \
   }                                                       \
 }
 
@@ -875,18 +875,21 @@ static void _AddBlock(S_MemoryList* pList,
 
   MEM_ASSERT(pList != NULL,
              "Tried to add a memory block to a NULL list",
-             ERR_INVALID_PARAMETER);
+             ERR_INVALID_PARAMETER,
+             pList->allocPool == KMALLOC_PROCESS_HEAP);
 
   MEM_ASSERT((baseAddress & PAGE_SIZE_MASK) == 0 &&
               (kLength & PAGE_SIZE_MASK) == 0 &&
               kLength != 0,
              "Tried to add a non aligned block",
-             ERR_UNAUTHORIZED_ACTION);
+             ERR_UNAUTHORIZED_ACTION,
+             pList->allocPool == KMALLOC_PROCESS_HEAP);
 
   /* Manage rollover */
   MEM_ASSERT(limit > baseAddress,
              "Tried to add a rollover memory block",
-             ERR_INVALID_PARAMETER);
+             ERR_INVALID_PARAMETER,
+             pList->allocPool == KMALLOC_PROCESS_HEAP);
 
   KERNEL_LOCK(pList->lock);
 
@@ -904,7 +907,8 @@ static void _AddBlock(S_MemoryList* pList,
                 limit <= pRange->base)||
                 (baseAddress >= pRange->limit),
                 "Adding an already free block",
-                ERR_UNAUTHORIZED_ACTION);
+                ERR_UNAUTHORIZED_ACTION,
+                pList->allocPool == KMALLOC_PROCESS_HEAP);
 
     /* If the new block is before but needs merging */
     if (baseAddress < pRange->base && limit == pRange->base)
@@ -924,7 +928,8 @@ static void _AddBlock(S_MemoryList* pList,
 
         MEM_ASSERT(pNextRange->base >= limit,
                    "Adding an already free block",
-                   ERR_UNAUTHORIZED_ACTION);
+                   ERR_UNAUTHORIZED_ACTION,
+                   pList->allocPool == KMALLOC_PROCESS_HEAP);
 
 
         /* See if we can merge this one too */
@@ -940,7 +945,7 @@ static void _AddBlock(S_MemoryList* pList,
 
 
           /* Remove node */
-          KFree(pSaveCursor->pData);
+          KFree(pSaveCursor->pData, pList->allocPool);
           KQueueRemove(pList->pQueue, pSaveCursor);
           KQueueDestroyNode(&pSaveCursor);
         }
@@ -967,8 +972,16 @@ static void _AddBlock(S_MemoryList* pList,
   /* If not merged, create a new block in the list */
   if (merged == false)
   {
-    pRange   = KMalloc(sizeof(S_MemoryRange), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
-    pNewNode = KQueueCreateNode(pRange);
+    pRange = KMalloc(sizeof(S_MemoryRange), ALIGN_ADDRESS, pList->allocPool);
+    MEM_ASSERT(pRange != NULL,
+               "Failed to allocate new memory range",
+               ERR_NO_MEMORY,
+               pList->allocPool == KMALLOC_PROCESS_HEAP);
+    pNewNode = KQueueCreateNode(pRange, pList->allocPool);
+    MEM_ASSERT(pNewNode != NULL,
+               "Failed to allocate new memory range node",
+               ERR_NO_MEMORY,
+               pList->allocPool == KMALLOC_PROCESS_HEAP);
 
     pRange->base  = baseAddress;
     pRange->limit = limit;
@@ -995,12 +1008,14 @@ static void _RemoveBlock(S_MemoryList*  pList,
 
   MEM_ASSERT(pList != NULL,
               "Tried to remove a memory block from a NULL list",
-              ERR_INVALID_PARAMETER);
+              ERR_INVALID_PARAMETER,
+              pList->allocPool == KMALLOC_PROCESS_HEAP);
 
   MEM_ASSERT((baseAddress & PAGE_SIZE_MASK) == 0 &&
               (kLength & PAGE_SIZE_MASK) == 0,
               "Tried to remove a non aligned block",
-              ERR_UNAUTHORIZED_ACTION);
+              ERR_UNAUTHORIZED_ACTION,
+              pList->allocPool == KMALLOC_PROCESS_HEAP);
 
   limit = baseAddress + kLength;
 
@@ -1026,7 +1041,7 @@ static void _RemoveBlock(S_MemoryList*  pList,
           limit = 0;
       }
 
-      KFree(pSaveCursor->pData);
+      KFree(pSaveCursor->pData, pList->allocPool);
       KQueueRemove(pList->pQueue, pSaveCursor);
       KQueueDestroyNode(&pSaveCursor);
     }
@@ -1068,19 +1083,23 @@ static void _RemoveBlock(S_MemoryList*  pList,
       baseAddress = limit;
 
       /* Create new node */
-      pRange = KMalloc(sizeof(S_MemoryRange), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+      pRange = KMalloc(sizeof(S_MemoryRange), ALIGN_ADDRESS, pList->allocPool);
       MEM_ASSERT(pRange != NULL,
-                  "Failed to allocate new memory range",
-                  ERR_NO_MEMORY);
-
-      pNewNode = KQueueCreateNode(pRange);
+                 "Failed to allocate new memory range",
+                 ERR_NO_MEMORY,
+                 pList->allocPool == KMALLOC_PROCESS_HEAP);
+      pNewNode = KQueueCreateNode(pRange, pList->allocPool);
+      MEM_ASSERT(pNewNode != NULL,
+                 "Failed to allocate new memory range node",
+                 ERR_NO_MEMORY,
+                 pList->allocPool == KMALLOC_PROCESS_HEAP);
 
       pRange->base  = baseAddress;
       pRange->limit = saveLimit;
 
       KQueuePushPrio(pNewNode,
-                      pList->pQueue,
-                      KERNEL_VIRTUAL_ADDR_MAX - baseAddress);
+                     pList->pQueue,
+                     KERNEL_VIRTUAL_ADDR_MAX - baseAddress);
 
       /* We are done*/
       limit = 0;
@@ -1101,8 +1120,9 @@ static uintptr_t _GetBlock(S_MemoryList* pList, const size_t kLength)
   S_MemoryRange*     pRange;
 
   MEM_ASSERT((kLength & PAGE_SIZE_MASK) == 0,
-              "Tried to get a non aligned block",
-              ERR_UNAUTHORIZED_ACTION);
+             "Tried to get a non aligned block",
+             ERR_UNAUTHORIZED_ACTION,
+             pList->allocPool == KMALLOC_PROCESS_HEAP);
 
   retBlock = 0;
 
@@ -1122,7 +1142,7 @@ static uintptr_t _GetBlock(S_MemoryList* pList, const size_t kLength)
       /* Reduce the node or remove it */
       if (pRange->base + kLength == pRange->limit)
       {
-        KFree(pCursor->pData);
+        KFree(pCursor->pData, pList->allocPool);
         KQueueRemove(pList->pQueue, pCursor);
         KQueueDestroyNode(&pCursor);
       }
@@ -1149,8 +1169,9 @@ static uintptr_t _GetBlockFromEnd(S_MemoryList* pList, const size_t kLength)
   S_MemoryRange*     pRange;
 
   MEM_ASSERT((kLength & PAGE_SIZE_MASK) == 0,
-              "Tried to get a non aligned block",
-              ERR_UNAUTHORIZED_ACTION);
+             "Tried to get a non aligned block",
+             ERR_UNAUTHORIZED_ACTION,
+             pList->allocPool == KMALLOC_PROCESS_HEAP);
 
   retBlock = 0;
 
@@ -1170,7 +1191,7 @@ static uintptr_t _GetBlockFromEnd(S_MemoryList* pList, const size_t kLength)
       /* Reduce the node or remove it */
       if (pRange->base + kLength == pRange->limit)
       {
-        KFree(pCursor->pData);
+        KFree(pCursor->pData, pList->allocPool);
         KQueueRemove(pList->pQueue, pCursor);
         KQueueDestroyNode(&pCursor);
       }
@@ -1199,7 +1220,8 @@ static uintptr_t _AllocateFrames(const size_t kFrameCount)
   physAddr = _GetBlock(&sPhysMemList, KERNEL_PAGE_SIZE * kFrameCount);
   MEM_ASSERT((physAddr & PAGE_SIZE_MASK) == 0,
               "Non aligned frame allocated.",
-              ERR_INVALID_PARAMETER);
+              ERR_INVALID_PARAMETER,
+              false);
   baseAddr = physAddr;
   if (physAddr != (uintptr_t)NULL)
   {
@@ -1211,7 +1233,8 @@ static uintptr_t _AllocateFrames(const size_t kFrameCount)
       {
         MEM_ASSERT(*refCount == 0,
                    "Invalid reference count non zero",
-                   ERR_UNAUTHORIZED_ACTION);
+                   ERR_UNAUTHORIZED_ACTION,
+                   false);
         *refCount = 1;
         _UnlockReferenceCount(physAddr);
       }
@@ -1237,7 +1260,10 @@ static void _ReleaseFrames(const uintptr_t kBaseAddress,
     refCount = _GetAndLockReferenceCount(physAddr);
     if (refCount != NULL)
     {
-      MEM_ASSERT(*refCount == 1, "Release used frame", ERR_UNAUTHORIZED_ACTION);
+      MEM_ASSERT(*refCount == 1,
+                 "Release used frame",
+                 ERR_UNAUTHORIZED_ACTION,
+                 false);
       *refCount = 0;
     }
     _UnlockReferenceCount(physAddr);
@@ -1254,7 +1280,8 @@ static uintptr_t _AllocateKernelPages(const size_t kPageCount)
   page =  _GetBlock(&sKernelFreePagesList, kPageCount * KERNEL_PAGE_SIZE);
   MEM_ASSERT((page & PAGE_SIZE_MASK) == 0,
              "Non aligned page allocated.",
-             ERR_UNAUTHORIZED_ACTION);
+             ERR_UNAUTHORIZED_ACTION,
+             false);
 
   return page;
 }
@@ -1280,7 +1307,8 @@ static bool _IsMapped(const uintptr_t kVirtualAddress,
 
   MEM_ASSERT((kVirtualAddress & PAGE_SIZE_MASK) == 0,
              "Checking mapping for non aligned address",
-             ERR_INVALID_PARAMETER);
+             ERR_INVALID_PARAMETER,
+             false);
 
   mapped = false;
   if (pageCount != 0)
@@ -1493,7 +1521,8 @@ static E_Return _MemoryMap(const uintptr_t kVirtualAddress,
         newPgTableFrame = _AllocateFrames(1);
         MEM_ASSERT(newPgTableFrame != 0,
                    "Allocated a NULL frame",
-                   ERR_INVALID_PARAMETER);
+                   ERR_INVALID_PARAMETER,
+                   false);
 
         pPageTable[j][pmlEntry[j]] = (newPgTableFrame & sPhysAddressWidthMask) |
                                      mapPgdirFlags;
@@ -1686,8 +1715,9 @@ static void _ReleasePageDir(const uintptr_t kPhysTable,
   uint16_t*   refCount;
 
   MEM_ASSERT(kLevel > 0,
-              "Invalid page directory level in release",
-              ERR_INVALID_PARAMETER);
+             "Invalid page directory level in release",
+             ERR_INVALID_PARAMETER,
+             false);
 
   /* Allocate frames for mapping */
   currentLevelPage = (uintptr_t*)GET_VIRT_MEM_ADDR(kPhysTable);
@@ -1713,7 +1743,7 @@ static void _ReleasePageDir(const uintptr_t kPhysTable,
       break;
     default:
       levelAddrCount = 0;
-      PANIC(ERR_INVALID_PARAMETER, MODULE_NAME, "Invalid PGDir.", false);
+      PANIC(ERR_INVALID_PARAMETER, MODULE_NAME, "Invalid PGDir.", false, false);
   }
 
   /* Check all entries of the current table */
@@ -1750,7 +1780,8 @@ static void _ReleasePageDir(const uintptr_t kPhysTable,
             refCount = _GetAndLockReferenceCount(frameAddr);
             MEM_ASSERT(*refCount > 0,
                        "Invalid reference count zero",
-                        ERR_UNAUTHORIZED_ACTION);
+                       ERR_UNAUTHORIZED_ACTION,
+                       false);
             *refCount = *refCount - 1;
 
             /* If not one uses the frame, release the frame */
@@ -1906,8 +1937,9 @@ static void _DetectMemory(void)
 
   kpPhysMemNode = FDTGetMemory();
   MEM_ASSERT(kpPhysMemNode != NULL,
-              "No physical memory detected in FDT",
-              ERR_NO_MEMORY);
+             "No physical memory detected in FDT",
+             ERR_NO_MEMORY,
+             false);
 
   /* Now iterate on all memory nodes and add the regions */
   while (kpPhysMemNode != NULL)
@@ -1921,7 +1953,8 @@ static void _DetectMemory(void)
 
     MEM_ASSERT(baseAddress + initSize <= KERNEL_MAX_MEM_PHYS,
                "Kernel does not support physical memory over 511GB",
-               ERR_NOT_SUPPORTED);
+               ERR_NOT_SUPPORTED,
+               false);
 
     /* Add block to the free frames */
     _AddBlock(&sPhysMemList, baseAddress, initSize);
@@ -1977,8 +2010,9 @@ static uintptr_t _MapTranslationTable(void)
 
   kpPhysMemNode = FDTGetMemory();
   MEM_ASSERT(kpPhysMemNode != NULL,
-              "No physical memory detected in FDT",
-              ERR_NO_MEMORY);
+             "No physical memory detected in FDT",
+             ERR_NO_MEMORY,
+             false);
 
   /* Compute the memory needed for the flat map */
   size = 0;
@@ -1993,7 +2027,8 @@ static uintptr_t _MapTranslationTable(void)
 
     MEM_ASSERT(baseAddress + initSize <= KERNEL_MAX_MEM_PHYS,
                "Kernel does not support physical memory over 511GB",
-               ERR_NOT_SUPPORTED);
+               ERR_NOT_SUPPORTED,
+               false);
 
     size += initSize;
 
@@ -2016,7 +2051,8 @@ static uintptr_t _MapTranslationTable(void)
   }
   MEM_ASSERT(frameCount < 512,
              "Kernel does not support physical memory over 511GB",
-             ERR_NOT_SUPPORTED);
+             ERR_NOT_SUPPORTED,
+             false);
 
   /* Get a memory block aligned on 2MB */
   physFrameTable = _GetBlock(&sPhysMemList, KERNEL_PAGE_SIZE);
@@ -2037,7 +2073,8 @@ static uintptr_t _MapTranslationTable(void)
   }
   MEM_ASSERT(frameTable != (uintptr_t)NULL,
              "Not enough memory to support the physical memory.",
-             ERR_NO_MEMORY);
+             ERR_NO_MEMORY,
+             false);
 
   /* Map the table */
   physFrameTable = (uintptr_t)_physicalMapTranslationPage - KERNEL_MEM_OFFSET;
@@ -2080,7 +2117,8 @@ static void _CreateFlatMap(void)
   kpPhysMemNode = FDTGetMemory();
   MEM_ASSERT(kpPhysMemNode != NULL,
              "No physical memory detected in FDT",
-             ERR_NO_MEMORY);
+             ERR_NO_MEMORY,
+             false);
 
   if (sCpu1GBPageSupport == false)
   {
@@ -2162,8 +2200,9 @@ static void _CreateFlatMap(void)
                              KERNEL_MEM_1GB);
 
       MEM_ASSERT(baseAddress + initSize <= KERNEL_MAX_MEM_PHYS,
-              "Kernel does not support physical memory over 511GB",
-              ERR_NOT_SUPPORTED);
+                 "Kernel does not support physical memory over 511GB",
+                 ERR_NOT_SUPPORTED,
+                 false);
 
       /* Add to the page-to-frame directory */
       size = 0;
@@ -2236,7 +2275,8 @@ static void _CreateFramesMetadata(void)
     MEM_ASSERT(base < limit,
                 "Failed to allocate frame meta reference count table, the "
                 "block is too small.",
-                ERR_NO_MEMORY);
+                ERR_NO_MEMORY,
+                false);
 
     /* Get the frames */
     refCountFrames = pRange->base;
@@ -2253,7 +2293,8 @@ static void _CreateFramesMetadata(void)
     refCountPages = _AllocateKernelPages(size);
     MEM_ASSERT(refCountPages != (uintptr_t)NULL,
                "Failed to allocate frame meta reference count table",
-               ERR_NO_MEMORY);
+               ERR_NO_MEMORY,
+               false);
 
     /* Map and initialize the table */
     error = _MemoryMap(refCountPages,
@@ -2263,7 +2304,8 @@ static void _CreateFramesMetadata(void)
                        (uintptr_t)spKernelPageDir - KERNEL_MEM_OFFSET);
     MEM_ASSERT(error == NO_ERROR,
                 "Failed to map frame meta reference count table",
-                ERR_NO_MEMORY);
+                ERR_NO_MEMORY,
+                false);
 
     pMetaTable->pRefCountTable = (S_FrameMetadata*)refCountPages;
     memset(pMetaTable->pRefCountTable, 0, size * KERNEL_PAGE_SIZE);
@@ -2340,7 +2382,8 @@ static void _MapKernelRegion(uintptr_t*      pLastSectionStart,
 
   MEM_ASSERT(*pLastSectionEnd <= kernelSectionStart,
               "Overlapping kernel memory sections",
-              ERR_NO_MEMORY);
+              ERR_NO_MEMORY,
+              false);
 
   *pLastSectionStart = kernelSectionStart;
   *pLastSectionEnd   = kernelSectionEnd;
@@ -2386,7 +2429,8 @@ static void _MapKernelRegion(uintptr_t*      pLastSectionStart,
         tmpPageTablePhysAddr = _AllocateFrames(1);
         MEM_ASSERT(tmpPageTablePhysAddr != 0,
                    "Allocated a NULL frame",
-                   ERR_INVALID_PARAMETER);
+                   ERR_INVALID_PARAMETER,
+                   false);
 
         pPageTable[i][pmlEntry[i]] = tmpPageTablePhysAddr    |
                                      PAGE_FLAG_SUPER_ACCESS  |
@@ -2538,7 +2582,8 @@ static uintptr_t _AllocateUserPages(const size_t           kPageCount,
 
     MEM_ASSERT((page & PAGE_SIZE_MASK) == 0,
                "Non aligned page allocated.",
-               ERR_UNAUTHORIZED_ACTION);
+               ERR_UNAUTHORIZED_ACTION,
+               true);
 
     return page;
 }
@@ -2722,7 +2767,8 @@ static E_Return _MemoryMapUser(uintptr_t*     pTableLevel,
                                      4);
     MEM_ASSERT(internalError == NO_ERROR,
                "Failed to unmap already mapped memory",
-               internalError);
+               internalError,
+               true);
   }
 
   return error;
@@ -2857,8 +2903,9 @@ static inline void _GetReferenceIndexTable(const uintptr_t        kPhysAddr,
   }
 
   MEM_ASSERT(*ppTable != NULL,
-              "Failed to find physical address in frames meta table",
-              ERR_NO_MEMORY);
+             "Failed to find physical address in frames meta table",
+             ERR_NO_MEMORY,
+             false);
 
   /* Calculate the id in the index */
   *pEntryIdx = (kPhysAddr - (*ppTable)->firstFrame) >> PML1_ENTRY_OFFSET;
@@ -2954,10 +3001,12 @@ void MemoryInit(void)
   sCpu1GBPageSupport = CPUGet1GBPageSupport();
 
   /* Initialize structures */
-  sPhysMemList.pQueue = KQueueCreate();
+  sPhysMemList.pQueue = KQueueCreate(KMALLOC_NO_FREE_POOL);
+  sPhysMemList.allocPool = KMALLOC_FREE_POOL;
   KERNEL_SPINLOCK_INIT(sPhysMemList.lock);
 
-  sKernelFreePagesList.pQueue = KQueueCreate();
+  sKernelFreePagesList.pQueue = KQueueCreate(KMALLOC_NO_FREE_POOL);
+  sKernelFreePagesList.allocPool = KMALLOC_FREE_POOL;
   KERNEL_SPINLOCK_INIT(sKernelFreePagesList.lock);
 
   sPhysAddressWidthMask = ((1ULL << sPhysAddressWidth) - 1);
@@ -3005,7 +3054,8 @@ void MemoryInit(void)
   error = InterruptRegister(PAGE_FAULT_EXC_LINE, _PageFaultHandler, false);
   MEM_ASSERT(error == NO_ERROR,
              "Failed to register the page fault handler",
-             error);
+             error,
+             false);
 }
 
 void* MemoryKernelMap(const void*    kPhysicalAddress,
@@ -3185,7 +3235,8 @@ uintptr_t MemoryMapStack(const size_t     kSize,
                                   NULL);
           MEM_ASSERT(newFrame != MEMMGR_PHYS_ADDR_ERROR,
                      "Invalid physical frame",
-                     ERR_UNAUTHORIZED_ACTION);
+                     ERR_UNAUTHORIZED_ACTION,
+                     false);
           _ReleaseFrames(newFrame, 1);
         }
 
@@ -3231,7 +3282,8 @@ void MemoryUnmapStack(const uintptr_t  kEndAddress,
               (kSize & PAGE_SIZE_MASK) == 0 &&
               kSize != 0,
               "Unmaped kernel stack with invalid parameters",
-              ERR_INVALID_PARAMETER);
+              ERR_INVALID_PARAMETER,
+              false);
 
   /* Get the page count */
   pageCount   = kSize / KERNEL_PAGE_SIZE;
@@ -3244,7 +3296,8 @@ void MemoryUnmapStack(const uintptr_t  kEndAddress,
                 (uintptr_t)kEndAddress - kSize >=
                sKernelVirtualMemBounds.base,
                "Trying to release kernel stack our of kernel space",
-               ERR_INVALID_PARAMETER);
+               ERR_INVALID_PARAMETER,
+               false);
     pLock = &sLock;
     pgDir = (uintptr_t)spKernelPageDir - KERNEL_MEM_OFFSET;
   }
@@ -3254,7 +3307,8 @@ void MemoryUnmapStack(const uintptr_t  kEndAddress,
     MEM_ASSERT((uintptr_t)kEndAddress <= USER_MEMORY_END &&
                 (uintptr_t)kEndAddress - kSize >= USER_MEMORY_START,
                "Trying to release kernel stack our of kernel space",
-               ERR_INVALID_PARAMETER);
+               ERR_INVALID_PARAMETER,
+               false);
     pProcMem = pProcess->pMemoryData;
     pLock = &pProcMem->lock;
     pgDir = pProcMem->PDPhysAddress;
@@ -3267,7 +3321,8 @@ void MemoryUnmapStack(const uintptr_t  kEndAddress,
     frameAddr = _GetPhysAddr(baseAddress + KERNEL_PAGE_SIZE * i, pgDir, NULL);
     MEM_ASSERT(frameAddr != MEMMGR_PHYS_ADDR_ERROR,
                "Invalid physical frame",
-               ERR_UNAUTHORIZED_ACTION);
+               ERR_UNAUTHORIZED_ACTION,
+               false);
     _ReleaseFrames(frameAddr, 1);
   }
 
@@ -3369,7 +3424,8 @@ void* MemoryKernelAllocate(const size_t   kSize,
                                              NULL);
             MEM_ASSERT(newFrame != MEMMGR_PHYS_ADDR_ERROR,
                        "Invalid physical frame",
-                       ERR_UNAUTHORIZED_ACTION);
+                       ERR_UNAUTHORIZED_ACTION,
+                       false);
             _ReleaseFrames(newFrame, 1);
           }
 
@@ -3379,7 +3435,8 @@ void* MemoryKernelAllocate(const size_t   kSize,
                                        KERNEL_MEM_OFFSET);
           MEM_ASSERT(internalError == NO_ERROR,
                      "Failed to unmapp mapped memory",
-                     internalError);
+                     internalError,
+                     false);
         }
         _ReleaseKernelPages(pageBaseAddress, pageCount);
         pageBaseAddress = (uintptr_t)NULL;
@@ -3432,8 +3489,9 @@ E_Return MemoryKernelFree(const void* kVirtualAddress, const size_t kSize)
                                KERNEL_MEM_OFFSET,
                                NULL);
       MEM_ASSERT(frameAddr != MEMMGR_PHYS_ADDR_ERROR,
-                  "Invalid physical frame",
-                  ERR_UNAUTHORIZED_ACTION);
+                 "Invalid physical frame",
+                 ERR_UNAUTHORIZED_ACTION,
+                 false);
       _ReleaseFrames(frameAddr, 1);
     }
 
@@ -3443,7 +3501,8 @@ E_Return MemoryKernelFree(const void* kVirtualAddress, const size_t kSize)
                          (uintptr_t)spKernelPageDir - KERNEL_MEM_OFFSET);
     MEM_ASSERT(error == NO_ERROR,
                "Invalid unmapping frame",
-               ERR_UNAUTHORIZED_ACTION);
+               ERR_UNAUTHORIZED_ACTION,
+               false);
 
     KERNEL_UNLOCK(sLock);
 
@@ -3458,14 +3517,24 @@ E_Return MemoryKernelFree(const void* kVirtualAddress, const size_t kSize)
   return error;
 }
 
-void* MemoryCreateProcessData(void)
+void MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess)
 {
   S_ProcessMemoryMetadata* pMemProcInfo;
+  E_Return                 error;
+
+  pMemProcInfo = NULL;
+
+
+  error = CreateProcessHeap(&pProcess->pHeap);
+  MEM_ASSERT(error == NO_ERROR,
+             "Failed to allocate process heap.",
+             error,
+             false);
 
   /* Create the memory structure */
   pMemProcInfo = KMalloc(sizeof(S_ProcessMemoryMetadata),
-                         ALIGN_ADDRESS,
-                         KMALLOC_FREE_POOL);
+                        ALIGN_ADDRESS,
+                        KMALLOC_FREE_POOL);
 
   /* Create the page directory */
   if (SchedulerIsInitialized() == true)
@@ -3474,7 +3543,8 @@ void* MemoryCreateProcessData(void)
     pMemProcInfo->PDPhysAddress = (uintptr_t)NULL;
 
     /* Create the free page table */
-    pMemProcInfo->freePageTable.pQueue = KQueueCreate();
+    pMemProcInfo->freePageTable.pQueue    = KQueueCreate(KMALLOC_PROCESS_HEAP);
+    pMemProcInfo->freePageTable.allocPool = KMALLOC_PROCESS_HEAP;
     KERNEL_SPINLOCK_INIT(pMemProcInfo->freePageTable.lock);
 
     /* Add free pages */
@@ -3491,7 +3561,7 @@ void* MemoryCreateProcessData(void)
                                   KERNEL_MEM_OFFSET;
   }
 
-  return pMemProcInfo;
+  pProcess->pMemoryData = pMemProcInfo;
 }
 
 void MemoryDestroyProcessData(void* pMemoryData)
@@ -3503,7 +3573,8 @@ void MemoryDestroyProcessData(void* pMemoryData)
   MEM_ASSERT(pMemProcInfo->PDPhysAddress !=
              (uintptr_t)spKernelPageDir - KERNEL_MEM_OFFSET,
              "Tried to release kernel page directory",
-             ERR_UNAUTHORIZED_ACTION);
+             ERR_UNAUTHORIZED_ACTION,
+             false);
 
   KERNEL_LOCK(pMemProcInfo->lock);
 
@@ -3517,7 +3588,7 @@ void MemoryDestroyProcessData(void* pMemoryData)
   KERNEL_UNLOCK(pMemProcInfo->lock);
 
   /* Release the memory structure */
-  KFree(pMemProcInfo);
+  KFree(pMemProcInfo, KMALLOC_PROCESS_HEAP);
 }
 
 uintptr_t MemoryGetUserStartAddr(void)
@@ -3655,7 +3726,10 @@ E_Return MemoryUserUnmap(const void*       kVirtualAddress,
       /* Unmap the data */
       startVirt = (uintptr_t)kVirtualAddress;
       error = _MemoryUnmapUser(pPageDir, &startVirt, &pageCount, 4);
-      MEM_ASSERT(error == NO_ERROR, "Failed to unmap mapped memory", error);
+      MEM_ASSERT(error == NO_ERROR,
+                 "Failed to unmap mapped memory",
+                 error,
+                 false);
 
       KERNEL_UNLOCK(pMemProcInfo->lock);
 
@@ -3744,7 +3818,8 @@ void* MemoryUserAllocate(const size_t     kSize,
                                     NULL);
             MEM_ASSERT(newFrame != MEMMGR_PHYS_ADDR_ERROR,
                        "Invalid physical frame",
-                       ERR_UNAUTHORIZED_ACTION);
+                       ERR_UNAUTHORIZED_ACTION,
+                       false);
             _ReleaseFrames(newFrame, 1);
           }
 
@@ -3753,7 +3828,8 @@ void* MemoryUserAllocate(const size_t     kSize,
                                        pMemInfo->PDPhysAddress);
           MEM_ASSERT(internalError == NO_ERROR,
                      "Failed to unmapp mapped memory",
-                     internalError);
+                     internalError,
+                     false);
         }
         _ReleaseUserPages(pageBaseAddress, pageCount, pProcess);
         pageBaseAddress = (uintptr_t)NULL;
@@ -3808,7 +3884,8 @@ E_Return MemoryUserFree(const void*      kVirtualAddress,
                                  NULL);
         MEM_ASSERT(frameAddr != MEMMGR_PHYS_ADDR_ERROR,
                    "Invalid physical frame",
-                   ERR_UNAUTHORIZED_ACTION);
+                   ERR_UNAUTHORIZED_ACTION,
+                   false);
         _ReleaseFrames(frameAddr, 1);
       }
 
@@ -3818,7 +3895,8 @@ E_Return MemoryUserFree(const void*      kVirtualAddress,
                            pMemInfo->PDPhysAddress);
       MEM_ASSERT(error == NO_ERROR,
                  "Invalid unmapping frame",
-                 ERR_UNAUTHORIZED_ACTION);
+                 ERR_UNAUTHORIZED_ACTION,
+                 false);
 
       KERNEL_UNLOCK(pMemInfo->lock);
 

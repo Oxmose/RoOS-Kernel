@@ -33,7 +33,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* TODO */
+#include <TestFramework.h>
 
 /* Header file */
 #include <DeviceTree.h>
@@ -171,9 +171,9 @@ typedef struct
  *
 */
 #define DEVTREE_ASSERT(COND, MSG, ERROR) {              \
-  if ((COND) == false)                                   \
+  if ((COND) == false)                                  \
   {                                                     \
-    PANIC(ERROR, MODULE_NAME, MSG, false);              \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false);       \
   }                                                     \
 }
 /*******************************************************************************

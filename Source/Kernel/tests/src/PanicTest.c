@@ -72,7 +72,7 @@
 
 void PanicTest(void)
 {
-  KernelPanic(0, "PANIC_TEST", "Test panic", __FILE__, __LINE__, false);
+  KernelPanic(0, "PANIC_TEST", "Test panic", __FILE__, __LINE__, false, false);
 
   /* We should never reach this point */
   TEST_POINT_ASSERT_RCODE(PANIC_TEST_SUCCESS_ID,

@@ -42,7 +42,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* None TODO */
+/* No unit test: this module is tested in real-world conditions. */
 
 /* Header file */
 #include <X64Cpu.h>
@@ -325,7 +325,7 @@ typedef struct
 #define CPU_ASSERT(COND, MSG, ERROR) {            \
   if ((COND) == false)                            \
   {                                               \
-    PANIC(ERROR, MODULE_NAME, MSG, false);        \
+    PANIC(ERROR, MODULE_NAME, MSG, false, false); \
   }                                               \
 }
 
@@ -1131,7 +1131,11 @@ static bool _IPIInterruptHandler(void)
           doSchedule = true;
           break;
         default:
-          PANIC(ERR_EXCEEDED_LIMIT, MODULE_NAME, "Unknown IPI function", false);
+          PANIC(ERR_EXCEEDED_LIMIT,
+                MODULE_NAME,
+                "Unknown IPI function",
+                false,
+                false);
       }
       available = FQueuePop(spIPIRequestQueue[cpuId][i], (void*)&params);
     }
@@ -1276,7 +1280,11 @@ void CPUAPInit(const uint8_t kCPUId)
   SchedulerSchedule();
 
   /* Once the scheduler is started, we should never come back here. */
-  PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "CPU AP Init Returned", false);
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "CPU AP Init Returned",
+        false,
+        false);
 }
 
 const S_VirtualCPU* CPUGetVirtualCPU(const S_KernelThread* kpThread)
@@ -1332,69 +1340,73 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
   uint64_t      dsVal;
   uint64_t      rflagsVal;
 
-  if (pThread->type == THREAD_TYPE_KERNEL)
-  {
-    csVal     = KERNEL_CS_64;
-    dsVal     = KERNEL_DS_64;
-    rflagsVal = KERNEL_THREAD_INIT_RFLAGS;
-    stack     = pThread->kernelStackEnd;
-  }
-  else
-  {
-    csVal     = USER_CS_64 | 0x3;
-    dsVal     = USER_DS_64 | 0x3;
-    rflagsVal = USER_THREAD_INIT_RFLAGS;
-    stack     = pThread->stackEnd;
-  }
-
   /* Allocate the new VCPU */
-  pVCpu = KMalloc(sizeof(S_VirtualCPU), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
-  memset(pVCpu, 0, sizeof(S_VirtualCPU));
+  pVCpu = KMalloc(sizeof(S_VirtualCPU), ALIGN_ADDRESS, KMALLOC_PROCESS_HEAP);
+  if (pVCpu != NULL)
+  {
+    if (pThread->type == THREAD_TYPE_KERNEL)
+    {
+      csVal     = KERNEL_CS_64;
+      dsVal     = KERNEL_DS_64;
+      rflagsVal = KERNEL_THREAD_INIT_RFLAGS;
+      stack     = pThread->kernelStackEnd;
+    }
+    else
+    {
+      csVal     = USER_CS_64 | 0x3;
+      dsVal     = USER_DS_64 | 0x3;
+      rflagsVal = USER_THREAD_INIT_RFLAGS;
+      stack     = pThread->stackEnd;
+    }
 
-  /* Setup the interrupt context */
-  pVCpu->intContext.intId     = 0;
-  pVCpu->intContext.errorCode = 0;
-  pVCpu->intContext.cs        = csVal;
-  pVCpu->intContext.rflags    = rflagsVal;
+    memset(pVCpu, 0, sizeof(S_VirtualCPU));
 
-  /* Set the entry point */
-  pVCpu->intContext.rip = (uintptr_t)pThread->pEntryPoint;
-  pVCpu->cpuState.rdi   = (uintptr_t)pThread->pArgs;
+    /* Setup the interrupt context */
+    pVCpu->intContext.intId     = 0;
+    pVCpu->intContext.errorCode = 0;
+    pVCpu->intContext.cs        = csVal;
+    pVCpu->intContext.rflags    = rflagsVal;
 
-  /* Setup stack pointers */
-  pVCpu->cpuState.rsp   = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
-  pVCpu->cpuState.rbp   = pVCpu->cpuState.rsp;
+    /* Set the entry point */
+    pVCpu->intContext.rip = (uintptr_t)pThread->pEntryPoint;
+    pVCpu->cpuState.rdi   = (uintptr_t)pThread->pArgs;
 
-  /* Setup the CPU state */
-  pVCpu->cpuState.rsi = 0;
-  pVCpu->cpuState.rdx = 0;
-  pVCpu->cpuState.rcx = 0;
-  pVCpu->cpuState.rbx = 0;
-  pVCpu->cpuState.rax = 0;
-  pVCpu->cpuState.r8  = 0;
-  pVCpu->cpuState.r9  = 0;
-  pVCpu->cpuState.r10 = 0;
-  pVCpu->cpuState.r11 = 0;
-  pVCpu->cpuState.r12 = 0;
-  pVCpu->cpuState.r13 = 0;
-  pVCpu->cpuState.r14 = 0;
-  pVCpu->cpuState.r15 = 0;
-  pVCpu->cpuState.ss  = dsVal;
-  pVCpu->cpuState.gs  = dsVal;
-  pVCpu->cpuState.fs  = dsVal;
-  pVCpu->cpuState.es  = dsVal;
-  pVCpu->cpuState.ds  = dsVal;
+    /* Setup stack pointers */
+    pVCpu->cpuState.rsp   = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
+    pVCpu->cpuState.rbp   = pVCpu->cpuState.rsp;
 
-  /* Setup the FPU */
-  pFxData = (S_FXData*)(((uintptr_t)pVCpu->fxData + 0xF) & 0xFFFFFFFFFFFFFFF0);
-  pFxData->mxcsr = MXCSR_PRECISION_EXC_MASK;
+    /* Setup the CPU state */
+    pVCpu->cpuState.rsi = 0;
+    pVCpu->cpuState.rdx = 0;
+    pVCpu->cpuState.rcx = 0;
+    pVCpu->cpuState.rbx = 0;
+    pVCpu->cpuState.rax = 0;
+    pVCpu->cpuState.r8  = 0;
+    pVCpu->cpuState.r9  = 0;
+    pVCpu->cpuState.r10 = 0;
+    pVCpu->cpuState.r11 = 0;
+    pVCpu->cpuState.r12 = 0;
+    pVCpu->cpuState.r13 = 0;
+    pVCpu->cpuState.r14 = 0;
+    pVCpu->cpuState.r15 = 0;
+    pVCpu->cpuState.ss  = dsVal;
+    pVCpu->cpuState.gs  = dsVal;
+    pVCpu->cpuState.fs  = dsVal;
+    pVCpu->cpuState.es  = dsVal;
+    pVCpu->cpuState.ds  = dsVal;
+
+    /* Setup the FPU */
+    pFxData = (S_FXData*)(((uintptr_t)pVCpu->fxData + 0xF) &
+                          0xFFFFFFFFFFFFFFF0);
+    pFxData->mxcsr = MXCSR_PRECISION_EXC_MASK;
+  }
 
   return pVCpu;
 }
 
 void CPUDestroyVirtualCPU(S_KernelThread* pThread)
 {
-  KFree(pThread->pVCpu);
+  KFree(pThread->pVCpu, KMALLOC_PROCESS_HEAP);
 }
 
 uint32_t CPUGetContextInterruptNumber(const S_KernelThread* kpThread)
@@ -1572,7 +1584,11 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD;
 __attribute__((noreturn)) void __stack_chk_fail(void);
 __attribute__((noreturn)) void __stack_chk_fail(void)
 {
-  PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "Stack smashing detected", false);
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "Stack smashing detected",
+        false,
+        false);
   while (true)
   {
     CPUHalt();

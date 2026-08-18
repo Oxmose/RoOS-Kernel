@@ -28,6 +28,7 @@
  ******************************************************************************/
 #include <stddef.h>
 #include <stdint.h>
+#include <KernelHeap.h>
 
 /*******************************************************************************
  * CONSTANTS
@@ -53,6 +54,9 @@ typedef struct S_KernelQueueNode
 
   /** @brief Node's data pointer. Store the address of the contained data. */
   void* pData;
+
+  /** @brief Node's allocation pool. */
+  E_KMallocPool allocPool;
 } S_KernelQueueNode;
 
 /** @brief Queue structure. */
@@ -65,6 +69,9 @@ typedef struct
 
   /** @brief Current queue's size. */
   size_t size;
+
+  /** @brief Queue's allocation pool. */
+  E_KMallocPool allocPool;
 } S_KernelQueue;
 
 /*******************************************************************************
@@ -97,10 +104,11 @@ typedef struct
  * @warning A node should be only used in one queue at most.
  *
  * @param[in] pData The pointer to the data to carry in the node.
+ * @param[in] kHeapPool The heap pool to use for the node allocation.
  *
  * @return The node pointer is returned.
  */
-S_KernelQueueNode* KQueueCreateNode(void* pData);
+S_KernelQueueNode* KQueueCreateNode(void* pData, const E_KMallocPool kHeapPool);
 
 /**
  * @brief Initializes a new queue node.
@@ -131,9 +139,11 @@ void KQueueDestroyNode(S_KernelQueueNode** ppNode);
  * @details Creates and initializes a new queue. The returned queue is
  * ready to be used.
  *
+ * @param[in] kHeapPool The heap pool to use for the queue allocation.
+ *
  * @return A pointer to the create queue is returned.
  */
-S_KernelQueue* KQueueCreate(void);
+S_KernelQueue* KQueueCreate(const E_KMallocPool kHeapPool);
 
 /**
  * @brief Deletes a previously created queue.

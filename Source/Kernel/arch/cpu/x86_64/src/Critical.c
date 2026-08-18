@@ -27,7 +27,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* None TODO */
+#include <TestFramework.h>
 
 /* Header file */
 #include <Critical.h>

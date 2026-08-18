@@ -72,7 +72,6 @@ typedef struct S_VFSNode
 typedef struct
 {
   S_Vector* pFDTable;
-  S_KernelQueue* pFDPool;
   S_KernelSpinlock lock;
 } S_FDTable;
 
@@ -81,7 +80,6 @@ typedef struct
   char* pFilePath;
   void* pFileHandle;
   S_FSDriver* pDriver;
-  uint32_t refCount;
   S_KernelSpinlock lock;
 } S_FileDescriptorShared;
 
@@ -250,11 +248,6 @@ static void _TestCreateFDTable(void)
                            pTable->pFDTable->size == 32,
                            32,
                            pTable->pFDTable->size,
-                           TEST_VFS_ENABLED);
-  TEST_POINT_ASSERT_UDWORD(TEST_VFS_FD_TABLE_CREATE(3),
-                           pTable->pFDPool->size == 32,
-                           32,
-                           pTable->pFDPool->size,
                            TEST_VFS_ENABLED);
 
   DestroyProcessFDTable(&process);
@@ -2709,7 +2702,6 @@ void VFSCreateFDTest(void* pArgs)
   S_FDTable* pTable;
   E_Return retCode;
   int32_t fdId;
-  S_KernelQueueNode* pNode;
   S_FileDescriptor* pInternalFD;
 
   pCreateFD = (T_CreateFD)pArgs;
@@ -2741,19 +2733,17 @@ void VFSCreateFDTest(void* pArgs)
                         fdId,
                         TEST_VFS_ENABLED);
 
-  retCode = VectorGet(pTable->pFDTable, (size_t)fdId, (void**)&pNode);
+  retCode = VectorGet(pTable->pFDTable, (size_t)fdId, (void**)&pInternalFD);
   TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_CREATE(3),
                           retCode == NO_ERROR,
                           NO_ERROR,
                           retCode,
                           TEST_VFS_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_CREATE(4),
-                            pNode != NULL,
+                            pInternalFD != NULL,
                             (uintptr_t)NULL,
-                            (uintptr_t)pNode,
+                            (uintptr_t)pInternalFD,
                             TEST_VFS_ENABLED);
-
-  pInternalFD = (S_FileDescriptor*)pNode->pData;
   TEST_POINT_ASSERT_UDWORD(TEST_VFS_FD_CREATE(5),
                            pInternalFD->tableId == (uint32_t)fdId,
                            fdId,
@@ -2792,11 +2782,6 @@ void VFSCreateFDTest(void* pArgs)
                         strcmp(pInternalFD->pShared->pFilePath,
                                "/test/file.txt"),
                         TEST_VFS_ENABLED);
-  TEST_POINT_ASSERT_UDWORD(TEST_VFS_FD_CREATE(12),
-                           pInternalFD->pShared->refCount == 1,
-                           1,
-                           pInternalFD->pShared->refCount,
-                           TEST_VFS_ENABLED);
 
   DestroyProcessFDTable(&process);
 }
@@ -2808,7 +2793,6 @@ void VFSDestroyFDTest(void* pArgs)
   S_FDTable* pTable;
   E_Return retCode;
   int32_t fdId;
-  S_KernelQueueNode* pNode;
   S_FileDescriptor* pInternalFD;
 
   memset(&process, 0, sizeof(process));
@@ -2840,16 +2824,16 @@ void VFSDestroyFDTest(void* pArgs)
 
   pDestroyFD(pTable, fdId);
 
-  retCode = VectorGet(pTable->pFDTable, (size_t)fdId, (void**)&pNode);
+  retCode = VectorGet(pTable->pFDTable, (size_t)fdId, (void**)&pInternalFD);
   TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_DESTROY(3),
                           retCode == NO_ERROR,
                           NO_ERROR,
                           retCode,
                           TEST_VFS_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_DESTROY(4),
-                            pNode == NULL,
+                            pInternalFD == NULL,
                             (uintptr_t)NULL,
-                            (uintptr_t)pNode,
+                            (uintptr_t)pInternalFD,
                             TEST_VFS_ENABLED);
 
   fdId = (pCreateFD)(pTable,
@@ -2859,24 +2843,22 @@ void VFSDestroyFDTest(void* pArgs)
                              0x33,
                              0x44);
   TEST_POINT_ASSERT_INT(TEST_VFS_FD_DESTROY(5),
-                        fdId == 1,
-                        1,
+                        fdId == 0,
+                        0,
                         fdId,
                         TEST_VFS_ENABLED);
 
-  retCode = VectorGet(pTable->pFDTable, (size_t)fdId, (void**)&pNode);
+  retCode = VectorGet(pTable->pFDTable, (size_t)fdId, (void**)&pInternalFD);
   TEST_POINT_ASSERT_RCODE(TEST_VFS_FD_DESTROY(6),
                           retCode == NO_ERROR,
                           NO_ERROR,
                           retCode,
                           TEST_VFS_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_DESTROY(7),
-                            pNode != NULL,
+                            pInternalFD != NULL,
                             (uintptr_t)NULL,
-                            (uintptr_t)pNode,
+                            (uintptr_t)pInternalFD,
                             TEST_VFS_ENABLED);
-
-  pInternalFD = (S_FileDescriptor*)pNode->pData;
   TEST_POINT_ASSERT_POINTER(TEST_VFS_FD_DESTROY(8),
                             pInternalFD->pShared->pDriver == &driver2,
                             (uintptr_t)&driver2,

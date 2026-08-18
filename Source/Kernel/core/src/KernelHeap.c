@@ -27,15 +27,18 @@
 #include <Panic.h>
 #include <stdint.h>
 #include <string.h>
+#include <Memory.h>
 #include <stdbool.h>
 #include <Critical.h>
+#include <CtrlBlock.h>
+#include <Scheduler.h>
 #include <KernelError.h>
 
 /* Configuration files */
 #include <config.h>
 
 /* Unit test header */
-/* None TODO */
+#include <TestFramework.h>
 
 /* Header file */
 #include <KernelHeap.h>
@@ -46,9 +49,6 @@
 
 /** @brief Module name */
 #define MODULE_NAME "KHEAP"
-
-/** @brief Num size. */
-#define NUM_SIZES 32
 
 /** @brief Memory chunk alignement. */
 #define ALIGN 4
@@ -62,35 +62,7 @@
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-
-/** @brief Kernel's heap allocator list node. */
-typedef struct List
-{
-  /** @brief Next node of the list. */
-  struct List* pNext;
-  /** @brief Previous node of the list. */
-  struct List* pPrev;
-} S_List;
-
-/** @brief Kernel's heap allocator memory chunk representation. */
-typedef struct
-{
-  /** @brief Memory chunk list. */
-  S_List all;
-
-  /** @brief Used flag. */
-  int32_t used;
-
-  /**
-   * @brief If used, the union contains the chunk's data, else a list of free
-   * memory.
-   */
-  union
-  {
-    uint8_t pData[0];
-    S_List  free;
-  };
-} S_Chunk;
+/* None */
 
 /*******************************************************************************
  * MACROS
@@ -181,12 +153,13 @@ __extension__                                      \
  * @param[in] COND The condition that should be true.
  * @param[in] MSG The message to display in case of kernel panic.
  * @param[in] ERROR The error code to use in case of kernel panic.
+ * @param[in] IS_PROCESS Tells if the panic comes form a process.
  */
-#define KHEAP_ASSERT(COND, MSG, ERROR) {           \
-  if ((COND) == false)                             \
-  {                                                \
-    PANIC(ERROR, MODULE_NAME, MSG, false);         \
-  }                                                \
+#define KHEAP_ASSERT(COND, MSG, ERROR, IS_PROCESS) {    \
+  if ((COND) == false)                                  \
+  {                                                     \
+    PANIC(ERROR, MODULE_NAME, MSG, false, IS_PROCESS);  \
+  }                                                     \
 }
 /*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
@@ -294,8 +267,9 @@ static inline int32_t _MemoryChunkSlot(uint32_t size);
  * @details Removes a memory chunk in the free memory chunks list.
  *
  * @param[in, out] pChunk The chunk to be removed from the list.
+ * @param[in, out] pHeap The process heap containing the free chunk list.
  */
-static inline void _RemoveFree(S_Chunk* pChunk);
+static inline void _RemoveFree(S_Chunk* pChunk, S_ProcessHeap* pHeap);
 
 /**
  * @brief Pushes a memory chunk in the free memory chunks list.
@@ -303,8 +277,9 @@ static inline void _RemoveFree(S_Chunk* pChunk);
  * @details Pushes a memory chunk in the free memory chunks list.
  *
  * @param[in, out] pChunk The chunk to be placed in the list.
+ * @param[in, out] pHeap The process heap containing the free chunk list.
  */
-static inline void _PushFree(S_Chunk *pChunk);
+static inline void _PushFree(S_Chunk *pChunk, S_ProcessHeap* pHeap);
 
 /**
  * @brief Allocate memory from the kernel heap with ability to free later.
@@ -314,12 +289,14 @@ static inline void _PushFree(S_Chunk *pChunk);
  *
  * @param[in] kSize The number of byte to allocate.
  * @param[in] kAlign The alignement in bytes.
- *
+ * @param[in] pHeap The process heap to allocate from.
+
  * @return A pointer to the start address of the allocated memory is returned.
  * If the memory cannot be allocated, a kernel panic is raised.
  */
-static void* _KMallocFree(const size_t       kSize,
-                          const E_Alignement kAlign);
+static void* _KMalloc(const size_t       kSize,
+                      const E_Alignement kAlign,
+                      S_ProcessHeap*     pHeap);
 
                          /**
  * @brief Allocate memory from the kernel heap without ability to free later.
@@ -355,32 +332,14 @@ extern uint8_t _KERNEL_NON_FREE_HEAP_SIZE;
 
 /************************** Static global variables ***************************/
 
-/* Heap data */
-/** @brief Kernel's heap free memory chunks. */
-static S_Chunk* spFreeChunk[NUM_SIZES] = { NULL };
-/** @brief Kernel's heap spFirstChunk memory chunk. */
-static S_Chunk* spFirstChunk = NULL;
-/** @brief Kernel's heap spLastChunk memory chunk. */
-static S_Chunk* spLastChunk = NULL;
-
-/** @brief Quantity of free memory in the kernel's heap. */
-static size_t sMemFree;
-/** @brief Quantity of used memory in the kernel's heap. */
-static size_t sMemUsed;
-/** @brief Quantity of memory used to store meta data in the kernel's heap. */
-static size_t sMemMeta;
-
 /** @brief Stores the head pointer of the non-free heap. */
 static uintptr_t sNonFreeHeapHead;
 /** @brief Stores the end pointer of the non-free heap. */
 static uintptr_t sNonFreeHeapEnd;
-/** @brief Stores the start pointer of the free heap. */
-static uintptr_t sFreeHeapStart;
-/** @brief Stores the end pointer of the free heap. */
-static uintptr_t sFreeHeapEnd;
-
-/** @brief Heap lock */
-static S_KernelSpinlock sLock[2];
+/** @brief Non free Heap lock */
+static S_KernelSpinlock sLock;
+/** @brief Main kernel heap */
+static S_ProcessHeap sKernelHeap;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -489,25 +448,27 @@ static inline int32_t _MemoryChunkSlot(uint32_t size)
   return n;
 }
 
-static inline void _RemoveFree(S_Chunk* pChunk)
+static inline void _RemoveFree(S_Chunk* pChunk, S_ProcessHeap* pHeap)
 {
   uint32_t len = _MemoryChunkSize(pChunk);
   int      n   = _MemoryChunkSlot(len);
 
-  LIST_REMOVE_FROM(&spFreeChunk[n], pChunk, free);
-  sMemFree -= len;
+  LIST_REMOVE_FROM(&pHeap->spFreeChunk[n], pChunk, free);
+  pHeap->sMemFree -= len;
 }
 
-static inline void _PushFree(S_Chunk *pChunk)
+static inline void _PushFree(S_Chunk *pChunk, S_ProcessHeap* pHeap)
 {
   uint32_t len = _MemoryChunkSize(pChunk);
   int      n   = _MemoryChunkSlot(len);
 
-  LIST_PUSH(&spFreeChunk[n], pChunk, free);
-  sMemFree += len;
+  LIST_PUSH(&pHeap->spFreeChunk[n], pChunk, free);
+  pHeap->sMemFree += len;
 }
 
-static void* _KMallocFree(const size_t kSize, const E_Alignement kAlign)
+static void* _KMalloc(const size_t       kSize,
+                      const E_Alignement kAlign,
+                      S_ProcessHeap*     pHeap)
 {
   size_t   n;
   size_t   size;
@@ -519,7 +480,7 @@ static void* _KMallocFree(const size_t kSize, const E_Alignement kAlign)
 
   if (kSize != 0)
   {
-    KERNEL_LOCK(sLock[0]);
+    KERNEL_LOCK(pHeap->lock);
 
     size = (kSize + kAlign - 1) & (~(kAlign - 1));
 
@@ -532,7 +493,7 @@ static void* _KMallocFree(const size_t kSize, const E_Alignement kAlign)
 
     if (n < NUM_SIZES)
     {
-      while (spFreeChunk[n] == 0)
+      while (pHeap->spFreeChunk[n] == 0)
       {
         ++n;
         if (n >= NUM_SIZES)
@@ -544,7 +505,7 @@ static void* _KMallocFree(const size_t kSize, const E_Alignement kAlign)
 
       if (n < NUM_SIZES)
       {
-        pChunk = LIST_POP(&spFreeChunk[n], free);
+        pChunk = LIST_POP(&pHeap->spFreeChunk[n], free);
         size2 = _MemoryChunkSize(pChunk);
         len = 0;
 
@@ -558,16 +519,16 @@ static void* _KMallocFree(const size_t kSize, const E_Alignement kAlign)
           len = _MemoryChunkSize(pChunk2);
           n   = _MemoryChunkSlot(len);
 
-          LIST_PUSH(&spFreeChunk[n], pChunk2, free);
+          LIST_PUSH(&pHeap->spFreeChunk[n], pChunk2, free);
 
-          sMemMeta += HEADER_SIZE;
-          sMemFree += len;
+          pHeap->sMemMeta += HEADER_SIZE;
+          pHeap->sMemFree += len;
         }
 
         pChunk->used = true;
 
-        sMemFree -= size2;
-        sMemUsed += size2 - len - HEADER_SIZE;
+        pHeap->sMemFree -= size2;
+        pHeap->sMemUsed += size2 - len - HEADER_SIZE;
 
         allocated = pChunk->pData;
       }
@@ -577,7 +538,7 @@ static void* _KMallocFree(const size_t kSize, const E_Alignement kAlign)
       allocated = NULL;
     }
 
-    KERNEL_UNLOCK(sLock[0]);
+    KERNEL_UNLOCK(pHeap->lock);
   }
   else
   {
@@ -596,7 +557,7 @@ static void* _KMallocNoFree(const size_t kSize, const E_Alignement kAlign)
 
   if (kSize != 0)
   {
-    KERNEL_LOCK(sLock[1]);
+    KERNEL_LOCK(sLock);
 
     allocAlign = (sNonFreeHeapHead + (kAlign - 1)) & ~((uintptr_t)kAlign - 1);
     if (allocAlign + kSize <= sNonFreeHeapEnd)
@@ -605,7 +566,7 @@ static void* _KMallocNoFree(const size_t kSize, const E_Alignement kAlign)
       sNonFreeHeapHead = kSize + allocAlign;
     }
 
-    KERNEL_UNLOCK(sLock[1]);
+    KERNEL_UNLOCK(sLock);
   }
 
   return allocated;
@@ -625,113 +586,222 @@ void KernelHeapInit(void)
   /* Initialize the pools */
   sNonFreeHeapHead = (uintptr_t)&_KERNEL_NON_FREE_HEAP_BASE;
   sNonFreeHeapEnd  = sNonFreeHeapHead + (uintptr_t)&_KERNEL_NON_FREE_HEAP_SIZE;
-  sFreeHeapStart   = (uintptr_t)pMemStart;
-  sFreeHeapEnd     = (uintptr_t)pMemEnd;
-
 
   /* Initialize the free pool */
-  pMemStart    = (int8_t*)sFreeHeapStart;
-  pMemEnd      = (int8_t*)sFreeHeapEnd;
-  sMemFree     = 0;
-  sMemMeta     = 0;
-  spFirstChunk = NULL;
-  spLastChunk  = NULL;
+  memset(&sKernelHeap, 0, sizeof(S_ProcessHeap));
+  sKernelHeap.baseAddress = (uintptr_t)pMemStart;
+  sKernelHeap.endAddress  = (uintptr_t)pMemEnd;
+  sKernelHeap.currentHead = (uintptr_t)pMemStart;
+  sKernelHeap.sMemUsed     = 0;
+  sKernelHeap.sMemFree     = 0;
+  sKernelHeap.sMemMeta     = 0;
+  sKernelHeap.spFirstChunk = NULL;
+  sKernelHeap.spLastChunk  = NULL;
 
-  spFirstChunk = (S_Chunk*)pMemStart;
-  pSecond      = spFirstChunk + 1;
-  spLastChunk = ((S_Chunk*)pMemEnd) - 1;
+  sKernelHeap.spFirstChunk = (S_Chunk*)pMemStart;
+  sKernelHeap.spLastChunk  = ((S_Chunk*)pMemEnd) - 1;
+  pSecond                  = sKernelHeap.spFirstChunk + 1;
 
-  _MemoryChunkInit(spFirstChunk);
+  _MemoryChunkInit(sKernelHeap.spFirstChunk);
   _MemoryChunkInit(pSecond);
-  _MemoryChunkInit(spLastChunk);
+  _MemoryChunkInit(sKernelHeap.spLastChunk);
 
-  _InsertAfter(&spFirstChunk->all, &pSecond->all);
-  _InsertAfter(&pSecond->all, &spLastChunk->all);
+  _InsertAfter(&sKernelHeap.spFirstChunk->all, &pSecond->all);
+  _InsertAfter(&pSecond->all, &sKernelHeap.spLastChunk->all);
 
-  spFirstChunk->used = true;
-  spLastChunk->used  = true;
+  sKernelHeap.spFirstChunk->used = true;
+  sKernelHeap.spLastChunk->used  = true;
 
   len = _MemoryChunkSize(pSecond);
   n   = _MemoryChunkSlot(len);
 
-  LIST_PUSH(&spFreeChunk[n], pSecond, free);
-  sMemFree = len - HEADER_SIZE;
-  sMemMeta = sizeof(S_Chunk) * 2 + HEADER_SIZE;
+  LIST_PUSH(&sKernelHeap.spFreeChunk[n], pSecond, free);
+  sKernelHeap.sMemFree = len - HEADER_SIZE;
+  sKernelHeap.sMemMeta = sizeof(S_Chunk) * 2 + HEADER_SIZE;
 
-  KERNEL_SPINLOCK_INIT(sLock[0]);
-  KERNEL_SPINLOCK_INIT(sLock[1]);
+  KERNEL_SPINLOCK_INIT(sKernelHeap.lock);
+  KERNEL_SPINLOCK_INIT(sLock);
+}
+
+E_Return CreateProcessHeap(S_ProcessHeap** ppHeap)
+{
+  E_Return       error;
+  uintptr_t      addressStart;
+  S_ProcessHeap* pHeap;
+  S_Chunk*       pSecond;
+  uint32_t       len;
+  int32_t        n;
+  void*          pMem;
+  size_t         size;
+  int8_t*        pMemStart;
+  int8_t*        pMemEnd;
+
+  /* Allocate the memory from kernel space */
+  addressStart = (uintptr_t)MemoryKernelAllocate(KERNEL_PROCESS_HEAP_SIZE,
+                                              MEMMGR_MAP_RW | MEMMGR_MAP_KERNEL,
+                                              &error);
+  if (error == NO_ERROR)
+  {
+    /* Allocate the pHeap structure on the alloted memory */
+    pHeap = (S_ProcessHeap*)addressStart;
+    addressStart += sizeof(S_ProcessHeap);
+
+    /* Initialize the heap */
+    pMem = (void*)addressStart;
+    size = KERNEL_PROCESS_HEAP_SIZE - sizeof(S_ProcessHeap);
+    pMemStart = (int8_t*)(((uintptr_t)pMem + ALIGN - 1) & (~(ALIGN - 1)));
+    pMemEnd   = (int8_t*)(((uintptr_t)pMem + size) &  (~(ALIGN - 1)));
+
+    memset(pHeap, 0, sizeof(S_ProcessHeap));
+    pHeap->baseAddress = (uintptr_t)pMemStart;
+    pHeap->endAddress  = (uintptr_t)pMemEnd;
+    pHeap->currentHead = (uintptr_t)pMemStart;
+    pHeap->sMemUsed     = 0;
+    pHeap->sMemFree     = 0;
+    pHeap->sMemMeta     = 0;
+    pHeap->spFirstChunk = NULL;
+    pHeap->spLastChunk  = NULL;
+
+    pHeap->spFirstChunk = (S_Chunk*)pMemStart;
+    pHeap->spLastChunk  = ((S_Chunk*)pMemEnd) - 1;
+    pSecond             = pHeap->spFirstChunk + 1;
+
+    _MemoryChunkInit(pHeap->spFirstChunk);
+    _MemoryChunkInit(pSecond);
+    _MemoryChunkInit(pHeap->spLastChunk);
+
+    _InsertAfter(&pHeap->spFirstChunk->all, &pSecond->all);
+    _InsertAfter(&pSecond->all, &pHeap->spLastChunk->all);
+
+    pHeap->spFirstChunk->used = true;
+    pHeap->spLastChunk->used  = true;
+
+    len = _MemoryChunkSize(pSecond);
+    n   = _MemoryChunkSlot(len);
+
+    LIST_PUSH(&pHeap->spFreeChunk[n], pSecond, free);
+    pHeap->sMemFree = len - HEADER_SIZE;
+    pHeap->sMemMeta = sizeof(S_Chunk) * 2 + HEADER_SIZE;
+
+    KERNEL_SPINLOCK_INIT(pHeap->lock);
+
+    *ppHeap = pHeap;
+  }
+
+  return error;
+}
+
+void DestroyProcessHeap(S_ProcessHeap* pHeap)
+{
+  E_Return error;
+
+  error = MemoryKernelFree(pHeap, KERNEL_PROCESS_HEAP_SIZE);
+  KHEAP_ASSERT(error == NO_ERROR, "Failed to unmap kernel heap.", error, false);
 }
 
 void* KMalloc(const size_t        kSize,
               const E_Alignement  kAlign,
               const E_KMallocPool kPool)
 {
-  void* allocated;
+  void*            alloc;
+  S_KernelProcess* pCurrentProcess;
 
-  allocated = NULL;
+  alloc = NULL;
 
   if (kPool == KMALLOC_NO_FREE_POOL)
   {
-    allocated = _KMallocNoFree(kSize, kAlign);
+    alloc = _KMallocNoFree(kSize, kAlign);
+    KHEAP_ASSERT(alloc != NULL,
+                 "Failed to allocate memory.",
+                 ERR_NO_MEMORY,
+                 false);
   }
   else if (kPool == KMALLOC_FREE_POOL)
   {
-    allocated = _KMallocFree(kSize, kAlign);
+    alloc = _KMalloc(kSize, kAlign, &sKernelHeap);
+    KHEAP_ASSERT(alloc != NULL,
+                 "Failed to allocate memory.",
+                 ERR_NO_MEMORY,
+                 false);
+  }
+  else if (kPool == KMALLOC_PROCESS_HEAP)
+  {
+    pCurrentProcess = SchedulerGetCurrentProcess();
+    alloc = _KMalloc(kSize, kAlign, pCurrentProcess->pHeap);
   }
 
-  KHEAP_ASSERT(allocated != NULL, "Failed to allocate memory.", ERR_NO_MEMORY);
-
-  return allocated;
+  return alloc;
 }
 
-void KFree(void *ptr)
+void KFree(void *ptr, const E_KMallocPool kPool)
 {
-  S_Chunk* pChunk;
-  S_Chunk* pNext;
-  S_Chunk* pPrev;
+  S_Chunk*         pChunk;
+  S_Chunk*         pNext;
+  S_Chunk*         pPrev;
+  S_KernelProcess* pCurrentProcess;
+  S_ProcessHeap*   pHeap;
 
+
+  if (kPool == KMALLOC_FREE_POOL)
+  {
+    pHeap = &sKernelHeap;
+  }
+  else if (kPool == KMALLOC_PROCESS_HEAP)
+  {
+    pCurrentProcess = SchedulerGetCurrentProcess();
+    pHeap = pCurrentProcess->pHeap;
+  }
+  else
+  {
+    pHeap = NULL;
+    KHEAP_ASSERT(false,
+                 "Free memory from non free pool.",
+                 ERR_UNAUTHORIZED_ACTION,
+                 false);
+  }
 
   KHEAP_ASSERT(
-    sFreeHeapStart <= (uintptr_t)ptr && sFreeHeapEnd > (uintptr_t)ptr,
+    pHeap->baseAddress <= (uintptr_t)ptr && pHeap->endAddress > (uintptr_t)ptr,
     "Failed to free memory.",
-    ERR_NO_MEMORY);
+    ERR_NO_MEMORY,
+    kPool == KMALLOC_PROCESS_HEAP);
 
 
-  KERNEL_LOCK(sLock[0]);
+  KERNEL_LOCK(pHeap->lock);
 
   pChunk = (S_Chunk*)((int8_t*)ptr - HEADER_SIZE);
 
   pNext = CONTAINER(S_Chunk, all, pChunk->all.pNext);
   pPrev = CONTAINER(S_Chunk, all, pChunk->all.pPrev);
 
-  sMemUsed -= _MemoryChunkSize(pChunk);
+  pHeap->sMemUsed -= _MemoryChunkSize(pChunk);
 
   if (pNext->used == false)
   {
-    _RemoveFree(pNext);
+    _RemoveFree(pNext, pHeap);
     _Remove(&pNext->all);
 
-    sMemMeta -= HEADER_SIZE;
-    sMemFree += HEADER_SIZE;
+    pHeap->sMemMeta -= HEADER_SIZE;
+    pHeap->sMemFree += HEADER_SIZE;
   }
 
   if (pPrev->used == false)
   {
-    _RemoveFree(pPrev);
+    _RemoveFree(pPrev, pHeap);
     _Remove(&pChunk->all);
 
-    _PushFree(pPrev);
-    sMemMeta -= HEADER_SIZE;
-    sMemFree += HEADER_SIZE;
+    _PushFree(pPrev, pHeap);
+    pHeap->sMemMeta -= HEADER_SIZE;
+    pHeap->sMemFree += HEADER_SIZE;
   }
   else
   {
     pChunk->used = false;
     LIST_INIT(pChunk, free);
-    _PushFree(pChunk);
+    _PushFree(pChunk, pHeap);
   }
 
-  KERNEL_UNLOCK(sLock[0]);
+  KERNEL_UNLOCK(pHeap->lock);
 }
 
 /************************************ EOF *************************************/

@@ -86,7 +86,7 @@ static void* _Alloc(const size_t kSize)
 
 static void _Free(void* ptr)
 {
-  KFree(ptr);
+  KFree(ptr, KMALLOC_FREE_POOL);
 }
 
 void UHashtableTest(void)

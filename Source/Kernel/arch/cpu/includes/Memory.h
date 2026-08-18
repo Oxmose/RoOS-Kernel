@@ -68,6 +68,8 @@ typedef struct
   S_KernelQueue* pQueue;
   /** @brief The memory list lock */
   S_KernelSpinlock lock;
+  /** @brief The memory pool used for list allocation */
+  E_KMallocPool allocPool;
 } S_MemoryList;
 
  /**
@@ -261,10 +263,9 @@ E_Return MemoryKernelFree(const void* kVirtualAddress, const size_t kSize);
  * @details Creates a process memory configuration. The function will allocate
  * the required resources.
  *
- * @return The function return a pointer to the configuration on success or NULL
- * on error.
+ * @param[out] pProcess The process for which the data should be created.
  */
-void* MemoryCreateProcessData(void);
+void MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess);
 
 /**
  * @brief Destroys a process memory configuration.
