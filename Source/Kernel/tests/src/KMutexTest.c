@@ -938,11 +938,11 @@ static void _TestElevationMutex(void)
 
 static void* _TestRoutine(void* args)
 {
-  TEST_POINT_ASSERT_POINTER(TEST_KMUTEX_CREATE_TEST(1),
+  TEST_POINT_ASSERT_POINTER(TEST_KMUTEX_CREATE_TEST(2),
                             args == (void*)0xDEADC0DEBEEF0000ULL,
                             0xDEADC0DEBEEF0000ULL,
                             (uintptr_t)args,
-                            TEST_SCHEDULER_ENABLED);
+                            TEST_OS_KMUTEX_ENABLED);
 #if 1
   KPrintf("Mutual Exclusion Test\n");
   _TestMutualExclusion();
@@ -994,12 +994,12 @@ void KernelMutexTest(void)
                           error == NO_ERROR,
                           NO_ERROR,
                           error,
-                          TEST_SCHEDULER_ENABLED);
+                          TEST_OS_KMUTEX_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_KMUTEX_CREATE_TEST(1),
                             spTestThread != NULL,
                             0xFFFFFFFFFFFFFFFFULL,
                             (uintptr_t)spTestThread,
-                            TEST_SCHEDULER_ENABLED);
+                            TEST_OS_KMUTEX_ENABLED);
 
   if (error != NO_ERROR)
   {

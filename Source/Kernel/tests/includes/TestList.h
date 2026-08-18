@@ -33,10 +33,10 @@
 /** @brief Panic test enabled flag */
 #define TEST_PANIC_ENABLED                        0
 #define TEST_OS_KMUTEX_ENABLED                    0
-#define TEST_OS_KSEMAPHORE_ENABLED                1
+#define TEST_OS_KSEMAPHORE_ENABLED                0
 #define TEST_KHEAP_ENABLED                        0
 #define TEST_DEVTREE_ENABLED                      0
-#define TEST_CRITICAL_ENABLED                     0
+#define TEST_CRITICAL_ENABLED                     1
 #define TEST_INTERRUPT_ENABLED                    0
 #define TEST_OS_UHASHTABLE_ENABLED                0
 #define TEST_SCHEDULER_ENABLED                    0
@@ -372,14 +372,13 @@
 /** @brief Kernel semaphore tests */
 #define TEST_KSEMAPHORE_CREATE_TEST(X)    (X)
 #define TEST_KSEMAPHORE_EXC_ID(X)         (1000 + X)
-#define TEST_KSEMAPHORE_RECURSIVE_ID(X)   (10000 + X)
 #define TEST_KSEMAPHORE_ORDER_TEST(X)     (100000 + X)
 #define TEST_KSEMAPHORE_FIFO_TEST(X)      (1000000 + X)
-#define TEST_KSEMAPHORE_TRYLOCK_TEST(X)   (10000000 + X)
-#define TEST_KSEMAPHORE_ELEVATION_PRIO(X) (100000000 + X)
+#define TEST_KSEMAPHORE_TRYWAIT_TEST(X)   (10000000 + X)
+#define TEST_KSEMAPHORE_MULTIPLE_TEST(X)  (100000000 + X)
 
 /** @brief Current test name */
-#define TEST_FRAMEWORK_TEST_NAME "Kernel Scheduler"
+#define TEST_FRAMEWORK_TEST_NAME "Kernel Critical Sections"
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
