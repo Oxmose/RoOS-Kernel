@@ -32,11 +32,35 @@
 #define KERNEL_LOWEST_PRIORITY  63
 /** @brief Scheduler's thread highest priority. */
 #define KERNEL_HIGHEST_PRIORITY 0
-
+/**
+ * @brief Defines the size of the window for which the CPU load is calculated
+ * in ticks
+ */
+#define CPU_LOAD_TICK_WINDOW 100
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/* None */
+/** @brief Defines a thread routine type. */
+typedef void* (*T_ThreadRoutine)(void*);
+
+/** @brief Context statistics, used to calculate the CPU scores. */
+typedef struct
+{
+  /** @brief Stores the times spent in idle in the last window */
+  uint64_t idleTimes[CPU_LOAD_TICK_WINDOW];
+  /** @brief Stores the total time in the last window */
+  uint64_t totalTimes[CPU_LOAD_TICK_WINDOW];
+  /** @brief Stores the current idle time average */
+  uint64_t idleTime;
+  /** @brief Stores the current total time average */
+  uint64_t totalTime;
+  /** @brief Index in the times table */
+  uint32_t timesIdx;
+  /** @brief Stores the last saved time. */
+  uint64_t lastTime;
+  /** @brief Stores the fitness score of the CPU */
+  uint64_t score;
+} S_ScheduleContextStatistics;
 
 /*******************************************************************************
  * MACROS
@@ -98,13 +122,22 @@ bool SchedulerSchedule(void);
 S_KernelThread* SchedulerGetCurrentThread(void);
 
 /**
- * @brief Sets the thread as errored.
+ * @brief Returns the handle to the current running process.
  *
- * @details Sets the thread as errored and prevents it from executing again.
+ * @details Returns the handle to the current running process. This value should
+ * never be NULL as a process should always be elected for running.
  *
- * @param[out] pThread The thread to set to errored.
+ * @return A handle to the current running process is returned.
  */
-void SchedulerSetThreadErrored(S_KernelThread* pThread);
+S_KernelProcess* SchedulerGetCurrentProcess(void);
+
+/**
+ * @brief Sets the current thread as errored.
+ *
+ * @details Sets the currrent thread as errored and prevents it from executing
+ * again.
+ */
+void SchedulerSetCurrentThreadErrored(void);
 
 /**
  * @brief Tells if the scheduler has been initialized.
@@ -114,6 +147,23 @@ void SchedulerSetThreadErrored(S_KernelThread* pThread);
  * @return True is returned once the scheduler is initialized, false otherwise.
  */
 bool SchedulerIsInitialized(void);
+
+/* TODO: Document */
+const S_ScheduleContextStatistics* SchedulerGetStatistics(const uint32_t kCPU);
+
+E_Return CreateThread(S_KernelThread**      ppThread,
+                      const bool            kIsKernel,
+                      const uint8_t         kPriority,
+                      const char            kName[THREAD_NAME_MAX_LENGTH],
+                      const size_t          kStackSize,
+                      const S_CPUMask       kMappedCPUs,
+                      const T_ThreadRoutine kRoutine,
+                      void*                 args);
+
+E_Return JoinThread(S_KernelThread* pThread,
+                    void**          ppReturnValue);
+
+E_Return SleepNs(const uint64_t timeNs);
 
 #endif /* #ifndef __CORE_SCHEDULER_H_ */
 

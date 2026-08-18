@@ -31,17 +31,32 @@
  * TESTING ENABLE FLAGS
  ************************************************/
 /** @brief Panic test enabled flag */
-#define TEST_PANIC_ENABLED                        1
+#define TEST_PANIC_ENABLED                        0
+#define TEST_SCHEDULER_ENABLED                    1
 
 /*************************************************
  * TEST IDENTIFIERS
  ************************************************/
 
- /** @brief Panic test success ID */
+/** @brief Panic test */
 #define PANIC_TEST_SUCCESS_ID                           0
 
+/** @brief Scheduler test */
+#define SCHED_TEST_IS_INIT_ID                      1000
+#define SCHED_TEST_CREATE_TEST_THREAD_ID(X)        (1100 + X)
+#define SCHED_TEST_SLEEP_ID(X)                     (1200 + X)
+#define SCHED_TEST_JOIN_THREAD_ID(X)               (1300 + X)
+#define SCHED_TEST_GETTER_ID(X)                    (1400 + X)
+#define SCHED_TEST_ERROR_THREAD_ID(X)              (1500 + X)
+#define SCHED_TEST_PRIORITY_THREAD_CREATE_ID(X)    (1600 + X)
+#define SCHED_TEST_PRIORITY_THREAD_JOIN_ID(X)      (1700 + X)
+#define SCHED_TEST_PRIORITY_THREAD_CHECK_ID(X)     (1900 + X)
+#define SCHED_TEST_MAPPING_THREAD_CREATE_ID(X)     (2000 + X)
+#define SCHED_TEST_MAPPING_THREAD_JOIN_ID(X)       (2100 + X)
+#define SCHED_TEST_MAPPING_THREAD_CHECK_ID(X)      (2200 + X)
+
 /** @brief Current test name */
-#define TEST_FRAMEWORK_TEST_NAME "Kernel Panic"
+#define TEST_FRAMEWORK_TEST_NAME "Kernel Scheduler"
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -72,8 +87,11 @@
  * FUNCTIONS
  ******************************************************************************/
 
- /** @brief Panic test function */
+/** @brief Panic test function */
 void PanicTest(void);
+
+/** @brief Scheduler main test function */
+void SchedulerTest(void);
 
 #endif /* #ifdef _TESTING_FRAMEWORK_ENABLED */
 

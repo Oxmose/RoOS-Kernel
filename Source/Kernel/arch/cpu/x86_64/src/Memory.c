@@ -829,7 +829,7 @@ static bool _PageFaultHandler(void)
     pCurrentThread->errorTable.instAddr     = CPUGetContextIP(pCurrentThread);
     pCurrentThread->errorTable.pExecVCpu    = pCurrentThread->pVCpu;
 
-    SchedulerSetThreadErrored(pCurrentThread);
+    SchedulerSetCurrentThreadErrored();
   }
   else
   {
@@ -1612,7 +1612,7 @@ static E_Return _MemoryUnmap(const uintptr_t kVirtualAddress,
 
           CPUInvalidateTLBEntry(currVirtAddr);
 
-          /* Update other cores TLB */
+          /* Update other CPUs TLB */
           ipiParams.pData = (void*)currVirtAddr;
           CPUSendIPI(CPU_IPI_BROADCAST_TO_OTHER, &ipiParams);
 
@@ -1693,7 +1693,7 @@ static void _ReleasePageDir(const uintptr_t kPhysTable,
   currentLevelPage = (uintptr_t*)GET_VIRT_MEM_ADDR(kPhysTable);
 
   /* Get the address increase based on the level */
-  switch(kLevel)
+  switch (kLevel)
   {
     /* PML4 */
     case 4:
@@ -1713,9 +1713,7 @@ static void _ReleasePageDir(const uintptr_t kPhysTable,
       break;
     default:
       levelAddrCount = 0;
-      MEM_ASSERT(false,
-                 "Invalid page directory level in release",
-                 ERR_INVALID_PARAMETER);
+      PANIC(ERR_INVALID_PARAMETER, MODULE_NAME, "Invalid PGDir.", false);
   }
 
   /* Check all entries of the current table */
@@ -2580,7 +2578,7 @@ static E_Return _MemoryMapUser(uintptr_t*     pTableLevel,
   }
 
   /* Get the entry index */
-  switch(kLevel)
+  switch (kLevel)
   {
     /* PML4 */
     case 4:
@@ -2747,7 +2745,7 @@ static E_Return _MemoryUnmapUser(uintptr_t*    pTableLevel,
   }
 
   /* Get the entry index */
-  switch(kLevel)
+  switch (kLevel)
   {
     /* PML4 */
     case 4:

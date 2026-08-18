@@ -417,15 +417,13 @@ static void _PrintStackTrace(uintptr_t* lastRBP)
                         : "%rax");
 
   _PanicPrintf("                              ==== Stack Trace ====\n");
-  /* Get the return address */
-  _PanicPrintf("[0] 0x%p", lastRBP);
 
   dummyProcess.pMemoryData = &metadata;
   isMapped = MemoryIsMapped((uintptr_t)lastRBP,
                               2 * sizeof(uintptr_t),
                               &dummyProcess,
                               true);
-  for (i = 1; i < STACK_TRACE_SIZE && isMapped == true; ++i)
+  for (i = 0; i < STACK_TRACE_SIZE && isMapped == true; ++i)
   {
     callAddr = *(lastRBP + 1);
 
@@ -505,7 +503,7 @@ void KernelPanic(const uint32_t kErrorCode,
   /* Lock the panic */
   SpinlockAcquire(&sLock);
 
-  /* Send the cores IPI */
+  /* Send the CPUs IPI */
   ipiParams.function = IPI_FUNC_PANIC;
   ipiParams.pData    = NULL;
   CPUSendIPI(CPU_IPI_BROADCAST_TO_OTHER, &ipiParams);
@@ -551,12 +549,14 @@ void KernelPanic(const uint32_t kErrorCode,
   _PrintStackTrace((uintptr_t*)kpVCPU->cpuState.rbp);
 
   /* Test point */
+#if TEST_PANIC_ENABLED
   TEST_POINT_ASSERT_RCODE(PANIC_TEST_SUCCESS_ID,
                           true,
                           NO_ERROR,
                           NO_ERROR,
                           TEST_PANIC_ENABLED);
   TEST_FRAMEWORK_END();
+#endif
 
   /* Wait intefinitely */
   while (1)

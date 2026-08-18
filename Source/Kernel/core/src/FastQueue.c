@@ -127,6 +127,7 @@ void FQueuePush(S_FastQueue* pQueue, const void* kpData)
   /* Get the next write index */
   nextIdx = (pQueue->head + 1) % pQueue->maxSize;
 
+  while (nextIdx == pQueue->tail) {}
   FQUEUE_ASSERT(nextIdx != pQueue->tail,
                 "Full Fast Queue",
                 ERR_UNAUTHORIZED_ACTION);

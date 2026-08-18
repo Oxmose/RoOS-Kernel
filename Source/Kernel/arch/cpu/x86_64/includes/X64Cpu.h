@@ -172,8 +172,8 @@ typedef struct
   /** @brief Stores the current CPU state */
   S_CPUState cpuState;
   /** @brief FXSAVE / FXRSTOR data region */
-    uint8_t fxData[FXDATA_REGION_SIZE];
-} S_VirtualCPU;
+  uint8_t fxData[FXDATA_REGION_SIZE];
+} __attribute__((packed)) S_VirtualCPU;
 
 /** @brief Defines the memory layout of the FXData region */
 typedef struct
@@ -314,9 +314,9 @@ static inline uint32_t CPUPortReadWord(const uint16_t kPort)
 /**
  * @brief Registers the LAPIC driver.
  *
- * @details Registers the LAPIC driver used by the core manager to end IPI,
+ * @details Registers the LAPIC driver used by the CPU manager to end IPI,
  * start other CPUs and get the LAPIC Ids. This function must be called
- * before any other in the core manager. The function should only be called
+ * before any other in the CPU manager. The function should only be called
  * once.
  *
  * @param[in] kpLAPICDriver The LAPIC driver to register.
@@ -326,8 +326,8 @@ void CPURegisterLAPICDriver(const S_LAPICDriver* kpLAPICDriver);
 /**
  * @brief Registers the LAPIC Timer driver.
  *
- * @details Registers the LAPIC Timer driver used by the core manager to
- * initialize the LAPIC Timer for secondary cores
+ * @details Registers the LAPIC Timer driver used by the CPU manager to
+ * initialize the LAPIC Timer for secondary CPUs
  *
  * @param[in] kpLAPICDriver The LAPIC driver to register.
  */

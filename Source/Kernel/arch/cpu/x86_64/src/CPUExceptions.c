@@ -291,7 +291,7 @@ static bool _FPExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -307,7 +307,7 @@ static bool _InvalidInstructionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -323,7 +323,7 @@ static bool _DebugExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -339,7 +339,7 @@ static bool _BreakpointExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -355,7 +355,7 @@ static bool _OverflowExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -371,7 +371,7 @@ static bool _BoundRangeExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -387,7 +387,7 @@ static bool _DeviceNotAvailableExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -411,7 +411,7 @@ static bool _CoprocSegmentOverrunExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -427,7 +427,7 @@ static bool _InvalidTSSExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -443,7 +443,7 @@ static bool _SegmentNotPresentExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -459,7 +459,7 @@ static bool _StackSegmentFaultExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -475,7 +475,7 @@ static bool _GeneralProtectionExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -491,7 +491,7 @@ static bool _AlignementCheckExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -507,7 +507,7 @@ static bool _MachineCheckExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -523,7 +523,7 @@ static bool _SIMDFPExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -539,7 +539,7 @@ static bool _VirtualizationExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -555,7 +555,7 @@ static bool _ControlProtectionExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -571,7 +571,7 @@ static bool _HypervisorInjectionExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -587,7 +587,7 @@ static bool _VMMCommunicationExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }
@@ -603,7 +603,7 @@ static bool _SecurityExceptionHandler(void)
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
   /* Set the thread to non executable */
-  SchedulerSetThreadErrored(pCurrThread);
+  SchedulerSetCurrentThreadErrored();
 
   return true;
 }

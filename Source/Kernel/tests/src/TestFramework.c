@@ -307,8 +307,8 @@ void _KillQEMU(void)
 
 void TestFrameworkInit(void)
 {
-    KERNEL_SPINLOCK_INIT(sLock);
-    spMemoryPoolHead = &_KERNEL_TEST_BUFFER_BASE;
+  KERNEL_SPINLOCK_INIT(sLock);
+  spMemoryPoolHead = &_KERNEL_TEST_BUFFER_BASE;
 }
 
 void TestFrameworkEnd(void)

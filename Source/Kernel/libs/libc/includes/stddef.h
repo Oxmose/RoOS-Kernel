@@ -20,8 +20,8 @@
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
-#include <config.h>
 #include <stdint.h>
+#include <config.h>
 
 /*******************************************************************************
  * CONSTANTS
@@ -110,6 +110,16 @@ typedef struct
  */
 #define CPU_MASK_GET(CPU_MASK, CPU_ID) \
   (CPU_MASK.mask[CPU_ID / 64ULL] & (1ULL << (CPU_ID % 64ULL)))
+
+  /**
+ * @brief Copy a CPU mask.
+ *
+ * @param[out] CPU_MASK_DEST The destination mask.
+ * @param[in] CPU_MASK_SRC The source mask to copy.
+ */
+#define CPU_MASK_COPY(CPU_MASK_DEST, CPU_MASK_SRC) {            \
+  memcpy(&CPU_MASK_DEST, &CPU_MASK_SRC, sizeof(CPU_MASK_DEST)); \
+}
 
 /*******************************************************************************
  * MACROS

@@ -60,6 +60,15 @@
         #address-cells = <2>;
         #size-cells = <2>;
 
+        vgatext: vga@B8000 {
+            compatible = "x86,x86-vga-text";
+            reg = <0x0 0xB8000 0x0 0xFA0>;
+            comm = <0x3D4 0x3D5>;
+            resolution = <80 25>;
+            device = "/dev/vga-text";
+            console-output;
+        };
+
         acpi: acpi@E0000 {
             compatible = "x86,x86-acpi";
             reg = <0x0 0xE0000 0x0 0x20000>;
@@ -187,20 +196,13 @@
                 interrupt-parent = <&int_ctrl>;
                 interrupts = <0 0x20>; /* 0: is not IRQ; 1: Int line */
                 freq = <1000>;
-                bus-freq-divider = <16>;
+                bus-freq-divider = <128>;
                 base-timer = <&lifetimer>;
                 lapic-node = <&lapic>;
             };
         };
 
-        vgatext: vga@B8000 {
-            compatible = "x86,x86-vga-text";
-            reg = <0x0 0xB8000 0x0 0xFA0>;
-            comm = <0x3D4 0x3D5>;
-            resolution = <80 25>;
-            device = "/dev/vga-text";
-            console-output;
-        };
+
 
         vesa: vesa {
             compatible = "x86,x86-vesa";

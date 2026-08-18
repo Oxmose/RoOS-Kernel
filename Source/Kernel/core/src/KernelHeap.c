@@ -679,6 +679,8 @@ void* KMalloc(const size_t        kSize,
     allocated = _KMallocFree(kSize, kAlign);
   }
 
+  while (allocated == NULL) {}
+
   KHEAP_ASSERT(allocated != NULL, "Failed to allocate memory.", ERR_NO_MEMORY);
 
   return allocated;

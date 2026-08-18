@@ -27,6 +27,7 @@
 #include <CPU.h>
 #include <Panic.h>
 #include <Memory.h>
+#include <stddef.h> /* TODO Remove */
 #include <Console.h>
 #include <Scheduler.h>
 #include <KernelHeap.h>
@@ -152,23 +153,28 @@ void X64KernelEntry(void)
   SchedulerInit();
   KERNEL_SUCCESS("Scheduler initialized.\n");
 
-  /* Now that devices are configured, start the core manager, in charge of
-   * starting other cores if needed. After calling this function all the
-   * running cores excepted this one have their interrupt enabled.
+  /* Now that devices are configured, start the CPU manager, in charge of
+   * starting other CPUs if needed. After calling this function all the
+   * running CPUs excepted this one have their interrupt enabled.
    */
   CPUStartSMP();
   KERNEL_SUCCESS("SMP started.\n");
 
   KERNEL_INFO("Kernel started successfully.\n");
 
-/* Add library and core tests here */
+  /* Add library and core tests here */
   TEST_POINT_FUNCTION_CALL(PanicTest, TEST_PANIC_ENABLED);
 
+  #if 0
+  /* TODO: Remove */
+  extern void TestKernel(void);
+  TestKernel();
+#endif
   /* Perform first schedule */
   SchedulerSchedule();
 
   /* Once the scheduler is started, we should never come back here. */
-  KICKSTART_ASSERT(false, "Entry returned.", ERR_UNAUTHORIZED_ACTION);
+  PANIC(ERR_UNAUTHORIZED_ACTION, MODULE_NAME, "Entry returned.", false);
 }
 
 /************************************ EOF *************************************/

@@ -477,7 +477,7 @@ static inline void _SetIRQMaskFor(S_IOAPICControler* pCtrl,
   /* Update the IRQ for the table */
   remapIRQ = kIRQNumber - pCtrl->gsib;
 
-  /* Set the mask, IO APIC uses physical destination only to core 0 */
+  /* Set the mask, IO APIC uses physical destination only to CPU 0 */
   entryLow = _GetInterruptLine(kIRQNumber);
   if (kEnabled == false)
   {

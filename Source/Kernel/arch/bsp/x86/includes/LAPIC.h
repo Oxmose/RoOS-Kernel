@@ -99,12 +99,12 @@ typedef struct
   void (*pSendIPI)(const uint8_t kLAPICId, const uint8_t kVector);
 
   /**
-   * @brief Initializes a secondary core LAPIC.
+   * @brief Initializes a secondary CPU LAPIC.
    *
-   * @details Initializes a secondary core LAPIC. This function initializes
-   * the secondary core LAPIC interrupts and settings.
+   * @details Initializes a secondary CPU LAPIC. This function initializes
+   * the secondary CPU LAPIC interrupts and settings.
    */
-  void (*pInitApCore)(void);
+  void (*pInitApCPU)(void);
 } S_LAPICDriver;
 
 
@@ -112,15 +112,15 @@ typedef struct
 typedef struct
 {
   /**
-   * @brief Initializes a secondary core LAPIC Timer.
+   * @brief Initializes a secondary CPU LAPIC Timer.
    *
-   * @details Initializes a secondary core LAPIC Timer. This function
-   * initializes the secondary core LAPIC timer interrupts and settings.
+   * @details Initializes a secondary CPU LAPIC Timer. This function
+   * initializes the secondary CPU LAPIC timer interrupts and settings.
    *
    * @param[in] kCpuId The CPU identifier for which we should enable the LAPIC
    * timer.
    */
-  void (*pInitApCore)(const uint8_t kCpuId);
+  void (*pInitApCPU)(const uint8_t kCpuId);
 } S_LAPICTimerDriver;
 
 /*******************************************************************************

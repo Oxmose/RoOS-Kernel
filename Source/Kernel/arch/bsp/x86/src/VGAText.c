@@ -356,7 +356,8 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
                                             frameBufferPhysSize,
                                             MEMMGR_MAP_HARDWARE |
                                             MEMMGR_MAP_KERNEL   |
-                                            MEMMGR_MAP_RW,
+                                            MEMMGR_MAP_RW       |
+                                            MEMMGR_MAP_WRITE_COMBINING,
                                             &retCode);
 
 
@@ -466,7 +467,7 @@ static void _ProcessChar(const char kCharacter)
   else
   {
     /* Manage special ACSII characters*/
-    switch(kCharacter)
+    switch (kCharacter)
     {
       /* Backspace */
       case '\b':

@@ -77,7 +77,7 @@
     LENGTH_MOD = 8;                                            \
   }                                                            \
                                                                \
-  switch(LENGTH_MOD)                                           \
+  switch (LENGTH_MOD)                                           \
   {                                                            \
     case 1:                                                    \
       VAL = (__builtin_va_arg(ARGS, uint32_t) & 0xFF);         \
@@ -309,7 +309,9 @@ static inline void _FloatToStr(double   value,
   /* Now setup the decimal part */
   while (*pSignificant > 0)
   {
-    intValue = (uint64_t)(value * 10.0);
+    value *= 10;
+    intValue = (uint64_t)(value);
+    value -= intValue;
     *pBuffer = ((char)intValue) + '0';
     ++pBuffer;
     --*pSignificant;
@@ -364,7 +366,7 @@ static size_t _FormatArgs(char*             pBuffer,
     }
     else if (modifier)
     {
-      switch(kpFmt[pos])
+      switch (kpFmt[pos])
       {
         // /* Length mods */
         case 'h':

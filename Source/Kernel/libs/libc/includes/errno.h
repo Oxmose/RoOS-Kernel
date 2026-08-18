@@ -49,7 +49,7 @@
 #define	ECHILD 10
 /** @brief No more processes */
 #define	EAGAIN 11
-/** @brief Not enough core */
+/** @brief Not enough memory */
 #define	ENOMEM 12
 /** @brief Permission denied */
 #define	EACCES 13
