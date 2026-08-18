@@ -139,10 +139,38 @@ S_KernelProcess* SchedulerGetCurrentProcess(void);
  */
 void SchedulerSetCurrentThreadErrored(void);
 
-/* TODO Document */
+/**
+ * @brief Sets the current thread to waiting state.
+ *
+ * #details Sets the current thread to waiting state. The thread will not be
+ * scheduled until it is set to ready state again.
+ *
+ * @warning This function should be called with the thread's lock acquired.
+ */
 void SchedulerSetCurrentThreadToWaiting(void);
+
+/**
+ * @brief Sets the thread to ready state.
+ *
+ * @details Sets the thread to ready state. The thread will be scheduled again
+ * when it is the highest priority thread in the ready state.
+ *
+ * @param[out] pThread The thread to set to ready state.
+ */
 void SchedulerSetThreadToReady(S_KernelThread* pThread);
-void SchedulerSetThreadPriority(S_KernelThread* pThread, const uint32_t kPriority);
+
+/**
+ * @brief Set the thread's priority.
+ *
+ * @details Set the thread's priority. The thread will be scheduled according to
+ * its new priority.
+ *
+ * @param[out] pThread The thread to set the priority.
+ * @param[in] kPriority The priority to set. Must be between KERNEL_HIGHEST_PRIORITY
+ * and KERNEL_LOWEST_PRIORITY.
+ */
+void SchedulerSetThreadPriority(S_KernelThread* pThread,
+                                const uint32_t  kPriority);
 
 /**
  * @brief Tells if the scheduler has been initialized.
@@ -153,9 +181,38 @@ void SchedulerSetThreadPriority(S_KernelThread* pThread, const uint32_t kPriorit
  */
 bool SchedulerIsInitialized(void);
 
-/* TODO: Document */
+/**
+ * @brief Returns the scheduler statistics for a given CPU.
+ *
+ * @param kCPU The CPU to get the statistics for.
+ *
+ * @return The scheduler statistics for the given CPU are returned. If the CPU
+ * is not valid, NULL is returned.
+ */
 const S_ScheduleContextStatistics* SchedulerGetStatistics(const uint32_t kCPU);
 
+/**
+ * @brief Creates and starts a new thread.
+ *
+ * @details Creates and starts a new thread. The thread is created with the given
+ * parameters and is scheduled for execution. The thread's routine is executed
+ * with the given arguments. The thread's return value can be retrieved by
+ * calling JoinThread.
+ *
+ * @param[out] ppThread The pointer to the thread structure. This is the handle
+ * of the thread for the user.
+ * @param[in] kIsKernel Tells if the created thread is a kernel or user thread.
+ * @param[in] kPriority The priority of the thread.
+ * @param[in] kpName The name of the thread.
+ * @param[in] kStackSize The thread's stack size in bytes, must be a multiple of
+ * the system's page size.
+ * @param[in] kMappedCPUs The CPU affinity set for this thread.
+ * @param[in] kRoutine The thread routine to be executed.
+ * @param[in] args The arguments to be used by the thread.
+ *
+ * @return The function returns NO_ERROR if the thread was created successfully,
+ * or an error code otherwise.
+ */
 E_Return CreateThread(S_KernelThread**      ppThread,
                       const bool            kIsKernel,
                       const uint8_t         kPriority,
@@ -165,10 +222,38 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                       const T_ThreadRoutine kRoutine,
                       void*                 args);
 
+/**
+ * @brief Joins a thread and retrieves its return value.
+ *
+ * @details Joins a thread and retrieves its return value. This function waits
+ * for the specified thread to finish its execution and retrieves its return
+ * value. The thread must be in a joinable state, and the calling thread will be
+ * blocked until the target thread completes.
+ *
+ * @param[in] pThread The thread to join.
+ * @param[out] ppReturnValue The pointer to the return value.
+ *
+ * @return The function returns NO_ERROR if the thread was joined successfully,
+ * or an error code otherwise.
+ */
 E_Return JoinThread(S_KernelThread* pThread,
                     void**          ppReturnValue);
 
-E_Return SleepNs(const uint64_t timeNs);
+/**
+ * @brief Puts the calling thread to sleep for a specified duration in
+ * nanoseconds.
+ *
+ * @details Puts the calling thread to sleep for a specified duration in
+ * nanoseconds. The thread will be blocked and will not be scheduled until the
+ * specified time has elapsed.
+ *
+ * @param[in] kTimeNs The duration in nanoseconds for which the thread should
+ * sleep.
+ *
+ * @return The function returns NO_ERROR if the thread was put to sleep
+ * successfully, or an error code otherwise.
+ */
+E_Return SleepNs(const uint64_t kTimeNs);
 
 #endif /* #ifndef __CORE_SCHEDULER_H_ */
 

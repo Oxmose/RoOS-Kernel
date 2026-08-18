@@ -124,6 +124,8 @@ void ConsoleInit(void)
       }
     }
   }
+
+  ConsoleClear();
 }
 
 void ConsoleClear(void)

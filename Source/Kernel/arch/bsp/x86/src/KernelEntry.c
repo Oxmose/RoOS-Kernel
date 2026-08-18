@@ -33,6 +33,7 @@
 #include <KernelHeap.h>
 #include <DeviceTree.h>
 #include <DebugOutput.h>
+#include <KernelShell.h>
 #include <TimerManager.h>
 #include <KernelOutput.h>
 #include <DriverManager.h>
@@ -185,11 +186,9 @@ void X64KernelEntry(void)
   TEST_POINT_FUNCTION(KernelMutexTest, TEST_OS_KMUTEX_ENABLED);
   TEST_POINT_FUNCTION(KernelSemaphoreTest, TEST_OS_KSEMAPHORE_ENABLED);
 
-#if 0
-  /* TODO: Remove */
-  extern void TestKernel(void);
-  TestKernel();
-#endif
+  /* Initialize the kernel shell */
+  KernelShellInit();
+
   /* Perform first schedule */
   SchedulerSchedule();
 

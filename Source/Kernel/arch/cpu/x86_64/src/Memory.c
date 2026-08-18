@@ -36,7 +36,7 @@
 #include <config.h>
 
 /* Unit test header */
-/* TODO */
+/* No unit test: this module is tested in real-world conditions. */
 
 /* Header file */
 #include <Memory.h>
