@@ -171,6 +171,6 @@ E_Return KernelMutexUnlock(S_KernelMutex* pMutex);
  */
 E_Return KernelMutexTryLock(S_KernelMutex* pMutex, int32_t* pLockState);
 
-#endif /* #ifndef __SYNC_KMUTEX_H_ */
+#endif /* #ifndef __CORE_KERNEL_MUTEX_H_ */
 
 /************************************ EOF *************************************/

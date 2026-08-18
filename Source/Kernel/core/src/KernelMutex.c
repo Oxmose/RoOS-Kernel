@@ -89,10 +89,10 @@ E_Return KernelMutexInit(S_KernelMutex* pMutex, const uint32_t kFlags)
   E_Return error;
   uint32_t priority;
 
-     if (((kFlags & (KMUTEX_FLAG_QUEUING_FIFO | KMUTEX_FLAG_QUEUING_PRIO)) ==
-           KMUTEX_FLAG_QUEUING_FIFO) ||
-         ((kFlags & (KMUTEX_FLAG_QUEUING_FIFO | KMUTEX_FLAG_QUEUING_PRIO)) ==
-          KMUTEX_FLAG_QUEUING_PRIO))
+  if (((kFlags & (KMUTEX_FLAG_QUEUING_FIFO | KMUTEX_FLAG_QUEUING_PRIO)) ==
+       KMUTEX_FLAG_QUEUING_FIFO) ||
+      ((kFlags & (KMUTEX_FLAG_QUEUING_FIFO | KMUTEX_FLAG_QUEUING_PRIO)) ==
+       KMUTEX_FLAG_QUEUING_PRIO))
   {
     priority = (kFlags >> 16);
     if (((kFlags & KMUTEX_FLAG_PRIO_ELEVATION) == KMUTEX_FLAG_PRIO_ELEVATION &&

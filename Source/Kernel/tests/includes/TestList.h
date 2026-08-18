@@ -33,12 +33,13 @@
 /** @brief Panic test enabled flag */
 #define TEST_PANIC_ENABLED                        0
 #define TEST_OS_KMUTEX_ENABLED                    0
+#define TEST_OS_KSEMAPHORE_ENABLED                1
 #define TEST_KHEAP_ENABLED                        0
 #define TEST_DEVTREE_ENABLED                      0
 #define TEST_CRITICAL_ENABLED                     0
 #define TEST_INTERRUPT_ENABLED                    0
 #define TEST_OS_UHASHTABLE_ENABLED                0
-#define TEST_SCHEDULER_ENABLED                    1
+#define TEST_SCHEDULER_ENABLED                    0
 #define TEST_VFS_ENABLED                          0
 #define TEST_OS_VECTOR_ENABLED                    0
 #define TEST_OS_KQUEUE_ENABLED                    0
@@ -368,6 +369,15 @@
 #define TEST_KMUTEX_TRYLOCK_TEST(X)   (10000000 + X)
 #define TEST_KMUTEX_ELEVATION_PRIO(X) (100000000 + X)
 
+/** @brief Kernel semaphore tests */
+#define TEST_KSEMAPHORE_CREATE_TEST(X)    (X)
+#define TEST_KSEMAPHORE_EXC_ID(X)         (1000 + X)
+#define TEST_KSEMAPHORE_RECURSIVE_ID(X)   (10000 + X)
+#define TEST_KSEMAPHORE_ORDER_TEST(X)     (100000 + X)
+#define TEST_KSEMAPHORE_FIFO_TEST(X)      (1000000 + X)
+#define TEST_KSEMAPHORE_TRYLOCK_TEST(X)   (10000000 + X)
+#define TEST_KSEMAPHORE_ELEVATION_PRIO(X) (100000000 + X)
+
 /** @brief Current test name */
 #define TEST_FRAMEWORK_TEST_NAME "Kernel Scheduler"
 
@@ -424,6 +434,8 @@ void KQueuesTest(void);
 void CPUIDTest(void);
 /** @brief Kernel mutex test function */
 void KernelMutexTest(void);
+/** @brief Kernel semaphore test function */
+void KernelSemaphoreTest(void);
 /** @brief VFS test functions */
 void VFSCleanPathTest(void* pArgs);
 void VFSFindNodeTest(void* pArgs);

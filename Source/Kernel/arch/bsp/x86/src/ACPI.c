@@ -1139,7 +1139,7 @@ static void _ParseFADT(const S_FADT* kpFadtPtr)
 
   KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
                MODULE_NAME,
-               "ACPI FADT at %xP",
+               "ACPI FADT at 0x%p",
                kpFadtPtr);
 
   /* Verify checksum */
@@ -1182,7 +1182,7 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
 
   KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
                MODULE_NAME,
-               "ACPI MADT at %xP",
+               "ACPI MADT at 0x%p",
                kpMadtPtr);
 
   ACPI_ASSERT((sum & 0xFF) == 0, "APIC checksum failed", ERR_INVALID_VALUE);
@@ -1295,7 +1295,7 @@ static void _ParseHPET(const S_ACPIHPETDescriptor* kpHpetPtr)
 
   KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
                MODULE_NAME,
-               "ACPI HPET at %xP",
+               "ACPI HPET at 0x%p",
                kpHpetPtr);
 
   ACPI_ASSERT((sum & 0xFF) == 0, "HPET Checksum failed", ERR_INVALID_VALUE);

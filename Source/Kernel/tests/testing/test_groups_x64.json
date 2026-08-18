@@ -8,6 +8,10 @@
     "testname": "OS_KMUTEX"
   },
   {
+    "name": "Kernel Semaphores",
+    "testname": "OS_KSEMAPHORE"
+  },
+  {
     "name": "Kernel Queues",
     "testname": "OS_KQUEUE"
   },
