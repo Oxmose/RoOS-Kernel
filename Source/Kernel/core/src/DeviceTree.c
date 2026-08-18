@@ -53,6 +53,11 @@
 /** @brief FDT Property identifier */
 #define FDT_PROP 0x00000003
 
+/** @brief Maximum length for a FDT property name */
+#define FDT_PROPERTY_NAME_MAX_LENGTH 64
+/** @brief Maximum length for a FDT node name */
+#define FDT_NODE_NAME_MAX_LENGTH 64
+
 /** @brief Initial address cells value */
 #define INIT_ADDR_CELLS 2
 /** @brief Initial size cells value */
@@ -450,7 +455,7 @@ static void _ApplyPropertyAction(S_FDTNode* pNode, S_FDTProperty* pProperty)
   size_t i;
   size_t propNameLength;
 
-  propNameLength = strlen(pProperty->pName);
+  propNameLength = strnlen(pProperty->pName, FDT_PROPERTY_NAME_MAX_LENGTH - 1);
 
   /* Check all properties */
   for (i = 0; i < sSpecPropTable.numberOfProps; ++i)
@@ -488,11 +493,9 @@ static S_FDTProperty* _ParseProperty(uint32_t* pOffset, S_FDTNode* pNode)
     /* Get the length and name */
     pProperty->length = FDTTOCPU32(kpInitProperty[0]);
     kpName = sFDTDesc.pStrings + FDTTOCPU32(kpInitProperty[1]);
-    length = strlen(kpName);
+    length = strnlen(kpName, FDT_PROPERTY_NAME_MAX_LENGTH - 1);
 
-    pProperty->pName = KMalloc(length + 1,
-                                ALIGN_ADDRESS,
-                                KMALLOC_NO_FREE_POOL);
+    pProperty->pName = KMalloc(length + 1, ALIGN_ADDRESS, KMALLOC_NO_FREE_POOL);
     memcpy(pProperty->pName, kpName, length);
     pProperty->pName[length] = 0;
 
@@ -555,7 +558,7 @@ static S_FDTNode* _ParseNode(uint32_t*     pOffset,
 
     /* Get name and copy */
     kpInitName = (char*)&sFDTDesc.pStructs[*pOffset];
-    length    = strlen(kpInitName);
+    length    = strnlen(kpInitName, FDT_NODE_NAME_MAX_LENGTH - 1);
 
     pNode->pName = KMalloc(length + 1, ALIGN_ADDRESS, KMALLOC_NO_FREE_POOL);
     memcpy(pNode->pName, kpInitName, length);

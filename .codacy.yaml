@@ -1,0 +1,32 @@
+---
+engines:
+  cppcheck:
+    language: c
+  duplication:
+    exclude_paths:
+      - "config/test.yml"
+    config:
+      languages:
+        - "ruby"
+  metric:
+    config:
+      languages:
+        - "c"
+languages:
+  c:
+    extensions:
+      - ".c"
+      - ".h"
+  python:
+    enabled: false
+exclude_paths:
+  - ".github/**"
+  - ".vscode/**"
+  - "Peripherals/**"
+  - "Tools/**"
+  - ".vscode/**"
+  - "Utils/**/*"
+  - "gendoc.sh"
+  - ".gitignore"
+  - "LICENSE"
+  - "README.md"

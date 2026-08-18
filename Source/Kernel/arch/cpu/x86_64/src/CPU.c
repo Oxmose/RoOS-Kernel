@@ -309,10 +309,7 @@ typedef struct
   bool cpu1GBPageSupport;
   /** @brief Store the advances CPU information */
   S_CPUInformation cpuInfo;
-  /** @brief Padding */
-  //uint8_t padding[8];
 } S_CPUConfig;
-//STRUCT_SIZE_CHECK((sizeof(S_CPUConfig) & 0xF) == 0);
 
 /*******************************************************************************
  * MACROS

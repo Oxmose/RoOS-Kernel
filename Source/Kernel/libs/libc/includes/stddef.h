@@ -37,10 +37,6 @@
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-
-/** @brief Check the size of a structure statically */
-#define STRUCT_SIZE_CHECK(COND) typedef char p__LINE__[ (COND) ? 1 : -1];
-
 /**
  * @brief Defines size_t type as a renaming for __SIZE_TYPE__.
  */

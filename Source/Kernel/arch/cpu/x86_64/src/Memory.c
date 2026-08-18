@@ -2807,7 +2807,7 @@ static E_Return _MemoryUnmapUser(uintptr_t*    pTableLevel,
             {
               break;
             }
-            if (i == KERNEL_PGDIR_ENTRY_COUNT)
+            if (i == KERNEL_PGDIR_ENTRY_COUNT - 1)
             {
               _ReleaseFrames(nextDirLevelFrame, 1);
               pTableLevel[addrEntryIdx] = 0;
