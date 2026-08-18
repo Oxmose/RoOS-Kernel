@@ -42,11 +42,11 @@
 /* Configuration files */
 #include <config.h>
 
+/* Unit test header */
+/* No unit test: this module is tested in real-world conditions. */
+
 /* Header file */
 #include <VGAText.h>
-
-/* Unit test header */
-/* None TODO */
 
 /*******************************************************************************
  * CONSTANTS

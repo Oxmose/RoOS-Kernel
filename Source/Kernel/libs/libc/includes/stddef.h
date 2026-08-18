@@ -30,10 +30,6 @@
 /** @brief NULL definition. */
 #define NULL ((void *)0)
 
-/** @brief Defines the table size for a CPU bitmask. */
-#define CPU_MASK_TABLE_SIZE \
-  (SOC_MAX_CPU_COUNT / 64ULL + ((SOC_MAX_CPU_COUNT % 64ULL != 0) ? 1 : 0))
-
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
