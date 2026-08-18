@@ -12,6 +12,9 @@
 QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 256M \
            -smp 4 -serial stdio -drive format=raw,file=../Peripherals/hdd_primary_master.img
 
+QEMUOPTSTEST = -cpu EPYC -rtc base=localtime -m 256M \
+           -smp 4 -serial stdio -drive format=raw,file=../Peripherals/hdd_primary_master.img
+
 #-d int,cpu_reset,guest_errors,unimp,invalid_mem,tid -D outlog%d.txt
 
 QEMU = qemu-system-x86_64
@@ -33,7 +36,7 @@ run: pre-run
 
 qemu-test-mode: pre-run
 	@echo "\e[1m\e[94m=== Running on Qemu TEST MODE\e[22m\e[39m"
-	@$(QEMU) $(QEMUOPTS) -boot d -cdrom ./$(KERNEL_BUILD_DIR)/$(KERNEL)_boot.iso -nographic -monitor none
+	@$(QEMU) $(QEMUOPTSTEST) -boot d -cdrom ./$(KERNEL_BUILD_DIR)/$(KERNEL)_boot.iso -nographic -monitor none
 
 debug: pre-run
 	@echo "\e[1m\e[94m=== Running on Qemu DEBUG MODE\e[22m\e[39m"

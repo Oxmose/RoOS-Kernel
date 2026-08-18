@@ -33,7 +33,6 @@ TYPE_STR = [
 
 TARGET_LIST = [
     "x86_64",
-    "x86_i386"
 ]
 
 TEST_TIMEOUT = 120

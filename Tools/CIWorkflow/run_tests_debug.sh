@@ -1,10 +1,10 @@
 #!/bin/bash
 
-mkdir GeneratedFiles
-rm -rf GeneratedFiles/*
+mkdir generated
+rm -rf generated/*
 cd Source
 
-python3 ../Tools/CIWorkflow/TestValidator.py x86_64 Kernel/test_framework/includes/test_groups_debug.json Kernel/test_framework/includes/test_list.h ../GeneratedFiles/test_file_output.txt
+python3 ../Tools/CIWorkflow/TestValidator.py x86_64 Kernel/tests/testing/test_groups_debug.json Kernel/tests/includes/TestList.h ../generated/test_file_output.txt
 
 if (( $? != 0 ))
 then

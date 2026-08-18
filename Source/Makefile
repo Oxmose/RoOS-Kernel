@@ -53,6 +53,11 @@ endif
 	@make -C $(KERNEL_SRC_DIR)/time
 	@make -C $(KERNEL_SRC_DIR)/io
 
+ifeq ($(TESTS), TRUE)
+	# Build the tests module
+	@make -C $(KERNEL_SRC_DIR)/tests target=$(target)
+endif
+
 	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\e[22m\e[39m"
 	@echo "\e[1m\e[34m| Generated kernel modules for target $(target)\e[22m\e[39m"
 	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\n\e[22m\e[39m"
@@ -85,14 +90,17 @@ clean:
 # Clean modules
 ifeq ($(target), x86_64)
 	@make -C $(KERNEL_SRC_DIR)/arch target_board=x86 target_cpu=x86_64 clean
+	@make -C $(KERNEL_SRC_DIR)/tests target=$(x86_64) clean
 else
 	@make -C $(KERNEL_SRC_DIR)/arch target_board=x86 target_cpu=x86_64 clean
+	@make -C $(KERNEL_SRC_DIR)/tests target=$(x86_64) clean
 endif
 
 	@make -C $(KERNEL_SRC_DIR)/libs clean
 	@make -C $(KERNEL_SRC_DIR)/core clean
 	@make -C $(KERNEL_SRC_DIR)/time clean
 	@make -C $(KERNEL_SRC_DIR)/io clean
+
 
 	@echo "\e[1m\e[34m\n#-------------------------------------------------------------------------------\e[22m\e[39m"
 	@echo "\e[1m\e[34m| Cleaned kernel \e[22m\e[39m"

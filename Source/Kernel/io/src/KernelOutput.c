@@ -130,13 +130,10 @@ static void _TagPrintf(const char* kpFmt, ...)
 
 void KPrintf(const char* kpFmt, ...)
 {
-    __builtin_va_list args;
+  __builtin_va_list args;
 
-    if (kpFmt != NULL)
-    {
-        return;
-    }
-
+  if (kpFmt != NULL)
+  {
     KERNEL_LOCK(sLock);
 
     /* Format the string */
@@ -153,6 +150,7 @@ void KPrintf(const char* kpFmt, ...)
     sBufferSize = 0;
 
     KERNEL_UNLOCK(sLock);
+  }
 }
 
 void KPrintfError(const char* kpFmt, ...)
