@@ -514,57 +514,7 @@ static inline void _UartWrite(const uint16_t kPort, const uint8_t kData)
 
 static E_UARTBaudrate _UartGetCanonicalRate(const uint32_t kBaudrate)
 {
-  switch (kBaudrate)
-  {
-    case 50:
-      return 2304;
-      break;
-    case 75:
-      return 1536;
-      break;
-    case 150:
-      return 768;
-      break;
-    case 300:
-      return 384;
-      break;
-    case 600:
-      return 192;
-      break;
-    case 1200:
-      return 96;
-      break;
-    case 1800:
-      return 64;
-      break;
-    case 2400:
-      return 48;
-      break;
-    case 4800:
-      return 24;
-      break;
-    case 7200:
-      return 16;
-      break;
-    case 9600:
-      return 12;
-      break;
-    case 14400:
-      return 8;
-      break;
-    case 19200:
-      return 6;
-      break;
-    case 38400:
-      return 3;
-      break;
-    case 57600:
-      return 2;
-      break;
-    case 115200:
-    default:
-       return 1;
-  }
+  return 115200 / kBaudrate;
 }
 
 void _UartPutString(const char* kpString)
