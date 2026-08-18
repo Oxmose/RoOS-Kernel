@@ -36,10 +36,10 @@
 #define TEST_OS_KSEMAPHORE_ENABLED                0
 #define TEST_KHEAP_ENABLED                        0
 #define TEST_DEVTREE_ENABLED                      0
-#define TEST_CRITICAL_ENABLED                     1
+#define TEST_CRITICAL_ENABLED                     0
 #define TEST_INTERRUPT_ENABLED                    0
 #define TEST_OS_UHASHTABLE_ENABLED                0
-#define TEST_SCHEDULER_ENABLED                    0
+#define TEST_SCHEDULER_ENABLED                    1
 #define TEST_VFS_ENABLED                          0
 #define TEST_OS_VECTOR_ENABLED                    0
 #define TEST_OS_KQUEUE_ENABLED                    0
@@ -378,7 +378,7 @@
 #define TEST_KSEMAPHORE_MULTIPLE_TEST(X)  (100000000 + X)
 
 /** @brief Current test name */
-#define TEST_FRAMEWORK_TEST_NAME "Kernel Critical Sections"
+#define TEST_FRAMEWORK_TEST_NAME "Kernel Scheduler"
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
