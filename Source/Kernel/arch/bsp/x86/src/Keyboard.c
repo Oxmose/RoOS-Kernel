@@ -583,72 +583,72 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
 
 static bool _KeyboardInterruptHandler(void)
 {
-    uint8_t  data;
-    E_Return error;
-    size_t   availableSpace;
-    bool     schedule;
+  uint8_t  data;
+  E_Return error;
+  size_t   availableSpace;
+  bool     schedule;
 
-    if (sKeyboardInitialized == true)
+  if (sKeyboardInitialized == true)
+  {
+    /* Set EOI */
+    InterruptSetEOI(sInputCtrl.irqNumber);
+
+    /* Check is we received a data */
+    data = CPUPortReadByte(sInputCtrl.cpuDataPort);
+    data = _ManageKeycode(data);
+
+    if (data != 0)
     {
-      /* Check is we received a data */
-      data = CPUPortReadByte(sInputCtrl.cpuDataPort);
-      data = _ManageKeycode(data);
+      /* Try to add the new data to the buffer */
+      KERNEL_LOCK(sInputCtrl.bufferLock);
 
-      if (data != 0)
+      if (sInputCtrl.inputBufferEndCursor >=
+          sInputCtrl.inputBufferStartCursor)
       {
-        /* Try to add the new data to the buffer */
-        KERNEL_LOCK(sInputCtrl.bufferLock);
-
-        if (sInputCtrl.inputBufferEndCursor >=
-            sInputCtrl.inputBufferStartCursor)
-        {
-          availableSpace = KBD_INPUT_BUFFER_SIZE -
-                           sInputCtrl.inputBufferEndCursor +
-                           sInputCtrl.inputBufferStartCursor;
-        }
-        else
-        {
-          availableSpace = sInputCtrl.inputBufferStartCursor -
-                           sInputCtrl.inputBufferEndCursor;
-        }
-
-        if (availableSpace > 1)
-        {
-          /* Read the data */
-          sInputCtrl.pInputBuffer[sInputCtrl.inputBufferEndCursor] = data;
-
-          sInputCtrl.inputBufferEndCursor =
-              (sInputCtrl.inputBufferEndCursor + 1) %
-              KBD_INPUT_BUFFER_SIZE;
-        }
-
-        KERNEL_UNLOCK(sInputCtrl.bufferLock);
-
-        if (availableSpace > 1)
-        {
-          /* Post the semaphore */
-          error = KernelSemaphorePost(&sInputCtrl.inputBufferSem);
-          KBD_ASSERT(error == NO_ERROR,
-                    "Failed to post keyboard semaphore",
-                    error);
-        }
-
-        schedule = true;
+        availableSpace = KBD_INPUT_BUFFER_SIZE -
+                          sInputCtrl.inputBufferEndCursor +
+                          sInputCtrl.inputBufferStartCursor;
       }
       else
       {
-        schedule = false;
+        availableSpace = sInputCtrl.inputBufferStartCursor -
+                          sInputCtrl.inputBufferEndCursor;
       }
+
+      if (availableSpace > 1)
+      {
+        /* Read the data */
+        sInputCtrl.pInputBuffer[sInputCtrl.inputBufferEndCursor] = data;
+
+        sInputCtrl.inputBufferEndCursor =
+            (sInputCtrl.inputBufferEndCursor + 1) %
+            KBD_INPUT_BUFFER_SIZE;
+      }
+
+      KERNEL_UNLOCK(sInputCtrl.bufferLock);
+
+      if (availableSpace > 1)
+      {
+        /* Post the semaphore */
+        error = KernelSemaphorePost(&sInputCtrl.inputBufferSem);
+        KBD_ASSERT(error == NO_ERROR,
+                  "Failed to post keyboard semaphore",
+                  error);
+      }
+
+      schedule = true;
     }
     else
     {
       schedule = false;
     }
+  }
+  else
+  {
+    schedule = false;
+  }
 
-    /* Set EOI */
-    InterruptSetEOI(sInputCtrl.irqNumber);
-
-    return schedule;
+  return schedule;
 }
 
 static ssize_t _KeyboardRead(void*        pDrvCtrl,

@@ -43,6 +43,9 @@ typedef struct
   uint64_t mask[CPU_MASK_TABLE_SIZE];
 } S_CPUMask;
 
+/** @brief Defines a CPU mask string representation. */
+typedef char S_CPUMaskString[CPU_MASK_TABLE_SIZE * 16 + 1];
+
 /*******************************************************************************
  * MACROS
  ******************************************************************************/
@@ -94,6 +97,20 @@ typedef struct
   memcpy(&CPU_MASK_DEST, &CPU_MASK_SRC, sizeof(CPU_MASK_DEST)); \
 }
 
+/**
+ * @brief Sets the OR value of the corresponding bit in the CPU mask.
+ *
+ * @param[out] CPU_MASK_DEST The mask to udpate.
+ * @param[in] CPU_MASK_SRC The source mask to OR with.
+ */
+#define CPU_MASK_OR(CPU_MASK_DEST, CPU_MASK_SRC) {            \
+  uint32_t i;                                                 \
+  for (i = 0; i < CPU_MASK_TABLE_SIZE; ++i)                   \
+  {                                                           \
+    CPU_MASK_DEST.mask[i] |= CPU_MASK_SRC.mask[i];            \
+  }                                                           \
+}
+
 
 /*******************************************************************************
  * GLOBAL VARIABLES
@@ -111,7 +128,17 @@ typedef struct
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-/* None */
+
+ /**
+  * @brief Returns the string representation of a CPU set.
+  *
+  * @details Returns the string representation of a CPU set.
+  *
+  * @param[in] kpMask The CPU mask to get the string representation of.
+  * @param[out] maskString The string representation of the CPU set is stored.
+  */
+void CPUGetMaskString(const S_CPUMask* kpMask, S_CPUMaskString maskString);
+
 
 #endif /* #ifndef __CPU_CPU_H_ */
 

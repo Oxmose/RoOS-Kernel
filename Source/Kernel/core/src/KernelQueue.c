@@ -96,21 +96,28 @@
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-S_KernelQueueNode* KQueueCreateNode(void* pData, const E_KMallocPool kHeapPool)
+S_KernelQueueNode* KQueueCreateNode(void* pData, S_ProcessHeap* pHeapPool)
 {
   S_KernelQueueNode* pNewNode;
 
-  /* Create new node */
-  pNewNode = KMalloc(sizeof(S_KernelQueueNode),
-                     ALIGN_ADDRESS,
-                     kHeapPool);
+  if (pHeapPool == NULL)
+  {
+    /* Create new queue */
+    pNewNode = KMalloc(sizeof(S_KernelQueueNode),
+                        ALIGN_ADDRESS,
+                        KMALLOC_FREE_POOL);
+  }
+  else
+  {
+    pNewNode = KMallocUser(sizeof(S_KernelQueueNode), ALIGN_ADDRESS, pHeapPool);
+  }
 
   if (pNewNode != NULL)
   {
     /* Init the structure */
     memset(pNewNode, 0, sizeof(S_KernelQueueNode));
     pNewNode->pData     = pData;
-    pNewNode->allocPool = kHeapPool;
+    pNewNode->pAllocPool = pHeapPool;
   }
 
   return pNewNode;
@@ -137,23 +144,40 @@ void KQueueDestroyNode(S_KernelQueueNode** ppNode)
   KQUEUE_ASSERT((*ppNode)->pQueuePtr == NULL,
                 "Tried to delete an enlisted node",
                 ERR_UNAUTHORIZED_ACTION,
-                (*ppNode)->allocPool == KMALLOC_PROCESS_HEAP);
+                (*ppNode)->pAllocPool != NULL);
 
-  KFree(*ppNode, (*ppNode)->allocPool);
+  if ((*ppNode)->pAllocPool == NULL)
+  {
+    KFree(*ppNode);
+  }
+  else
+  {
+    KFreeUser(*ppNode, (*ppNode)->pAllocPool);
+  }
   *ppNode = NULL;
 }
 
-S_KernelQueue* KQueueCreate(const E_KMallocPool kHeapPool)
+S_KernelQueue* KQueueCreate(S_ProcessHeap* pHeapPool)
 {
   S_KernelQueue* pNewQueue;
 
-  /* Create new queue */
-  pNewQueue = KMalloc(sizeof(S_KernelQueue), ALIGN_ADDRESS, kHeapPool);
+  if (pHeapPool == NULL)
+  {
+    /* Create new queue */
+    pNewQueue = KMalloc(sizeof(S_KernelQueue),
+                        ALIGN_ADDRESS,
+                        KMALLOC_FREE_POOL);
+  }
+  else
+  {
+    pNewQueue = KMallocUser(sizeof(S_KernelQueue), ALIGN_ADDRESS, pHeapPool);
+  }
+
   if (pNewQueue != NULL)
   {
     /* Init the structure */
     memset(pNewQueue, 0, sizeof(S_KernelQueue));
-    pNewQueue->allocPool = kHeapPool;
+    pNewQueue->pAllocPool = pHeapPool;
   }
 
   return pNewQueue;
@@ -169,9 +193,17 @@ void KQueueDestroy(S_KernelQueue** ppQueue)
   KQUEUE_ASSERT(((*ppQueue)->pHead == NULL && (*ppQueue)->pTail == NULL),
                 "Tried to delete a non empty queue",
                 ERR_UNAUTHORIZED_ACTION,
-                (*ppQueue)->allocPool == KMALLOC_PROCESS_HEAP);
+                (*ppQueue)->pAllocPool != NULL);
 
-  KFree(*ppQueue, (*ppQueue)->allocPool);
+  if ((*ppQueue)->pAllocPool == NULL)
+  {
+    KFree(*ppQueue);
+  }
+  else
+  {
+    KFreeUser(*ppQueue, (*ppQueue)->pAllocPool);
+  }
+
   *ppQueue = NULL;
 }
 
@@ -184,7 +216,7 @@ void KQueuePush(S_KernelQueueNode* pNode, S_KernelQueue* pQueue)
   KQUEUE_ASSERT(pNode->pQueuePtr == NULL,
                 "Tried to push an enlisted node",
                 ERR_UNAUTHORIZED_ACTION,
-                pNode->allocPool == KMALLOC_PROCESS_HEAP);
+                pNode->pAllocPool != NULL);
 
   /* If this queue is empty */
   if (pQueue->pHead == NULL)
@@ -212,7 +244,7 @@ void KQueuePush(S_KernelQueueNode* pNode, S_KernelQueue* pQueue)
                  pNode->pPrev == NULL),
                 "Cycle detected in KQueue",
                 ERR_UNAUTHORIZED_ACTION,
-                pNode->allocPool == KMALLOC_PROCESS_HEAP);
+                pNode->pAllocPool != NULL);
 }
 
 
@@ -229,7 +261,7 @@ void KQueuePushPrio(S_KernelQueueNode* pNode,
   KQUEUE_ASSERT(pNode->pQueuePtr == NULL,
                 "Tried to push an enlisted node",
                 ERR_UNAUTHORIZED_ACTION,
-                pNode->allocPool == KMALLOC_PROCESS_HEAP);
+                pNode->pAllocPool != NULL);
 
   pNode->priority = kPriority;
 
@@ -283,7 +315,7 @@ void KQueuePushPrio(S_KernelQueueNode* pNode,
                  pNode->pPrev == NULL),
                 "Cycle detected in KQueue",
                 ERR_UNAUTHORIZED_ACTION,
-                pNode->allocPool == KMALLOC_PROCESS_HEAP);
+                pNode->pAllocPool != NULL);
 }
 
 S_KernelQueueNode* KQueuePop(S_KernelQueue* pQueue)
@@ -354,7 +386,7 @@ void KQueueRemove(S_KernelQueue* pQueue, S_KernelQueueNode* pNode)
   KQUEUE_ASSERT((pNode->pQueuePtr == pQueue),
                 "Cannot remove with knode from different queue.",
                 ERR_INVALID_PARAMETER,
-                pNode->allocPool == KMALLOC_PROCESS_HEAP);
+                pNode->pAllocPool != NULL);
 
   /* Manage link */
   if (pNode->pPrev != NULL && pNode->pNext != NULL)

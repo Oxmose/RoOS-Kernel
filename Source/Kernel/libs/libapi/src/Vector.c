@@ -62,38 +62,39 @@
  * @param[out] NEW_SIZE The new size to be computed.
  * @param[out] NEW_ARRAY The array to receive the created memory region.
 */
-#define GROW_VECTOR_SIZE(VECTOR, NEW_SIZE, NEW_ARRAY) {                 \
-  if (VECTOR->capacity == VECTOR->size)                                 \
-  {                                                                     \
-    NEW_SIZE = VECTOR->capacity * VECTOR_GROWTH_FACTOR;                 \
-    if (NEW_SIZE == 0)                                                  \
-    {                                                                   \
-      NEW_SIZE = VECTOR_GROWTH_FACTOR;                                  \
-    }                                                                   \
-                                                                        \
-    /* Check if did not overflow on the size */                         \
-    if (NEW_SIZE <= VECTOR->capacity)                                   \
-    {                                                                   \
-      return ERR_EXCEEDED_LIMIT;                                        \
-    }                                                                   \
-                                                                        \
-    /* Allocate new array */                                            \
-    NEW_ARRAY = VECTOR->allocator.pMalloc(NEW_SIZE * sizeof(void*));    \
-    if (NEW_ARRAY == NULL)                                              \
-    {                                                                   \
-      return ERR_NO_MEMORY;                                             \
-    }                                                                   \
-                                                                        \
-    /* Free old array */                                                \
-    if (VECTOR->ppArray != NULL)                                        \
-    {                                                                   \
-      /* Copy array */                                                  \
-      memcpy(NEW_ARRAY, VECTOR->ppArray, VECTOR->size * sizeof(void*)); \
-      VECTOR->allocator.pFree(VECTOR->ppArray);                         \
-    }                                                                   \
-    VECTOR->ppArray  = NEW_ARRAY;                                       \
-    VECTOR->capacity = NEW_SIZE;                                        \
-  }                                                                     \
+#define GROW_VECTOR_SIZE(VECTOR, NEW_SIZE, NEW_ARRAY) {                   \
+  if (VECTOR->capacity == VECTOR->size)                                   \
+  {                                                                       \
+    NEW_SIZE = VECTOR->capacity * VECTOR_GROWTH_FACTOR;                   \
+    if (NEW_SIZE == 0)                                                    \
+    {                                                                     \
+      NEW_SIZE = VECTOR_GROWTH_FACTOR;                                    \
+    }                                                                     \
+                                                                          \
+    /* Check if did not overflow on the size */                           \
+    if (NEW_SIZE <= VECTOR->capacity)                                     \
+    {                                                                     \
+      return ERR_EXCEEDED_LIMIT;                                          \
+    }                                                                     \
+                                                                          \
+    /* Allocate new array */                                              \
+    NEW_ARRAY = VECTOR->allocator.pMalloc(NEW_SIZE * sizeof(void*),       \
+                                          VECTOR->allocator.pMeta);       \
+    if (NEW_ARRAY == NULL)                                                \
+    {                                                                     \
+      return ERR_NO_MEMORY;                                               \
+    }                                                                     \
+                                                                          \
+    /* Free old array */                                                  \
+    if (VECTOR->ppArray != NULL)                                          \
+    {                                                                     \
+      /* Copy array */                                                    \
+      memcpy(NEW_ARRAY, VECTOR->ppArray, VECTOR->size * sizeof(void*));   \
+      VECTOR->allocator.pFree(VECTOR->ppArray, VECTOR->allocator.pMeta);  \
+    }                                                                     \
+    VECTOR->ppArray  = NEW_ARRAY;                                         \
+    VECTOR->capacity = NEW_SIZE;                                          \
+  }                                                                       \
 }
 
 /*******************************************************************************
@@ -129,17 +130,18 @@ S_Vector* VectorCreate(S_VectorAllocator allocator,
   {
     *pError = NO_ERROR;
 
-    pVector = allocator.pMalloc(sizeof(S_Vector));
+    pVector = allocator.pMalloc(sizeof(S_Vector), allocator.pMeta);
     if (pVector != NULL)
     {
       /* Allocate the data */
       pVector->ppArray = NULL;
       if (kSize != 0)
       {
-        pVector->ppArray = allocator.pMalloc(kSize * sizeof(void*));
+        pVector->ppArray = allocator.pMalloc(kSize * sizeof(void*),
+                                             allocator.pMeta);
         if (pVector->ppArray == NULL)
         {
-          allocator.pFree(pVector);
+          allocator.pFree(pVector, allocator.pMeta);
           pVector = NULL;
           *pError = ERR_NO_MEMORY;
         }
@@ -182,7 +184,7 @@ E_Return VectorDestroy(S_Vector* pVector)
     /* Release the data */
     if (pVector->ppArray != NULL)
     {
-      pVector->allocator.pFree(pVector->ppArray);
+      pVector->allocator.pFree(pVector->ppArray, pVector->allocator.pMeta);
     }
 
     /* Reset the attributes */
@@ -191,7 +193,7 @@ E_Return VectorDestroy(S_Vector* pVector)
     pVector->capacity  = 0;
 
     /* Free vector structure */
-    pVector->allocator.pFree(pVector);
+    pVector->allocator.pFree(pVector, pVector->allocator.pMeta);
 
     retCode = NO_ERROR;
   }
@@ -260,14 +262,15 @@ E_Return VectorSrink(S_Vector* pVector)
       if (pVector->size != 0)
       {
         /* Allocate new array */
-        pNewArray = pVector->allocator.pMalloc(pVector->size * sizeof(void*));
+        pNewArray = pVector->allocator.pMalloc(pVector->size * sizeof(void*),
+                                               pVector->allocator.pMeta);
         if (pNewArray != NULL)
         {
           /* Copy array */
           memcpy(pNewArray, pVector->ppArray, pVector->size * sizeof(void*));
 
           /* Free old array */
-          pVector->allocator.pFree(pVector->ppArray);
+          pVector->allocator.pFree(pVector->ppArray, pVector->allocator.pMeta);
           pVector->ppArray  = pNewArray;
           pVector->capacity = pVector->size;
         }
@@ -279,7 +282,7 @@ E_Return VectorSrink(S_Vector* pVector)
       else
       {
         /* Free all memory */
-        pVector->allocator.pFree(pVector->ppArray);
+        pVector->allocator.pFree(pVector->ppArray, pVector->allocator.pMeta);
         pVector->ppArray  = NULL;
         pVector->capacity = 0;
       }
@@ -308,7 +311,8 @@ E_Return VectorResize(S_Vector* pVector, const size_t kSize)
       if (kSize != 0)
       {
         /* Allocate new array */
-        pNewArray = pVector->allocator.pMalloc(kSize * sizeof(void*));
+        pNewArray = pVector->allocator.pMalloc(kSize * sizeof(void*),
+                                               pVector->allocator.pMeta);
         if (pNewArray != NULL)
         {
           /* Copy array */
@@ -317,7 +321,7 @@ E_Return VectorResize(S_Vector* pVector, const size_t kSize)
                  MAX(pVector->size, kSize) * sizeof(void*));
 
           /* Free old array */
-          pVector->allocator.pFree(pVector->ppArray);
+          pVector->allocator.pFree(pVector->ppArray, pVector->allocator.pMeta);
           pVector->ppArray  = pNewArray;
           pVector->capacity = kSize;
           pVector->size     = kSize;
@@ -330,7 +334,7 @@ E_Return VectorResize(S_Vector* pVector, const size_t kSize)
       else
       {
         /* Free all memory */
-        pVector->allocator.pFree(pVector->ppArray);
+        pVector->allocator.pFree(pVector->ppArray, pVector->allocator.pMeta);
         pVector->ppArray  = NULL;
         pVector->capacity = 0;
         pVector->size     = 0;

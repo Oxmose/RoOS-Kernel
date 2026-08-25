@@ -96,7 +96,7 @@ void KQueuesTest(void)
     }
 
     /* Create node */
-    nodes[0] = KQueueCreateNode((void*) 0, KMALLOC_FREE_POOL);
+    nodes[0] = KQueueCreateNode((void*) 0, NULL);
     TEST_POINT_ASSERT_UDWORD(TEST_KQUEUE_CREATE_NODE0_ID,
                              nodes[0] != NULL,
                              (uint64_t)1,
@@ -112,7 +112,7 @@ void KQueuesTest(void)
                              TEST_OS_KQUEUE_ENABLED);
 
     /* Create node */
-    nodes[0] = KQueueCreateNode((void*) 0, KMALLOC_FREE_POOL);
+    nodes[0] = KQueueCreateNode((void*) 0, NULL);
     TEST_POINT_ASSERT_UDWORD(TEST_KQUEUE_CREATE_NODE1_ID,
                              nodes[0] != NULL,
                              (uint64_t)1,
@@ -120,7 +120,7 @@ void KQueuesTest(void)
                              TEST_OS_KQUEUE_ENABLED);
 
     /* Create queue */
-    queue = KQueueCreate(KMALLOC_FREE_POOL);
+    queue = KQueueCreate(NULL);
     TEST_POINT_ASSERT_UDWORD(TEST_KQUEUE_CREATE0_ID,
                              queue != NULL,
                              (uint64_t)1,
@@ -136,7 +136,7 @@ void KQueuesTest(void)
                              TEST_OS_KQUEUE_ENABLED);
 
     /* Create queue */
-    queue = KQueueCreate(KMALLOC_FREE_POOL);
+    queue = KQueueCreate(NULL);
     TEST_POINT_ASSERT_UDWORD(TEST_KQUEUE_CREATE1_ID,
                              queue != NULL,
                              (uint64_t)1,
@@ -163,7 +163,7 @@ void KQueuesTest(void)
     /* Create more nodes */
     for (uint8_t i = 0; i < 40; ++i)
     {
-        nodes[i] = KQueueCreateNode((void*) (uintptr_t)unsorted[i % 10], KMALLOC_FREE_POOL);
+        nodes[i] = KQueueCreateNode((void*) (uintptr_t)unsorted[i % 10], NULL);
         TEST_POINT_ASSERT_UDWORD(TEST_KQUEUE_CREATE_NODEBURST0_ID(i),
                                  nodes[i] != NULL,
                                  (uint64_t)1,
@@ -226,7 +226,7 @@ void KQueuesTest(void)
     /* Create more nodes */
     for (uint8_t i = 0; i < 40; ++i)
     {
-        nodes[i] = KQueueCreateNode((void*) (uintptr_t)unsorted[i % 10], KMALLOC_FREE_POOL);
+        nodes[i] = KQueueCreateNode((void*) (uintptr_t)unsorted[i % 10], NULL);
         TEST_POINT_ASSERT_UDWORD(TEST_KQUEUE_CREATE_NODEBURST1_ID(i),
                                  nodes[i] != NULL,
                                  (uint64_t)1,

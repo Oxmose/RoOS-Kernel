@@ -24,7 +24,9 @@
 /* Included headers */
 #include <Panic.h>
 #include <X64Cpu.h>
+#include <ProcFS.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <Critical.h>
 #include <KernelHeap.h>
@@ -55,6 +57,9 @@
 #define RTC_FDT_SELFREQ_PROP "freq"
 /** @brief FDT property for frequency range */
 #define RTC_FDT_FREQRANGE_PROP "freq-range"
+
+/** @brief PROCFS directory path */
+#define PROCFS_DIR_PATH "rtc"
 
 /** @brief Initial RTC rate */
 #define RTC_INIT_RATE 10
@@ -294,6 +299,69 @@ static void _UpdateTime(void* pDrvCtrl, S_Date* pDate, S_DayTime* pTime);
  */
 static void _AckowledgeInt(void* pDrvCtrl);
 
+/**
+ * @brief Opens the ProcFS main entry.
+ *
+ * @details Opens the ProcFS main entry. This function will open the
+ * ProcFS main entry and return a pointer to the file handle. The file handle
+ * will be used to read the information from the kernel.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] kpPath The path to the ProcFS entry.
+ * @param[in] flags The flags for opening the file.
+ * @param[in] mode The mode for opening the file.
+ *
+ * @return The pointer to the file handle or -1 in case of error.
+ */
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode);
+
+/**
+ * @brief Closes the ProcFS main entry.
+ *
+ * @details Closes the ProcFS main entry. This function will close the
+ * ProcFS main entry and free the resources used by the entry.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ *
+ * @return The success state or the error code.
+ */
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle);
+
+/**
+ * @brief Read the ProcFS main entry.
+ *
+ * @details Read the ProcFS main entry. This function will read the
+ * information from the kernel and write it to the buffer given as parameter.
+ * The function will return the number of bytes read or an error code.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ * @param[out] pBuffer The buffer to write the information to.
+ * @param[in] count The size of the buffer given as parameter.
+ *
+ * @return The number of bytes read or an error code.
+ */
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count);
+
+/**
+ * @brief Creates the ProcFS entry for the driver.
+ *
+ * @details Creates the ProcFS entry for the driver. This function will
+ * create the ProcFS entry for the driver and register it in the ProcFS.
+ * The entry will be used to read the information from the kernel. The
+ * entry will be created in the /proc/rtc directory.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _CreateProcFSEntry(void);
+
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
@@ -315,6 +383,23 @@ static S_Driver sX86RTCDriver =
   .pDriverAttach = _Attach
 };
 
+/** @brief ProcFS entry for the RTC driver  */
+static S_ProcFSDirEntry* spProcFSEntry = NULL;
+
+/** @brief PROCFS operations */
+static S_ProcFSFileOperations sProcFSOps =
+{
+  .pOpen    = _ProcFSOpen,
+  .pClose   = _ProcFSClose,
+  .pRead    = _ProcFSRead,
+  .pWrite   = NULL,
+  .pReadDir = NULL,
+  .pIOCTL   = NULL
+};
+
+/** @brief RTC driver control structure */
+static S_RTCControler* spDrvCtrl = NULL;
+
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
@@ -326,110 +411,126 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   E_Return        retCode;
   int8_t          prevOred;
   int8_t          prevRate;
-  S_RTCControler* pDrvCtrl;
   S_KernelTimer*  pTimerDrv;
+  E_Return        error;
 
-  pDrvCtrl  = NULL;
-  pTimerDrv = NULL;
+  if (spDrvCtrl == NULL)
+  {
+    /* Init structures */
+    spDrvCtrl = KMalloc(sizeof(S_RTCControler),
+                        ALIGN_ADDRESS,
+                        KMALLOC_NO_FREE_POOL);
+    memset(spDrvCtrl, 0, sizeof(S_RTCControler));
+    KERNEL_SPINLOCK_INIT(spDrvCtrl->lock);
 
-  /* Init structures */
-  pDrvCtrl = KMalloc(sizeof(S_RTCControler),
-                      ALIGN_ADDRESS,
-                      KMALLOC_NO_FREE_POOL);
-  memset(pDrvCtrl, 0, sizeof(S_RTCControler));
-  KERNEL_SPINLOCK_INIT(pDrvCtrl->lock);
+    pTimerDrv = KMalloc(sizeof(S_KernelTimer),
+                        ALIGN_ADDRESS,
+                        KMALLOC_NO_FREE_POOL);
+    memset(pTimerDrv, 0, sizeof(S_KernelTimer));
 
-  pTimerDrv = KMalloc(sizeof(S_KernelTimer),
-                      ALIGN_ADDRESS,
-                      KMALLOC_NO_FREE_POOL);
-  memset(pTimerDrv, 0, sizeof(S_KernelTimer));
+    pTimerDrv->pGetFrequency  = _GetFrequency;
+    pTimerDrv->pGetDate       = _GetDate;
+    pTimerDrv->pGetDaytime    = _GetDaytime;
+    pTimerDrv->pEnable        = _Enable;
+    pTimerDrv->pDisable       = _Disable;
+    pTimerDrv->pSetHandler    = _SetHandler;
+    pTimerDrv->pRemoveHandler = _RemoveHandler;
+    pTimerDrv->pTickManager   = _AckowledgeInt;
+    pTimerDrv->pDriverCtrl    = spDrvCtrl;
 
-  pTimerDrv->pGetFrequency  = _GetFrequency;
-  pTimerDrv->pGetDate       = _GetDate;
-  pTimerDrv->pGetDaytime    = _GetDaytime;
-  pTimerDrv->pEnable        = _Enable;
-  pTimerDrv->pDisable       = _Disable;
-  pTimerDrv->pSetHandler    = _SetHandler;
-  pTimerDrv->pRemoveHandler = _RemoveHandler;
-  pTimerDrv->pTickManager   = _AckowledgeInt;
-  pTimerDrv->pDriverCtrl    = pDrvCtrl;
+    /* Get IRQ lines */
+    kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_INT_PROP, &propLen);
+    RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
+                "Invalid RTC property.",
+                ERR_INVALID_VALUE);
 
+    spDrvCtrl->irqNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
 
-  /* Get IRQ lines */
-  kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_INT_PROP, &propLen);
-  RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
-              "Invalid RTC property.",
-              ERR_INVALID_VALUE);
+    /* Get communication ports */
+    kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_COMM_PROP, &propLen);
+    RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
+                "Invalid RTC property.",
+                ERR_INVALID_VALUE);
+    spDrvCtrl->cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
+    spDrvCtrl->cpuDataPort = (uint16_t)FDTTOCPU32(*(kpUintProp + 1));
 
-  pDrvCtrl->irqNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
-
-  /* Get communication ports */
-  kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_COMM_PROP, &propLen);
-  RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
-              "Invalid RTC property.",
-              ERR_INVALID_VALUE);
-  pDrvCtrl->cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
-  pDrvCtrl->cpuDataPort = (uint16_t)FDTTOCPU32(*(kpUintProp + 1));
-
-  /* Get quartz frequency */
-  kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_QUARTZ_PROP, &propLen);
-  RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-              "Invalid RTC property.",
-              ERR_INVALID_VALUE);
-  pDrvCtrl->quartzFrequency = FDTTOCPU32(*kpUintProp);
-
-
-  /* Get selected frequency */
-  kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_SELFREQ_PROP, &propLen);
-  RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-              "Invalid RTC property.",
-              ERR_INVALID_VALUE);
-  pDrvCtrl->selectedFrequency = FDTTOCPU32(*kpUintProp);
-
-  /* Get the frequency range */
-  kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_FREQRANGE_PROP, &propLen);
-  RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
-              "Invalid RTC property.",
-              ERR_INVALID_VALUE);
-  pDrvCtrl->frequencyLow  = (uint32_t)FDTTOCPU32(*kpUintProp);
-  pDrvCtrl->frequencyHigh = (uint32_t)FDTTOCPU32(*(kpUintProp + 1));
+    /* Get quartz frequency */
+    kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_QUARTZ_PROP, &propLen);
+    RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
+                "Invalid RTC property.",
+                ERR_INVALID_VALUE);
+    spDrvCtrl->quartzFrequency = FDTTOCPU32(*kpUintProp);
 
 
-  /* Check if frequency is within bounds */
-  RTC_ASSERT(pDrvCtrl->frequencyLow <= pDrvCtrl->selectedFrequency,
-              "RTC frequency too low.",
-              ERR_INVALID_VALUE);
-  RTC_ASSERT(pDrvCtrl->frequencyHigh >= pDrvCtrl->selectedFrequency,
-              "RTC frequency too high.",
-              ERR_INVALID_VALUE);
+    /* Get selected frequency */
+    kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_SELFREQ_PROP, &propLen);
+    RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
+                "Invalid RTC property.",
+                ERR_INVALID_VALUE);
+    spDrvCtrl->selectedFrequency = FDTTOCPU32(*kpUintProp);
 
-  /* Init system times */
-  pDrvCtrl->disabledNesting = 1;
+    /* Get the frequency range */
+    kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_FREQRANGE_PROP, &propLen);
+    RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
+                "Invalid RTC property.",
+                ERR_INVALID_VALUE);
+    spDrvCtrl->frequencyLow  = (uint32_t)FDTTOCPU32(*kpUintProp);
+    spDrvCtrl->frequencyHigh = (uint32_t)FDTTOCPU32(*(kpUintProp + 1));
 
-  /* Init CMOS IRQ8 */
-  CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_B,
-                   pDrvCtrl->cpuCommPort);
-  prevOred = CPUPortReadByte(pDrvCtrl->cpuDataPort);
-  CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_B,
-                   pDrvCtrl->cpuCommPort);
-  CPUPortWriteByte(prevOred | CMOS_ENABLE_RTC, pDrvCtrl->cpuDataPort);
 
-  /* Init CMOS IRQ8 rate */
-  CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_A,
-                   pDrvCtrl->cpuCommPort);
-  prevRate = CPUPortReadByte(pDrvCtrl->cpuDataPort);
-  CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_A,
-                   pDrvCtrl->cpuCommPort);
-  CPUPortWriteByte((prevRate & 0xF0) | RTC_INIT_RATE, pDrvCtrl->cpuDataPort);
+    /* Check if frequency is within bounds */
+    RTC_ASSERT(spDrvCtrl->frequencyLow <= spDrvCtrl->selectedFrequency,
+                "RTC frequency too low.",
+                ERR_INVALID_VALUE);
+    RTC_ASSERT(spDrvCtrl->frequencyHigh >= spDrvCtrl->selectedFrequency,
+                "RTC frequency too high.",
+                ERR_INVALID_VALUE);
 
-  /* Set RTC frequency */
-  _SetFrequency(pDrvCtrl, pDrvCtrl->selectedFrequency);
+    /* Init system times */
+    spDrvCtrl->disabledNesting = 1;
 
-  /* Just dummy read register C to unlock interrupt */
-  _AckowledgeInt(pDrvCtrl);
+    /* Init CMOS IRQ8 */
+    CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_B,
+                    spDrvCtrl->cpuCommPort);
+    prevOred = CPUPortReadByte(spDrvCtrl->cpuDataPort);
+    CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_B,
+                    spDrvCtrl->cpuCommPort);
+    CPUPortWriteByte(prevOred | CMOS_ENABLE_RTC, spDrvCtrl->cpuDataPort);
 
-  /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(pkFdtNode, pTimerDrv);
+    /* Init CMOS IRQ8 rate */
+    CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_A,
+                    spDrvCtrl->cpuCommPort);
+    prevRate = CPUPortReadByte(spDrvCtrl->cpuDataPort);
+    CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_A,
+                    spDrvCtrl->cpuCommPort);
+    CPUPortWriteByte((prevRate & 0xF0) | RTC_INIT_RATE, spDrvCtrl->cpuDataPort);
+
+    /* Set RTC frequency */
+    _SetFrequency(spDrvCtrl, spDrvCtrl->selectedFrequency);
+
+    /* Just dummy read register C to unlock interrupt */
+    _AckowledgeInt(spDrvCtrl);
+
+    /* Register the ProcFS driver */
+    retCode = _CreateProcFSEntry();
+    if (retCode == NO_ERROR)
+    {
+      /* Set the API driver */
+      retCode = DriverManagerSetDeviceData(pkFdtNode, pTimerDrv);
+
+      if (retCode != NO_ERROR)
+      {
+        error = ProcFSRemoveEntry(PROCFS_DIR_PATH, spProcFSEntry);
+        RTC_ASSERT(error == NO_ERROR,
+                  "Failed to remove ProcFS entry.",
+                  ERR_UNAUTHORIZED_ACTION);
+      }
+    }
+  }
+  else
+  {
+    retCode = ERR_UNAUTHORIZED_ACTION;
+  }
 
   return retCode;
 }
@@ -715,6 +816,193 @@ static void _AckowledgeInt(void* pDrvCtrl)
   /* Set EOI */
   InterruptSetEOI(pRtcCtrl->irqNumber);
 }
+
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode)
+{
+  size_t* pHandle;
+
+  (void)pDriverData;
+  (void)mode;
+  if(flags == O_RDONLY && *kpPath == 0)
+  {
+    pHandle = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    if (pHandle != NULL)
+    {
+      *pHandle = 0;
+    }
+    else
+    {
+      pHandle = (void*)-1;
+    }
+  }
+  else
+  {
+    pHandle = (void*)-1;
+  }
+
+  return pHandle;
+}
+
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
+{
+  int32_t retCode;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    KFreeUser(pFileHandle, NULL);
+    retCode = 0;
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count)
+{
+  int32_t   retCode;
+  char      tempBuffer[128];
+  size_t    size;
+  ssize_t   written;
+  size_t    offset;
+  size_t    toWrite;
+  size_t*   pBufferOffset;
+  size_t    bufferOffset;
+  S_DayTime retTime;
+  S_Date    retDate;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    retCode = 0;
+    pBufferOffset = (size_t*)pFileHandle;
+    bufferOffset = *pBufferOffset;
+
+    /* Generate CPU info */
+    size = snprintf(tempBuffer,
+                    sizeof(tempBuffer),
+                    "Ports 0x%x (Comm) 0x%x (Data)\n"
+                    "IRQ Identifier: %d\n"
+                    "Qartz Frequency: %llu Hz\n",
+                    spDrvCtrl->cpuCommPort,
+                    spDrvCtrl->cpuDataPort,
+                    spDrvCtrl->irqNumber,
+                    spDrvCtrl->quartzFrequency
+                  );
+    written = size - bufferOffset;
+
+    if (written > 0)
+    {
+      offset  = size - written;
+      toWrite = MIN(written, (ssize_t)count);
+      memcpy(pBuffer, tempBuffer + offset, toWrite);
+      *pBufferOffset += toWrite;
+      pBuffer        += toWrite;
+      retCode        += toWrite;
+      count          -= toWrite;
+      bufferOffset   = 0;
+    }
+    else
+    {
+      bufferOffset -= size;
+    }
+
+    if (count > 0)
+    {
+      size = snprintf(tempBuffer,
+                      sizeof(tempBuffer),
+                      "Interrupt Frequency: %d Hz\n"
+                      "Frequency Range: [%d; %d]\n"
+                      "Nesting: %d\n",
+                      spDrvCtrl->selectedFrequency,
+                      spDrvCtrl->frequencyLow,
+                      spDrvCtrl->frequencyHigh,
+                      spDrvCtrl->disabledNesting);
+      written = size - bufferOffset;
+
+      if (written > 0)
+      {
+        offset  = size - written;
+        toWrite = MIN(written, (ssize_t)count);
+        memcpy(pBuffer, tempBuffer + offset, toWrite);
+        *pBufferOffset += toWrite;
+        pBuffer        += toWrite;
+        retCode        += toWrite;
+        count          -= toWrite;
+        bufferOffset   = 0;
+      }
+      else
+      {
+        bufferOffset -= size;
+      }
+
+      if (count > 0)
+      {
+
+        _UpdateTime(spDrvCtrl, &retDate, &retTime);
+
+        size = snprintf(tempBuffer,
+                        sizeof(tempBuffer),
+                        "%d:%d:%d %d/%d/%d",
+                        retTime.hours,
+                        retTime.minutes,
+                        retTime.seconds,
+                        retDate.day,
+                        retDate.month,
+                        retDate.year);
+        written = size - bufferOffset;
+
+        if (written > 0)
+        {
+          offset  = size - written;
+          toWrite = MIN(written, (ssize_t)count);
+          memcpy(pBuffer, tempBuffer + offset, toWrite);
+          *pBufferOffset += toWrite;
+          pBuffer        += toWrite;
+          retCode        += toWrite;
+          count          -= toWrite;
+          bufferOffset   = 0;
+        }
+        else
+        {
+          bufferOffset -= size;
+        }
+      }
+    }
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static E_Return _CreateProcFSEntry(void)
+{
+  E_Return retCode;
+
+  /* Create the entry */
+  retCode = ProcFSCreateEntry(PROCFS_DIR_PATH,
+                              0,
+                              NULL,
+                              &sProcFSOps,
+                              NULL,
+                              &spProcFSEntry);
+  return retCode;
+}
+
 
 /***************************** DRIVER REGISTRATION ****************************/
 DRIVERMGR_REG_FDT(sX86RTCDriver);

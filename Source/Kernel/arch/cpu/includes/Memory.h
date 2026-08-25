@@ -69,7 +69,7 @@ typedef struct
   /** @brief The memory list lock */
   S_KernelSpinlock lock;
   /** @brief The memory pool used for list allocation */
-  E_KMallocPool allocPool;
+  S_ProcessHeap* pAllocPool;
 } S_MemoryList;
 
  /**
@@ -82,6 +82,8 @@ typedef struct
   uintptr_t PDPhysAddress;
   /** @brief The free page table of the process. */
   S_MemoryList freePageTable;
+  /** @brief The memory allocated by the process. TODO: Implement */
+  size_t allocatedMemory;
   /** @brief The memory management lock for the process */
   S_KernelSpinlock lock;
 } S_ProcessMemoryMetadata;
@@ -264,8 +266,10 @@ E_Return MemoryKernelFree(const void* kVirtualAddress, const size_t kSize);
  * the required resources.
  *
  * @param[out] pProcess The process for which the data should be created.
+ *
+ * @return The function returns the success or error state.
  */
-void MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess);
+E_Return MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess);
 
 /**
  * @brief Destroys a process memory configuration.
@@ -273,9 +277,9 @@ void MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess);
  * @details Destroys a process memory configuration. The function will release
  * the required resources.
  *
- * @param[in] pMemoryData The configuration to release.
+ * @param[in] pProcess The process for which the data should be destroyed.
  */
-void MemoryDestroyProcessData(void* pMemoryData);
+void MemoryDestroyProcessData(S_KernelProcess* pProcess);
 
 /**
  * @brief Returns the user space start address.
@@ -442,6 +446,21 @@ bool MemoryIsMapped(const uintptr_t  kVirtualAddress,
                     const size_t     kPageCount,
                     S_KernelProcess* pProcess,
                     const bool       kCheckFull);
+
+/**
+ * @brief Returns the amount of memory allocated by a process.
+ *
+ * @details Returns the amount of memory allocated by a process. This function
+ * will return the amount of memory allocated by a process in bytes. The
+ * function will return 0 if the process is NULL or if the process has no
+ * allocated memory.
+ *
+ * @param[in] kpProcess The process to check for allocated memory.
+ *
+ * @return The amount of memory allocated by the process in bytes.
+ */
+size_t MemoryGetProcessAllocatedMemory(const S_KernelProcess* kpProcess);
+
 #endif /* #ifndef __CPU_MEMORY_H_ */
 
 /************************************ EOF *************************************/

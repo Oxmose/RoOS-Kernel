@@ -29,8 +29,10 @@
 #include <ACPI.h>
 #include <Panic.h>
 #include <X64Cpu.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <Memory.h>
+#include <ProcFS.h>
 #include <DeviceTree.h>
 #include <KernelHeap.h>
 #include <KernelQueue.h>
@@ -64,6 +66,15 @@
 #define LAPICT_TIMER_FDT_BASE_TIMER_PROP "base-timer"
 /** @brief FDT property for LAPIC */
 #define LAPICT_FDT_LAPIC_NODE_PROP "lapic-node"
+
+/** @brief PROCFS directory path */
+#define PROCFS_DIR_PATH "lapic"
+/** @brief PROCFS entry path */
+#define PROCFS_ENTRY_PATH "info"
+/** @brief PROCFS directory path for timers */
+#define PROCFS_TIMER_DIR_PATH "timers"
+/** @brief PROCFS string length */
+#define PROCFS_STRING_LENGTH 256
 
 /** @brief LAPIC local vector table timer register's offset. */
 #define LAPIC_TIMER 0x0320
@@ -246,6 +257,16 @@ typedef struct
   const S_KernelTimer* kpBaseTimer;
 } S_LAPICTimerControler;
 
+/** @brief Structure for handling LAPIC timer entries in the proc filesystem. */
+typedef struct
+{
+  /** @brief CPU identifier */
+  uint32_t cpuId;
+  /** @brief Current offset in the entry */
+  size_t offset;
+  /** @brief Type of the entry */
+  uint32_t type;
+} S_LAPICTimerProcFSHandle;
 
 /*******************************************************************************
  * MACROS
@@ -517,6 +538,150 @@ static void _TimerAckInterrupt(void* pDrvCtrl);
  */
 static void _TimerInitApCPU(const uint8_t kCpuId);
 
+/**
+ * @brief Opens the ProcFS main entry.
+ *
+ * @details Opens the ProcFS main entry. This function will open the
+ * ProcFS main entry and return a pointer to the file handle. The file handle
+ * will be used to read the information from the kernel.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] kpPath The path to the ProcFS entry.
+ * @param[in] flags The flags for opening the file.
+ * @param[in] mode The mode for opening the file.
+ *
+ * @return The pointer to the file handle or -1 in case of error.
+ */
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode);
+
+/**
+ * @brief Closes the ProcFS main entry.
+ *
+ * @details Closes the ProcFS main entry. This function will close the
+ * ProcFS main entry and free the resources used by the entry.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ *
+ * @return The success state or the error code.
+ */
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle);
+
+/**
+ * @brief Read the ProcFS main entry.
+ *
+ * @details Read the ProcFS main entry. This function will read the
+ * information from the kernel and write it to the buffer given as parameter.
+ * The function will return the number of bytes read or an error code.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ * @param[out] pBuffer The buffer to write the information to.
+ * @param[in] count The size of the buffer given as parameter.
+ *
+ * @return The number of bytes read or an error code.
+ */
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count);
+
+/**
+ * @brief Creates the ProcFS entry for the driver.
+ *
+ * @details Creates the ProcFS entry for the driver. This function will
+ * create the ProcFS entry for the driver and register it in the ProcFS.
+ * The entry will be used to read the information from the kernel. The
+ * entry will be created in the /proc/lapic directory.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _CreateProcFSEntry(void);
+
+/**
+ * @brief Opens the ProcFS timer entry.
+ *
+ * @details Opens the ProcFS timer entry. This function will open the
+ * ProcFS timer entry and return a pointer to the file handle. The file handle
+ * will be used to read the information from the kernel.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] kpPath The path to the ProcFS entry.
+ * @param[in] flags The flags for opening the file.
+ * @param[in] mode The mode for opening the file.
+ *
+ * @return The pointer to the file handle or -1 in case of error.
+ */
+static void* _ProcFSTimerOpen(void*       pDriverData,
+                              const char* kpPath,
+                              int32_t     flags,
+                              int32_t     mode);
+
+/**
+ * @brief Closes the ProcFS timer entry.
+ *
+ * @details Closes the ProcFS timer entry. This function will close the
+ * ProcFS timer entry and free the resources used by the entry.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ *
+ * @return The success state or the error code.
+ */
+static int32_t _ProcFSTimerClose(void* pDriverData, void* pFileHandle);
+
+/**
+ * @brief Read the ProcFS timer entry.
+ *
+ * @details Read the ProcFS timer entry. This function will read the
+ * information from the kernel and write it to the buffer given as parameter.
+ * The function will return the number of bytes read or an error code.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ * @param[out] pBuffer The buffer to write the information to.
+ * @param[in] count The size of the buffer given as parameter.
+ *
+ * @return The number of bytes read or an error code.
+ */
+static ssize_t _ProcFSTimerRead(void*  pDriverData,
+                                void*  pFileHandle,
+                                void*  pBuffer,
+                                size_t count);
+/**
+ * @brief Reads the directory entry for the ProcFS timer entry.
+ *
+ * @details Reads the directory entry for the ProcFS timer entry. This function
+ * will read the directory entry for the ProcFS timer entry and write it to the
+ * buffer given as parameter. The function will return 1 if there is a directory
+ * entry to read, 0 if there is no more directory entry to or an error code.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ * @param[out] pDirEntry The directory entry to write the information to.
+ *
+ * @return The function returns 1 if there is a directory entry to read, 0 if
+ * there is no more directory entry to read or an error code.
+ */
+static int32_t _ProcFSTimerReadDir(void*             pDriverData,
+                                   void*             pFileHandle,
+                                   S_DirectoryEntry* pDirEntry);
+
+/**
+ * @brief Creates the ProcFS entry for the timer driver.
+ *
+ * @details Creates the ProcFS entry for the timer driver. This function will
+ * create the ProcFS entry for the timer driver and register it in the ProcFS.
+ * The entry will be used to read the information from the kernel. The
+ * entry will be created in the /proc/lapic/timers/x directory.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _CreateProcFSTimerEntry(void);
+
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
@@ -585,6 +750,40 @@ static S_LAPICTimerDriver sLAPICTimerAPIDriver =
 /** @brief Local timer controller instance, used by AP CPU */
 static S_LAPICTimerControler* spDrvCtrl;
 
+/** @brief ProcFS entry for the LAPIC driver */
+static S_ProcFSDirEntry* spProcFSMainEntry = NULL;
+/** @brief ProcFS main directory for the LAPIC driver */
+static S_ProcFSDirEntry* spProcFSMainDirectory = NULL;
+/** @brief ProcFS entry for the LAPIC timer driver  */
+static S_ProcFSDirEntry* spProcFSTimerEntry = NULL;
+
+/** @brief PROCFS operations */
+static S_ProcFSFileOperations sProcFSOps =
+{
+  .pOpen    = _ProcFSOpen,
+  .pClose   = _ProcFSClose,
+  .pRead    = _ProcFSRead,
+  .pWrite   = NULL,
+  .pReadDir = NULL,
+  .pIOCTL   = NULL
+};
+
+/** @brief PROCFS timer operations */
+static S_ProcFSFileOperations sProcFSTimerOps =
+{
+  .pOpen    = _ProcFSTimerOpen,
+  .pClose   = _ProcFSTimerClose,
+  .pRead    = _ProcFSTimerRead,
+  .pWrite   = NULL,
+  .pReadDir = _ProcFSTimerReadDir,
+  .pIOCTL   = NULL
+};
+
+/** @brief PROCFS string */
+static char sProcFSString[PROCFS_STRING_LENGTH] = {0};
+/** @brief Length of the PROCFS string */
+static size_t sProcFSStringLength = 0;
+
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
@@ -651,6 +850,9 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   LAPIC_ASSERT(retCode == NO_ERROR, "Failed to set LAPIC API driver", retCode);
   /* Register the driver in the CPU manager */
   CPURegisterLAPICDriver(&sLAPICAPIDriver);
+
+  retCode = _CreateProcFSEntry();
+  LAPIC_ASSERT(retCode == NO_ERROR, "Failed to create ProcFS entry", retCode);
 
   return retCode;
 }
@@ -922,6 +1124,11 @@ static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
                "Failed to register LAPIC Timer data.",
                retCode);
 
+  retCode = _CreateProcFSTimerEntry();
+  LAPIC_ASSERT(retCode == NO_ERROR,
+               "Failed to create ProcFS timer entry",
+               retCode);
+
   return retCode;
 }
 
@@ -1154,6 +1361,474 @@ static inline void _Write(const uintptr_t kBaseAddr,
                           const uint32_t  kVal)
 {
   _MMIOWrite32((void*)(kBaseAddr + kRegister), kVal);
+}
+
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode)
+{
+  size_t* pEntryOffset;
+
+  (void)pDriverData;
+  (void)mode;
+
+  if(flags == O_RDONLY && *kpPath == 0)
+  {
+    pEntryOffset = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    if (pEntryOffset == NULL)
+    {
+      pEntryOffset = (void*)-1;
+    }
+    else
+    {
+      *pEntryOffset = 0;
+    }
+  }
+  else
+  {
+    pEntryOffset = (void*)-1;
+  }
+
+  return pEntryOffset;
+}
+
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
+{
+  int32_t retCode;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    KFreeUser(pFileHandle, NULL);
+    retCode = 0;
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count)
+{
+  int32_t retCode;
+  size_t* pEntryOffset;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    pEntryOffset = (size_t*)pFileHandle;
+
+    if (*pEntryOffset < sProcFSStringLength)
+    {
+      retCode = (int32_t)MIN(count, sProcFSStringLength - *pEntryOffset);
+      memcpy(pBuffer, sProcFSString + *pEntryOffset, retCode);
+      *pEntryOffset += retCode;
+    }
+    else
+    {
+      retCode = 0;
+    }
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static E_Return _CreateProcFSEntry(void)
+{
+  E_Return retCode;
+  E_Return internalCode;
+
+  /* Create the main directory for the lapic and the lapic timers */
+  retCode = ProcFSCreateDir(PROCFS_DIR_PATH, NULL, &spProcFSMainDirectory);
+  if (retCode == NO_ERROR)
+  {
+    retCode = ProcFSCreateEntry(PROCFS_ENTRY_PATH,
+                                0,
+                                spProcFSMainDirectory,
+                                &sProcFSOps,
+                                NULL,
+                                &spProcFSMainEntry);
+    if (retCode == NO_ERROR)
+    {
+      sProcFSStringLength = snprintf(sProcFSString,
+                                      PROCFS_STRING_LENGTH,
+                                      "Base Address: 0x%p\n"
+                                      "Mapping Size: %d\n"
+                                      "Spurious Interrupt Line: %d\n",
+                                      sDrvCtrl.baseAddr,
+                                      sDrvCtrl.mappingSize,
+                                      sDrvCtrl.spuriousIntLine);
+    }
+    else
+    {
+      internalCode = ProcFSRemoveDir(&spProcFSMainDirectory);
+      LAPIC_ASSERT(internalCode == NO_ERROR,
+                   "Failed to remove ProcFS main directory",
+                   internalCode);
+    }
+  }
+
+  return retCode;
+}
+
+static void* _ProcFSTimerOpen(void*       pDriverData,
+                              const char* kpPath,
+                              int32_t     flags,
+                              int32_t     mode)
+{
+  S_LAPICTimerProcFSHandle* pHandle;
+  const char*               kpPathCursor;
+  uint32_t                  timerId;
+
+  (void)pDriverData;
+  (void)mode;
+  if(flags == O_RDONLY &&
+     *kpPath != 0 &&
+     strncmp(kpPath, PROCFS_TIMER_DIR_PATH, 6) == 0 &&
+     strlen(kpPath) > 6 &&
+     kpPath[6] == VFS_PATH_DELIMITER)
+  {
+    kpPath += 7;
+
+    /* Check that the path is valid */
+    kpPathCursor = kpPath;
+    while (*kpPathCursor != 0)
+    {
+      if (*kpPathCursor < '0' || *kpPathCursor > '9')
+      {
+        break;
+      }
+      ++kpPathCursor;
+    }
+
+    if (*kpPathCursor == 0)
+    {
+      timerId = (uint32_t)strtoul(kpPath, NULL, 10);
+      if (timerId < CPUGetCount())
+      {
+        pHandle = KMallocUser(sizeof(S_LAPICTimerProcFSHandle),
+                              ALIGN_ADDRESS,
+                              NULL);
+        if (pHandle != NULL)
+        {
+          pHandle->offset = 0;
+          pHandle->cpuId  = timerId;
+          pHandle->type   = 0;
+        }
+        {
+          pHandle = (void*)-1;
+        }
+      }
+      else
+      {
+        pHandle = (void*)-1;
+      }
+    }
+    else
+    {
+      pHandle = (void*)-1;
+    }
+  }
+  else if (flags == O_RDONLY && *kpPath == 0)
+  {
+    pHandle = KMallocUser(sizeof(S_LAPICTimerProcFSHandle),
+                          ALIGN_ADDRESS,
+                          NULL);
+    if (pHandle != NULL)
+    {
+      pHandle->offset = 0;
+      pHandle->cpuId  = 0;
+      pHandle->type   = 1;
+    }
+    else
+    {
+      pHandle = (void*)-1;
+    }
+  }
+  else
+  {
+    pHandle = (void*)-1;
+  }
+
+  return pHandle;
+}
+
+static int32_t _ProcFSTimerClose(void* pDriverData, void* pFileHandle)
+{
+  int32_t retCode;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    KFreeUser(pFileHandle, NULL);
+    retCode = 0;
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static ssize_t _ProcFSTimerRead(void*  pDriverData,
+                                void*  pFileHandle,
+                                void*  pBuffer,
+                                size_t count)
+{
+  int32_t                      retCode;
+  char                         tempBuffer[128];
+  size_t                       size;
+  ssize_t                      written;
+  size_t                       offset;
+  size_t                       toWrite;
+  const S_LAPICNode*           kpLapicNode;
+  uint32_t                     cpuId;
+  S_LAPICTimerProcFSHandle*    pHandle;
+  size_t                       bufferOffset;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    retCode = 0;
+    pHandle = (S_LAPICTimerProcFSHandle*)pFileHandle;
+    bufferOffset = pHandle->offset;
+
+    if (pHandle->type == 0)
+    {
+      /* Generate CPU info */
+      size = snprintf(tempBuffer,
+                      sizeof(tempBuffer),
+                      "CPU Identifier: %d\n",
+                      pHandle->cpuId);
+      written = size - bufferOffset;
+
+      if (written > 0)
+      {
+        offset  = size - written;
+        toWrite = MIN(written, (ssize_t)count);
+        memcpy(pBuffer, tempBuffer + offset, toWrite);
+        pHandle->offset += toWrite;
+        pBuffer         += toWrite;
+        retCode         += toWrite;
+        count           -= toWrite;
+        bufferOffset    = 0;
+      }
+      else
+      {
+        bufferOffset -= size;
+      }
+
+      if (count > 0)
+      {
+        /* Get the current entry */
+        cpuId       = pHandle->cpuId;
+        kpLapicNode = sDrvCtrl.pLAPICList;
+        while (kpLapicNode != NULL && cpuId != 0)
+        {
+          kpLapicNode = kpLapicNode->pNext;
+          --cpuId;
+        }
+        if (kpLapicNode != NULL)
+        {
+          size = snprintf(tempBuffer,
+                          sizeof(tempBuffer),
+                          "LAPIC CPU Identifier: %d\n"
+                          "LAPIC Identifier: %d\n"
+                          "Flags: %x\n",
+                          kpLapicNode->lapic.cpuId,
+                          kpLapicNode->lapic.lapicId,
+                          kpLapicNode->lapic.flags);
+          written = size - bufferOffset;
+
+          if (written > 0)
+          {
+            offset  = size - written;
+            toWrite = MIN(written, (ssize_t)count);
+            memcpy(pBuffer, tempBuffer + offset, toWrite);
+            pHandle->offset += toWrite;
+            pBuffer         += toWrite;
+            retCode         += toWrite;
+            count           -= toWrite;
+            bufferOffset    = 0;
+          }
+          else
+          {
+            bufferOffset -= size;
+          }
+
+          if (count > 0)
+          {
+            size = snprintf(tempBuffer,
+                            sizeof(tempBuffer),
+                            "Interrupt: %d\n"
+                            "Frequency: %llu Hz\n"
+                            "Interrupt Frequency: %llu Hz\n",
+                            spDrvCtrl->interruptNumber,
+                            spDrvCtrl->pInternalFrequency[pHandle->cpuId],
+                            spDrvCtrl->selectedFrequency);
+            written = size - bufferOffset;
+
+            if (written > 0)
+            {
+              offset  = size - written;
+              toWrite = MIN(written, (ssize_t)count);
+              memcpy(pBuffer, tempBuffer + offset, toWrite);
+              pHandle->offset += toWrite;
+              pBuffer         += toWrite;
+              retCode         += toWrite;
+              count           -= toWrite;
+              bufferOffset    = 0;
+            }
+            else
+            {
+              bufferOffset -= size;
+            }
+          }
+
+          if (count > 0)
+          {
+            size = snprintf(tempBuffer,
+                            sizeof(tempBuffer),
+                            "Divider: %d\n"
+                            "Nesting: %d\n"
+                            "Base Address: 0x%p\n",
+                            spDrvCtrl->divider,
+                            spDrvCtrl->pDisabledNesting[pHandle->cpuId],
+                            (void*)spDrvCtrl->lapicBaseAddress);
+            written = size - bufferOffset;
+
+            if (written > 0)
+            {
+              offset  = size - written;
+              toWrite = MIN(written, (ssize_t)count);
+              memcpy(pBuffer, tempBuffer + offset, toWrite);
+              pHandle->offset += toWrite;
+              pBuffer         += toWrite;
+              retCode         += toWrite;
+              count           -= toWrite;
+              bufferOffset    = 0;
+            }
+            else
+            {
+              bufferOffset -= size;
+            }
+          }
+        }
+        else
+        {
+          size = snprintf(tempBuffer,
+                      sizeof(tempBuffer),
+                      "Unknown Timer\n");
+          written = size - bufferOffset;
+
+          if (written > 0)
+          {
+            offset  = size - written;
+            toWrite = MIN(written, (ssize_t)count);
+            memcpy(pBuffer, tempBuffer + offset, toWrite);
+            pHandle->offset += toWrite;
+            pBuffer         += toWrite;
+            retCode         += toWrite;
+            count           -= toWrite;
+          }
+        }
+      }
+    }
+    else
+    {
+      retCode = -1;
+    }
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static int32_t _ProcFSTimerReadDir(void*             pDriverData,
+                                   void*             pFileHandle,
+                                   S_DirectoryEntry* pDirEntry)
+{
+  int32_t                   retCode;
+  S_LAPICTimerProcFSHandle* pHandle;
+  uint32_t                  cpuCount;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    pHandle = (S_LAPICTimerProcFSHandle*)pFileHandle;
+
+    if (pHandle->type == 1)
+    {
+      cpuCount = CPUGetCount();
+
+      if (pHandle->offset < cpuCount - 1)
+      {
+        snprintf(pDirEntry->pName,
+                sizeof(pDirEntry->pName),
+                "%d",
+                pHandle->offset);
+        ++pHandle->offset;
+        retCode = 1;
+      }
+      else if (pHandle->offset == cpuCount - 1)
+      {
+        snprintf(pDirEntry->pName,
+                sizeof(pDirEntry->pName),
+                "%d",
+                pHandle->offset);
+        ++pHandle->offset;
+        retCode = 0;
+      }
+      else
+      {
+        retCode = -1;
+      }
+    }
+    else
+    {
+      retCode = -1;
+    }
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+
+}
+
+static E_Return _CreateProcFSTimerEntry(void)
+{
+  E_Return retCode;
+
+  /* Create the entry */
+  retCode = ProcFSCreateEntry(PROCFS_TIMER_DIR_PATH,
+                              0,
+                              spProcFSMainDirectory,
+                              &sProcFSTimerOps,
+                              NULL,
+                              &spProcFSTimerEntry);
+  return retCode;
 }
 
 /***************************** DRIVER REGISTRATION ****************************/

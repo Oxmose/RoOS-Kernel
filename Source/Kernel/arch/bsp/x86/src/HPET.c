@@ -27,7 +27,9 @@
 #include <ACPI.h>
 #include <Panic.h>
 #include <Memory.h>
+#include <ProcFS.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <Critical.h>
@@ -52,6 +54,11 @@
 #define HPET_FDT_INT_PROP "interrupts"
 /** @brief FDT property for acpi handle */
 #define HPET_FDT_ACPI_NODE_PROP "acpi-node"
+
+/** @brief ACPI Procfs directory path */
+#define PROCFS_DIR_PATH "hpet"
+/** @brief Length of the PROCFS string */
+#define PROCFS_STRING_LENGTH 256
 
 /** @brief Defines the mask for the main counter tick period */
 #define HPET_CAPABILITIES_PERIOD_MASK 0xFFFFFFFF00000000ULL
@@ -123,20 +130,20 @@ typedef struct
 /** @brief x86 HPET Timer driver controler. */
 typedef struct
 {
-    /** @brief HPET Timer interrupt number. */
-    uint8_t interruptNumber;
-    /* @brief Stores if the counter is 32bits or 64bits wide */
-    bool countIs64Bits;
-    /** @brief Number of supported comparators */
-    uint8_t comparatorsCount;
-    /** @brief Keeps track on the HPET enabled state. */
-    uint32_t disabledNesting;
-    /** @brief HPET registers mapped in memory */
-    S_HPETRegisters* pRegisters;
-    /** @brief Stores the base tick period of the HPET */
-    uint32_t basePeriod;
-    /** @brief Time base driver */
-    const S_KernelTimer* kpBaseTimer;
+  /** @brief HPET Timer interrupt number. */
+  uint8_t interruptNumber;
+  /* @brief Stores if the counter is 32bits or 64bits wide */
+  bool countIs64Bits;
+  /** @brief Number of supported comparators */
+  uint8_t comparatorsCount;
+  /** @brief Keeps track on the HPET enabled state. */
+  uint32_t disabledNesting;
+  /** @brief HPET registers mapped in memory */
+  S_HPETRegisters* pRegisters;
+  /** @brief Stores the base tick period of the HPET */
+  uint32_t basePeriod;
+  /** @brief Time base driver */
+  const S_KernelTimer* kpBaseTimer;
 } S_HPETControler;
 
 /*******************************************************************************
@@ -228,6 +235,70 @@ static void _Enable(void* pDrvCtrl);
  */
 static void _Disable(void* pDrvCtrl);
 
+/**
+ * @brief Opens the HPET ProcFS main entry.
+ *
+ * @details Opens the HPET ProcFS main entry. This function will open the HPET
+ * ProcFS main entry and return a pointer to the file handle. The file handle
+ * will be used to read the HPET information from the kernel.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] kpPath The path to the ProcFS entry.
+ * @param[in] flags The flags for opening the file.
+ * @param[in] mode The mode for opening the file.
+ *
+ * @return The pointer to the file handle or -1 in case of error.
+ */
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode);
+
+/**
+ * @brief Closes the HPET ProcFS main entry.
+ *
+ * @details Closes the HPET ProcFS main entry. This function will close the HPET
+ * ProcFS main entry and free the resources used by the entry.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ *
+ * @return The success state or the error code.
+ */
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle);
+
+/**
+ * @brief Read the HPET ProcFS main entry.
+ *
+ * @details Read the HPET ProcFS main entry. This function will read the HPET
+ * information from the kernel and write it to the buffer given as parameter.
+ * The function will return the number of bytes read or an error code.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ * @param[out] pBuffer The buffer to write the HPET information to.
+ * @param[in] count The size of the buffer given as parameter.
+ *
+ * @return The number of bytes read or an error code.
+ */
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count);
+
+/**
+ * @brief Creates the ProcFS entry for the HPET driver.
+ *
+ * @details Creates the ProcFS entry for the HPET driver. This function will
+ * create the ProcFS entry for the HPET driver and register it in the ProcFS.
+ * The entry will be used to read the HPET information from the kernel. The
+ * entry will be created in the /proc/hpet directory.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _CreateProcFSEntry(void);
+
+
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
@@ -251,6 +322,25 @@ static S_Driver sX86HPETDriver =
 
 /** @brief Local timer controller instance */
 static S_HPETControler sDrvCtrl;
+
+/** @brief PROCFS main entry */
+static S_ProcFSDirEntry* spProcFSMainEntry = NULL;
+
+/** @brief PROCFS operations */
+static S_ProcFSFileOperations sProcFSOps =
+{
+  .pOpen    = _ProcFSOpen,
+  .pClose   = _ProcFSClose,
+  .pRead    = _ProcFSRead,
+  .pWrite   = NULL,
+  .pReadDir = NULL,
+  .pIOCTL   = NULL
+};
+
+/** @brief PROCFS string */
+static char sProcFSString[PROCFS_STRING_LENGTH] = {0};
+/** @brief Length of the PROCFS string */
+static size_t sProcFSStringLength = 0;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -290,6 +380,9 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   /* Set the API driver */
   retCode = DriverManagerSetDeviceData(pkFdtNode, pTimerDrv);
   HPET_ASSERT(retCode == NO_ERROR, "Failed to set the HPET driver", retCode);
+
+  retCode = _CreateProcFSEntry();
+  HPET_ASSERT(retCode == NO_ERROR, "Failed to create the HPET ProcFS", retCode);
 
   return retCode;
 }
@@ -402,6 +495,116 @@ static void _Disable(void* pDrvCtrl)
   pCtrl->pRegisters->configuration &= ~HPET_CONFIGURATION_ENABLE_COUNT;
 }
 
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode)
+{
+  size_t* pEntryOffset;
+
+  (void)pDriverData;
+  (void)mode;
+
+  if(flags == O_RDONLY && *kpPath == 0)
+  {
+    pEntryOffset = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    if (pEntryOffset != NULL)
+    {
+      *pEntryOffset = 0;
+    }
+    else
+    {
+      pEntryOffset = (void*)-1;
+    }
+  }
+  else
+  {
+    pEntryOffset = (void*)-1;
+  }
+
+  return pEntryOffset;
+}
+
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
+{
+  int32_t retCode;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    KFreeUser(pFileHandle, NULL);
+    retCode = 0;
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count)
+{
+  int32_t retCode;
+  size_t* pEntryOffset;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    pEntryOffset = (size_t*)pFileHandle;
+
+    if (*pEntryOffset < sProcFSStringLength)
+    {
+      retCode = (int32_t)MIN(count, sProcFSStringLength - *pEntryOffset);
+      memcpy(pBuffer, sProcFSString + *pEntryOffset, retCode);
+      *pEntryOffset += retCode;
+    }
+    else
+    {
+      retCode = 0;
+    }
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static E_Return _CreateProcFSEntry(void)
+{
+  E_Return                 retCode;
+
+  retCode = ProcFSCreateEntry(PROCFS_DIR_PATH,
+                              0,
+                              NULL,
+                              &sProcFSOps,
+                              NULL,
+                              &spProcFSMainEntry);
+  if (retCode == NO_ERROR)
+  {
+    sProcFSStringLength = snprintf(sProcFSString,
+                                  PROCFS_STRING_LENGTH,
+                                  "Interrupt: %d\n"
+                                  "Is 64 Bits: %d\n"
+                                  "Comparators Count: %d\n"
+                                  "Disabled Nesting: %d\n"
+                                  "Base Period (fs): %d\n",
+                                  sDrvCtrl.interruptNumber,
+                                  sDrvCtrl.countIs64Bits,
+                                  sDrvCtrl.comparatorsCount,
+                                  sDrvCtrl.disabledNesting,
+                                  sDrvCtrl.basePeriod);
+  }
+
+  return retCode;
+}
 /***************************** DRIVER REGISTRATION ****************************/
 DRIVERMGR_REG_FDT(sX86HPETDriver);
 

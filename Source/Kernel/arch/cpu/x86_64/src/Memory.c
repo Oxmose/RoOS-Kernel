@@ -876,20 +876,20 @@ static void _AddBlock(S_MemoryList* pList,
   MEM_ASSERT(pList != NULL,
              "Tried to add a memory block to a NULL list",
              ERR_INVALID_PARAMETER,
-             pList->allocPool == KMALLOC_PROCESS_HEAP);
+             pList->pAllocPool != NULL);
 
   MEM_ASSERT((baseAddress & PAGE_SIZE_MASK) == 0 &&
               (kLength & PAGE_SIZE_MASK) == 0 &&
               kLength != 0,
              "Tried to add a non aligned block",
              ERR_UNAUTHORIZED_ACTION,
-             pList->allocPool == KMALLOC_PROCESS_HEAP);
+             pList->pAllocPool != NULL);
 
   /* Manage rollover */
   MEM_ASSERT(limit > baseAddress,
              "Tried to add a rollover memory block",
              ERR_INVALID_PARAMETER,
-             pList->allocPool == KMALLOC_PROCESS_HEAP);
+             pList->pAllocPool != NULL);
 
   KERNEL_LOCK(pList->lock);
 
@@ -908,7 +908,7 @@ static void _AddBlock(S_MemoryList* pList,
                 (baseAddress >= pRange->limit),
                 "Adding an already free block",
                 ERR_UNAUTHORIZED_ACTION,
-                pList->allocPool == KMALLOC_PROCESS_HEAP);
+                pList->pAllocPool != NULL);
 
     /* If the new block is before but needs merging */
     if (baseAddress < pRange->base && limit == pRange->base)
@@ -929,7 +929,7 @@ static void _AddBlock(S_MemoryList* pList,
         MEM_ASSERT(pNextRange->base >= limit,
                    "Adding an already free block",
                    ERR_UNAUTHORIZED_ACTION,
-                   pList->allocPool == KMALLOC_PROCESS_HEAP);
+                   pList->pAllocPool != NULL);
 
 
         /* See if we can merge this one too */
@@ -945,7 +945,14 @@ static void _AddBlock(S_MemoryList* pList,
 
 
           /* Remove node */
-          KFree(pSaveCursor->pData, pList->allocPool);
+          if (pList->pAllocPool == NULL)
+          {
+            KFree(pSaveCursor->pData);
+          }
+          else
+          {
+            KFreeUser(pSaveCursor->pData, pList->pAllocPool);
+          }
           KQueueRemove(pList->pQueue, pSaveCursor);
           KQueueDestroyNode(&pSaveCursor);
         }
@@ -972,16 +979,25 @@ static void _AddBlock(S_MemoryList* pList,
   /* If not merged, create a new block in the list */
   if (merged == false)
   {
-    pRange = KMalloc(sizeof(S_MemoryRange), ALIGN_ADDRESS, pList->allocPool);
+    if (pList->pAllocPool == NULL)
+    {
+      pRange = KMalloc(sizeof(S_MemoryRange), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+    }
+    else
+    {
+      pRange = KMallocUser(sizeof(S_MemoryRange),
+                           ALIGN_ADDRESS,
+                           pList->pAllocPool);
+    }
     MEM_ASSERT(pRange != NULL,
                "Failed to allocate new memory range",
                ERR_NO_MEMORY,
-               pList->allocPool == KMALLOC_PROCESS_HEAP);
-    pNewNode = KQueueCreateNode(pRange, pList->allocPool);
+               pList->pAllocPool != NULL);
+    pNewNode = KQueueCreateNode(pRange, pList->pAllocPool);
     MEM_ASSERT(pNewNode != NULL,
                "Failed to allocate new memory range node",
                ERR_NO_MEMORY,
-               pList->allocPool == KMALLOC_PROCESS_HEAP);
+               pList->pAllocPool != NULL);
 
     pRange->base  = baseAddress;
     pRange->limit = limit;
@@ -1009,13 +1025,13 @@ static void _RemoveBlock(S_MemoryList*  pList,
   MEM_ASSERT(pList != NULL,
               "Tried to remove a memory block from a NULL list",
               ERR_INVALID_PARAMETER,
-              pList->allocPool == KMALLOC_PROCESS_HEAP);
+              pList->pAllocPool != NULL);
 
   MEM_ASSERT((baseAddress & PAGE_SIZE_MASK) == 0 &&
               (kLength & PAGE_SIZE_MASK) == 0,
               "Tried to remove a non aligned block",
               ERR_UNAUTHORIZED_ACTION,
-              pList->allocPool == KMALLOC_PROCESS_HEAP);
+              pList->pAllocPool != NULL);
 
   limit = baseAddress + kLength;
 
@@ -1038,10 +1054,18 @@ static void _RemoveBlock(S_MemoryList*  pList,
       baseAddress = pRange->limit;
       if (limit == pRange->limit)
       {
-          limit = 0;
+        limit = 0;
       }
 
-      KFree(pSaveCursor->pData, pList->allocPool);
+      if (pList->pAllocPool == NULL)
+      {
+        KFree(pSaveCursor->pData);
+      }
+      else
+      {
+        KFreeUser(pSaveCursor->pData, pList->pAllocPool);
+      }
+
       KQueueRemove(pList->pQueue, pSaveCursor);
       KQueueDestroyNode(&pSaveCursor);
     }
@@ -1083,16 +1107,27 @@ static void _RemoveBlock(S_MemoryList*  pList,
       baseAddress = limit;
 
       /* Create new node */
-      pRange = KMalloc(sizeof(S_MemoryRange), ALIGN_ADDRESS, pList->allocPool);
+      if (pList->pAllocPool == NULL)
+      {
+        pRange = KMalloc(sizeof(S_MemoryRange),
+                         ALIGN_ADDRESS,
+                         KMALLOC_FREE_POOL);
+      }
+      else
+      {
+        pRange = KMallocUser(sizeof(S_MemoryRange),
+                             ALIGN_ADDRESS,
+                             pList->pAllocPool);
+      }
       MEM_ASSERT(pRange != NULL,
                  "Failed to allocate new memory range",
                  ERR_NO_MEMORY,
-                 pList->allocPool == KMALLOC_PROCESS_HEAP);
-      pNewNode = KQueueCreateNode(pRange, pList->allocPool);
+                 pList->pAllocPool != NULL);
+      pNewNode = KQueueCreateNode(pRange, pList->pAllocPool);
       MEM_ASSERT(pNewNode != NULL,
                  "Failed to allocate new memory range node",
                  ERR_NO_MEMORY,
-                 pList->allocPool == KMALLOC_PROCESS_HEAP);
+                 pList->pAllocPool != NULL);
 
       pRange->base  = baseAddress;
       pRange->limit = saveLimit;
@@ -1122,7 +1157,7 @@ static uintptr_t _GetBlock(S_MemoryList* pList, const size_t kLength)
   MEM_ASSERT((kLength & PAGE_SIZE_MASK) == 0,
              "Tried to get a non aligned block",
              ERR_UNAUTHORIZED_ACTION,
-             pList->allocPool == KMALLOC_PROCESS_HEAP);
+             pList->pAllocPool != NULL);
 
   retBlock = 0;
 
@@ -1142,7 +1177,15 @@ static uintptr_t _GetBlock(S_MemoryList* pList, const size_t kLength)
       /* Reduce the node or remove it */
       if (pRange->base + kLength == pRange->limit)
       {
-        KFree(pCursor->pData, pList->allocPool);
+        if (pList->pAllocPool == NULL)
+        {
+          KFree(pCursor->pData);
+        }
+        else
+        {
+          KFreeUser(pCursor->pData, pList->pAllocPool);
+        }
+
         KQueueRemove(pList->pQueue, pCursor);
         KQueueDestroyNode(&pCursor);
       }
@@ -1171,7 +1214,7 @@ static uintptr_t _GetBlockFromEnd(S_MemoryList* pList, const size_t kLength)
   MEM_ASSERT((kLength & PAGE_SIZE_MASK) == 0,
              "Tried to get a non aligned block",
              ERR_UNAUTHORIZED_ACTION,
-             pList->allocPool == KMALLOC_PROCESS_HEAP);
+             pList->pAllocPool != NULL);
 
   retBlock = 0;
 
@@ -1191,7 +1234,14 @@ static uintptr_t _GetBlockFromEnd(S_MemoryList* pList, const size_t kLength)
       /* Reduce the node or remove it */
       if (pRange->base + kLength == pRange->limit)
       {
-        KFree(pCursor->pData, pList->allocPool);
+        if (pList->pAllocPool == NULL)
+        {
+          KFree(pCursor->pData);
+        }
+        else
+        {
+          KFreeUser(pCursor->pData, pList->pAllocPool);
+        }
         KQueueRemove(pList->pQueue, pCursor);
         KQueueDestroyNode(&pCursor);
       }
@@ -3001,12 +3051,12 @@ void MemoryInit(void)
   sCpu1GBPageSupport = CPUGet1GBPageSupport();
 
   /* Initialize structures */
-  sPhysMemList.pQueue = KQueueCreate(KMALLOC_NO_FREE_POOL);
-  sPhysMemList.allocPool = KMALLOC_FREE_POOL;
+  sPhysMemList.pQueue = KQueueCreate(NULL);
+  sPhysMemList.pAllocPool = NULL;
   KERNEL_SPINLOCK_INIT(sPhysMemList.lock);
 
-  sKernelFreePagesList.pQueue = KQueueCreate(KMALLOC_NO_FREE_POOL);
-  sKernelFreePagesList.allocPool = KMALLOC_FREE_POOL;
+  sKernelFreePagesList.pQueue = KQueueCreate(NULL);
+  sKernelFreePagesList.pAllocPool = NULL;
   KERNEL_SPINLOCK_INIT(sKernelFreePagesList.lock);
 
   sPhysAddressWidthMask = ((1ULL << sPhysAddressWidth) - 1);
@@ -3517,7 +3567,7 @@ E_Return MemoryKernelFree(const void* kVirtualAddress, const size_t kSize)
   return error;
 }
 
-void MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess)
+E_Return MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess)
 {
   S_ProcessMemoryMetadata* pMemProcInfo;
   E_Return                 error;
@@ -3526,49 +3576,66 @@ void MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess)
 
 
   error = CreateProcessHeap(&pProcess->pHeap);
-  MEM_ASSERT(error == NO_ERROR,
-             "Failed to allocate process heap.",
-             error,
-             false);
-
-  /* Create the memory structure */
-  pMemProcInfo = KMalloc(sizeof(S_ProcessMemoryMetadata),
-                        ALIGN_ADDRESS,
-                        KMALLOC_FREE_POOL);
-
-  /* Create the page directory */
-  if (SchedulerIsInitialized() == true)
+  if (error == NO_ERROR)
   {
-    /* Allocate a frame for the page directory */
-    pMemProcInfo->PDPhysAddress = (uintptr_t)NULL;
+    /* Create the memory structure */
+    pMemProcInfo = KMallocUser(sizeof(S_ProcessMemoryMetadata),
+                              ALIGN_ADDRESS,
+                              pProcess->pHeap);
+    if (pMemProcInfo != NULL)
+    {
+      /* Create the page directory */
+      if (SchedulerIsInitialized() == true)
+      {
+        /* Allocate a frame for the page directory TODO */
+        pMemProcInfo->PDPhysAddress = (uintptr_t)NULL;
 
-    /* Create the free page table */
-    pMemProcInfo->freePageTable.pQueue    = KQueueCreate(KMALLOC_PROCESS_HEAP);
-    pMemProcInfo->freePageTable.allocPool = KMALLOC_PROCESS_HEAP;
-    KERNEL_SPINLOCK_INIT(pMemProcInfo->freePageTable.lock);
+        /* Create the free page table */
+        pMemProcInfo->freePageTable.pQueue     = KQueueCreate(pProcess->pHeap);
+        if (pMemProcInfo->freePageTable.pQueue != NULL)
+        {
+          pMemProcInfo->freePageTable.pAllocPool = pProcess->pHeap;
+          KERNEL_SPINLOCK_INIT(pMemProcInfo->freePageTable.lock);
 
-    /* Add free pages */
-    _AddBlock(&pMemProcInfo->freePageTable,
-              USER_MEMORY_START,
-              USER_MEMORY_END - USER_MEMORY_START);
+          /* Add free pages */
+          _AddBlock(&pMemProcInfo->freePageTable,
+                    USER_MEMORY_START,
+                    USER_MEMORY_END - USER_MEMORY_START);
 
-    KERNEL_SPINLOCK_INIT(pMemProcInfo->lock);
+          KERNEL_SPINLOCK_INIT(pMemProcInfo->lock);
+        }
+        else
+        {
+          KFreeUser(pMemProcInfo, pProcess->pHeap);
+          DestroyProcessHeap(pProcess->pHeap);
+          error = ERR_NO_MEMORY;
+        }
+
+      }
+      else
+      {
+        /* When the scheduler is not initialized, use the kernel page dir */
+        pMemProcInfo->PDPhysAddress = (uintptr_t)spKernelPageDir -
+                                      KERNEL_MEM_OFFSET;
+      }
+
+      pProcess->pMemoryData = pMemProcInfo;
+    }
+    else
+    {
+      DestroyProcessHeap(pProcess->pHeap);
+      error = ERR_NO_MEMORY;
+    }
   }
-  else
-  {
-    /* When the scheduler is not initialized, use the kernel page dir */
-    pMemProcInfo->PDPhysAddress = (uintptr_t)spKernelPageDir -
-                                  KERNEL_MEM_OFFSET;
-  }
 
-  pProcess->pMemoryData = pMemProcInfo;
+  return error;
 }
 
-void MemoryDestroyProcessData(void* pMemoryData)
+void MemoryDestroyProcessData(S_KernelProcess* pProcess)
 {
   S_ProcessMemoryMetadata* pMemProcInfo;
 
-  pMemProcInfo = pMemoryData;
+  pMemProcInfo = pProcess->pMemoryData;
 
   MEM_ASSERT(pMemProcInfo->PDPhysAddress !=
              (uintptr_t)spKernelPageDir - KERNEL_MEM_OFFSET,
@@ -3588,7 +3655,10 @@ void MemoryDestroyProcessData(void* pMemoryData)
   KERNEL_UNLOCK(pMemProcInfo->lock);
 
   /* Release the memory structure */
-  KFree(pMemProcInfo, KMALLOC_PROCESS_HEAP);
+  KFreeUser(pMemProcInfo, pProcess->pHeap);
+
+  /* Destroy the process heap */
+  DestroyProcessHeap(pProcess->pHeap);
 }
 
 uintptr_t MemoryGetUserStartAddr(void)
@@ -3933,4 +4003,12 @@ bool MemoryIsMapped(const uintptr_t  kVirtualAddress,
   return _IsMapped(address, pageCount, pgdir, kCheckFull);
 }
 
+size_t MemoryGetProcessAllocatedMemory(const S_KernelProcess* kpProcess)
+{
+  S_ProcessMemoryMetadata* pMemInfo;
+
+  pMemInfo = kpProcess->pMemoryData;
+
+  return pMemInfo->allocatedMemory;
+}
 /************************************ EOF *************************************/

@@ -25,7 +25,9 @@
 #include <X64Cpu.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
+#include <ProcFS.h>
 #include <Memory.h>
 #include <DeviceTree.h>
 #include <KernelHeap.h>
@@ -48,6 +50,11 @@
 
 /** @brief FDT property for regs  */
 #define ACPI_FDT_REGS_PROP "reg"
+
+/** @brief ACPI Procfs directory path */
+#define ACPI_PROCFS_DIR_PATH "acpi"
+/** @brief Length of the PROCFS string */
+#define PROCFS_STRING_LENGTH 1024
 
 /** @brief Module name */
 #define MODULE_NAME "X86 ACPI"
@@ -442,12 +449,15 @@ typedef struct
   S_InterruptOverrideNode* pIntOverrideList;
   /** @brief List of detected HPET devices */
   S_HPETNode* pHpetList;
+  /** @brief ACPI version */
+  uint32_t version;
+  /** @brief ACPI base address */
+  uintptr_t baseAddress;
 } S_ACPIControler;
 
 /*******************************************************************************
  * MACROS
  ******************************************************************************/
-
 /**
  * @brief Assert macro used by the ACPI to ensure correctness of execution.
  *
@@ -475,9 +485,9 @@ typedef struct
 #define ADD_TO_LIST(LIST, CURSOR, NODE) {     \
   NODE->pNext = NULL;                         \
   CURSOR = LIST;                              \
-  if (CURSOR != NULL)                          \
+  if (CURSOR != NULL)                         \
   {                                           \
-    while (CURSOR->pNext != NULL)              \
+    while (CURSOR->pNext != NULL)             \
     {                                         \
       CURSOR = CURSOR->pNext;                 \
     }                                         \
@@ -678,6 +688,69 @@ static const S_HPETNode* _GetHPETList(void);
  */
 static uint32_t _GetRemapedIRQ(const uint32_t kIRQNumber);
 
+/**
+ * @brief Opens the ACPI ProcFS main entry.
+ *
+ * @details Opens the ACPI ProcFS main entry. This function will open the ACPI
+ * ProcFS main entry and return a pointer to the file handle. The file handle
+ * will be used to read the ACPI information from the kernel.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] kpPath The path to the ProcFS entry.
+ * @param[in] flags The flags for opening the file.
+ * @param[in] mode The mode for opening the file.
+ *
+ * @return The pointer to the file handle or -1 in case of error.
+ */
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode);
+
+/**
+ * @brief Closes the ACPI ProcFS main entry.
+ *
+ * @details Closes the ACPI ProcFS main entry. This function will close the ACPI
+ * ProcFS main entry and free the resources used by the entry.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ *
+ * @return The success state or the error code.
+ */
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle);
+
+/**
+ * @brief Read the ACPI ProcFS main entry.
+ *
+ * @details Read the ACPI ProcFS main entry. This function will read the ACPI
+ * information from the kernel and write it to the buffer given as parameter.
+ * The function will return the number of bytes read or an error code.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ * @param[out] pBuffer The buffer to write the ACPI information to.
+ * @param[in] count The size of the buffer given as parameter.
+ *
+ * @return The number of bytes read or an error code.
+ */
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count);
+
+/**
+ * @brief Creates the ProcFS entry for the ACPI driver.
+ *
+ * @details Creates the ProcFS entry for the ACPI driver. This function will
+ * create the ProcFS entry for the ACPI driver and register it in the ProcFS.
+ * The entry will be used to read the ACPI information from the kernel. The
+ * entry will be created in the /proc/acpi directory.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _CreateProcFSEntry(void);
+
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
@@ -710,6 +783,8 @@ static S_ACPIControler sDrvCtrl =
   .pLAPICList               = NULL,
   .pIntOverrideList         = NULL,
   .pHpetList                = NULL,
+  .version                  = 0,
+  .baseAddress              = 0,
 };
 
 /** @brief ACPI external driver instance */
@@ -724,22 +799,40 @@ static S_ACPIDriver sAPIDriver =
   .pGetRemapedIRQ       = _GetRemapedIRQ,
 };
 
+/** @brief PROCFS main entry */
+static S_ProcFSDirEntry* spProcFSMainEntry = NULL;
+
+/** @brief PROCFS operations */
+static S_ProcFSFileOperations sProcFSOps =
+{
+  .pOpen    = _ProcFSOpen,
+  .pClose   = _ProcFSClose,
+  .pRead    = _ProcFSRead,
+  .pWrite   = NULL,
+  .pReadDir = NULL,
+  .pIOCTL   = NULL
+};
+
+/** @brief PROCFS string */
+static char sProcFSString[PROCFS_STRING_LENGTH] = {0};
+/** @brief Length of the PROCFS string */
+static size_t sProcFSStringLength = 0;
+
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-
 static E_Return _Attach(const S_FDTNode* pkFdtNode)
 {
-  const uintptr_t* kpUintptrProp;
-  size_t           propLen;
-  E_Return         retCode;
-  uintptr_t        searchRangeStart;
-  uintptr_t        searchRangeEnd;
-  size_t           mapSize;
-  uintptr_t        mapBase;
-  uintptr_t        mapPhys;
-  size_t           initSize;
-  uint64_t         signature;
+  const uintptr_t*         kpUintptrProp;
+  size_t                   propLen;
+  E_Return                 retCode;
+  uintptr_t                searchRangeStart;
+  uintptr_t                searchRangeEnd;
+  size_t                   mapSize;
+  uintptr_t                mapBase;
+  uintptr_t                mapPhys;
+  size_t                   initSize;
+  uint64_t                 signature;
 
   /* Get the reg: the range to search for the ACPI structure */
   kpUintptrProp = FDTGetProp(pkFdtNode, ACPI_FDT_REGS_PROP, &propLen);
@@ -790,6 +883,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
                    searchRangeStart);
       /* Parse RSDP */
       _ParseRSDP((S_RSDPDescriptor*)searchRangeStart);
+      sDrvCtrl.baseAddress = searchRangeStart;
       break;
     }
 
@@ -810,7 +904,9 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   /* Update the CPU count */
   CPUSetCount(sAPIDriver.pGetLAPICCount());
 
-  KERNEL_INFO("ACPI Driver Initialized\n");
+  /* Register the PROCFS entries */
+  retCode = _CreateProcFSEntry();
+  ACPI_ASSERT(retCode == NO_ERROR, "Failed to create ProcFS entries", retCode);
 
   return NO_ERROR;
 }
@@ -946,6 +1042,8 @@ static void _ParseRSDP(const S_RSDPDescriptor* kpRsdpDesc)
                  MODULE_NAME,
                  "ACPI Revision 0 Detected");
     _ParseRSDPRevision0(kpRsdpDesc);
+
+    sDrvCtrl.version = 0;
   }
   else if (kpRsdpDesc->revision == 2)
   {
@@ -953,6 +1051,8 @@ static void _ParseRSDP(const S_RSDPDescriptor* kpRsdpDesc)
                  MODULE_NAME,
                  "ACPI Revision 2 Detected");
     _ParseRSDPRevision2(kpRsdpDesc);
+
+    sDrvCtrl.version = 2;
   }
 }
 
@@ -1211,8 +1311,8 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
 
       /* Create new LAPIC node */
       pLAPICNode = KMalloc(sizeof(S_LAPICNode),
-                            ALIGN_ADDRESS,
-                            KMALLOC_NO_FREE_POOL);
+                           ALIGN_ADDRESS,
+                           KMALLOC_NO_FREE_POOL);
 
       /* Fill the descriptor */
       pLAPICNode->lapic.lapicId = ((S_LAPIC*)madtEntry)->lapicId;
@@ -1380,6 +1480,136 @@ static uint32_t _GetRemapedIRQ(const uint32_t kIRQNumber)
 
   /* If we did not find the interrupt, there is no redirection. */
   return retValue;
+}
+
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode)
+{
+  size_t* pEntryOffset;
+
+  (void)pDriverData;
+  (void)mode;
+
+  if(flags == O_RDONLY && *kpPath == 0)
+  {
+    pEntryOffset = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    if (pEntryOffset == NULL)
+    {
+      pEntryOffset = (void*)-1;
+    }
+    else
+    {
+      *pEntryOffset = 0;
+    }
+  }
+  else
+  {
+    pEntryOffset = (void*)-1;
+  }
+
+  return pEntryOffset;
+}
+
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
+{
+  int32_t retCode;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    KFreeUser(pFileHandle, NULL);
+    retCode = 0;
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count)
+{
+  int32_t retCode;
+  size_t* pEntryOffset;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    pEntryOffset = (size_t*)pFileHandle;
+
+    if (*pEntryOffset < sProcFSStringLength)
+    {
+      retCode = (int32_t)MIN(count, sProcFSStringLength - *pEntryOffset);
+      memcpy(pBuffer, sProcFSString + *pEntryOffset, retCode);
+      *pEntryOffset += retCode;
+    }
+    else
+    {
+      retCode = 0;
+    }
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static E_Return _CreateProcFSEntry(void)
+{
+  E_Return                 retCode;
+  uint32_t                 i;
+  S_InterruptOverrideNode* pIntOverrideNode;
+
+  retCode = ProcFSCreateEntry(ACPI_PROCFS_DIR_PATH,
+                              0,
+                              NULL,
+                              &sProcFSOps,
+                              NULL,
+                              &spProcFSMainEntry);
+  if (retCode == NO_ERROR)
+  {
+    sProcFSStringLength = snprintf(sProcFSString,
+                                  PROCFS_STRING_LENGTH,
+                                  "Version: %d\n"
+                                  "Base Address: 0x%p\n"
+                                  "LAPIC Count: %d\n"
+                                  "IO-APIC Count: %d\n"
+                                  "HPET Count: %d\n",
+                                  sDrvCtrl.version,
+                                  sDrvCtrl.baseAddress,
+                                  sDrvCtrl.detectedCPUCount,
+                                  sDrvCtrl.detectedIOAPICCount,
+                                  sDrvCtrl.detectedHpetCount);
+    sProcFSStringLength += snprintf(sProcFSString + sProcFSStringLength,
+                                    PROCFS_STRING_LENGTH - sProcFSStringLength,
+                                  "Interrupt Overrides: %d\n",
+                                    sDrvCtrl.detectedIntOverrideCount);
+    pIntOverrideNode = sDrvCtrl.pIntOverrideList;
+    for (i = 0; i < sDrvCtrl.detectedIntOverrideCount; ++i)
+    {
+      sProcFSStringLength += snprintf(sProcFSString + sProcFSStringLength,
+                                      PROCFS_STRING_LENGTH - sProcFSStringLength,
+                                      "  Bus: %d, Source: %d, Destination: %d, "
+                                      "Flags: 0x%X\n",
+                                      pIntOverrideNode->intOverride.bus,
+                                      pIntOverrideNode->intOverride.source,
+                                      pIntOverrideNode->intOverride.interrupt,
+                                      pIntOverrideNode->intOverride.flags);
+      pIntOverrideNode = pIntOverrideNode->pNext;
+    }
+  }
+
+  return retCode;
 }
 
 /***************************** DRIVER REGISTRATION ****************************/

@@ -343,7 +343,7 @@ static void* _DisplayRoutine(void* pArgs);
  * @param[in] pixelCount The amount of pixel the fill.
  */
 static inline void _FastFill(uintptr_t      bufferAddr,
-                             const uint32_t kPixel,
+                             const uint16_t kPixel,
                              uint32_t       pixelCount);
 
 /**
@@ -782,7 +782,7 @@ static void _ProcessChar(const char kCharacter)
         /* Clear all screen */
         _FastFill((uintptr_t)sVGADriverCtrl.pInternalBuffer,
                   0,
-                  sVGADriverCtrl.framebufferSize);
+                  sVGADriverCtrl.framebufferSize/ sizeof(uint16_t));
         break;
       /* Line return */
       case '\r':
@@ -801,7 +801,7 @@ static void _ClearFramebuffer(void)
   /* Clear all screen */
   _FastFill((uintptr_t)sVGADriverCtrl.pInternalBuffer,
             0,
-            sVGADriverCtrl.framebufferSize);
+            sVGADriverCtrl.framebufferSize/ sizeof(uint16_t));
   KERNEL_UNLOCK(sVGADriverCtrl.bufferLock);
 }
 
@@ -945,32 +945,35 @@ static void* _DisplayRoutine(void* pArgs)
 }
 
 static inline void _FastFill(uintptr_t      bufferAddr,
-                             const uint32_t kPixel,
+                             const uint16_t kPixel,
                              uint32_t       pixelCount)
 {
   register size_t sseSize;
   register size_t n;
   register char*  pDestPtr;
-  uint32_t replicateValue[4] __attribute__((aligned(16)));
+  uint16_t replicateValue[8] __attribute__((aligned(16)));
 
   /* Compute the replicated value */
   replicateValue[0] = kPixel;
   replicateValue[1] = kPixel;
   replicateValue[2] = kPixel;
   replicateValue[3] = kPixel;
-
+  replicateValue[4] = kPixel;
+  replicateValue[5] = kPixel;
+  replicateValue[6] = kPixel;
+  replicateValue[7] = kPixel;
 
   pDestPtr = (char*)bufferAddr;
 
   /* First unaligned */
   while (((uintptr_t)pDestPtr & 0xF) != 0 && pixelCount > 0)
   {
-      *(uint32_t*)pDestPtr = *(uint32_t*)replicateValue;
-      pDestPtr += sizeof(uint32_t);
-      --pixelCount;
+    *(uint16_t*)pDestPtr = *(uint16_t*)replicateValue;
+    pDestPtr += sizeof(uint16_t);
+    --pixelCount;
   }
 
-  sseSize = pixelCount / 4;
+  sseSize = pixelCount / 8;
 
   if (sseSize > 0)
   {
@@ -980,7 +983,7 @@ static inline void _FastFill(uintptr_t      bufferAddr,
                           : "r"(replicateValue)
                           : "memory");
 
-    pixelCount -= sseSize * 4;
+    pixelCount -= sseSize * 8;
     n = (sseSize + 15) / 16;
     switch (sseSize % 16)
     {
@@ -1033,8 +1036,8 @@ static inline void _FastFill(uintptr_t      bufferAddr,
   /* Last unaligned */
   while (pixelCount > 0)
   {
-    *(uint32_t*)pDestPtr = *(uint32_t*)replicateValue;
-    pDestPtr += sizeof(uint32_t);
+    *(uint16_t*)pDestPtr = *(uint16_t*)replicateValue;
+    pDestPtr += sizeof(uint16_t);
     --pixelCount;
   }
 }
@@ -1061,10 +1064,10 @@ static inline void _FastMemcpy(void*       pDest,
   /* First unaligned */
   while (((uintptr_t)pSrcPtr & 0xF) != 0 && size > 0)
   {
-    *(uint32_t*)pDstPtr = *(uint32_t*)pSrcPtr;
-    pSrcPtr += 4;
-    pDstPtr += 4;
-    size -= 4;
+    *(uint16_t*)pDstPtr = *(uint16_t*)pSrcPtr;
+    pSrcPtr += sizeof(uint16_t);
+    pDstPtr += sizeof(uint16_t);
+    size -= sizeof(uint16_t);
   }
 
   sseSize = size / (sizeof(uint64_t) * 2);
@@ -1160,10 +1163,10 @@ static inline void _FastMemcpy(void*       pDest,
   /* Last unaligned */
   while (size > 0)
   {
-    *(uint32_t*)pDstPtr = *(uint32_t*)pSrcPtr;
-    pSrcPtr += 4;
-    pDstPtr += 4;
-    size -= 4;
+    *(uint16_t*)pDstPtr = *(uint16_t*)pSrcPtr;
+    pSrcPtr += sizeof(uint16_t);
+    pDstPtr += sizeof(uint16_t);
+    size    -= sizeof(uint16_t);
   }
 }
 

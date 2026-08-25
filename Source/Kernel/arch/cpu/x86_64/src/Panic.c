@@ -531,7 +531,7 @@ void KernelPanic(const uint32_t kErrorCode,
     _PrintStackTrace((uintptr_t*)kpVCPU->cpuState.rbp);
 
     /* Print panic information */
-    _PanicPrintf("                              ==== Information ====\n");
+    _PanicPrintf("\n                              ==== Information ====\n");
     if (skpPanicFile != NULL)
     {
       _PanicPrintf("%s at line %d\n", skpPanicFile, sPanicLine);

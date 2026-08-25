@@ -99,7 +99,7 @@ E_Return KernelMutexInit(S_KernelMutex* pMutex, const uint32_t kFlags)
         priority <= KERNEL_LOWEST_PRIORITY) ||
       ((kFlags & KMUTEX_FLAG_PRIO_ELEVATION) == 0))
     {
-      pMutex->pWaitingList = KQueueCreate(KMALLOC_FREE_POOL);
+      pMutex->pWaitingList = KQueueCreate(NULL);
       if (pMutex->pWaitingList != NULL)
       {
         pMutex->flags            = kFlags;

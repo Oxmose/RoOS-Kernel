@@ -34,6 +34,7 @@
 #include <KernelHeap.h>
 #include <KernelError.h>
 #include <TimerManager.h>
+#include <CoreProcessFS.h>
 
 /* Configuration files */
 #include <config.h>
@@ -174,10 +175,10 @@ static void _CreateMainProcess(void);
  * @details Creates the idle thread for a CPU. The idle threds are part of
  * the kernel main process.
  *
- * @param[in/out] pContext The scheduling context to which the idle thread will
+ * @param[in, out] pContext The scheduling context to which the idle thread will
  * be added.
  * @param[in] kCPUId The CPU id for which the thread will be created.
- * @param[in/out] pMainProcess The pointer to the main process structure.
+ * @param[in, out] pMainProcess The pointer to the main process structure.
  */
 static void _CreateIdleThread(S_ScheduleContext* pContext,
                               const uint32_t     kCPUId,
@@ -190,7 +191,7 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
  * set the thread to the running state and remove the thread from the context
  * ready list.
  *
- * @param[in/out] pContext The context to elect the thread from.
+ * @param[in, out] pContext The context to elect the thread from.
  *
  * @return The pointer to the elected thread is returned.
  */
@@ -203,7 +204,7 @@ static S_KernelThread* _ElectNextThread(S_ScheduleContext* pContext);
  * the desired state and update the context's ready or sleeping list
  * accordingly.
  *
- * @param[in/out] pThread The thread to manage.
+ * @param[in, out] pThread The thread to manage.
  */
 static void _ManageThreadState(S_KernelThread* pThread);
 
@@ -227,9 +228,9 @@ static S_ScheduleContext* _SelectNextContext(S_KernelThread* pThread);
  * @details Sets a thread to the ready state. This will set the thread to ready
  * and add it to the context's ready list.
  *
- * @param[in/out] pContext The context to which the thread should be put on
+ * @param[in, out] pContext The context to which the thread should be put on
  * the ready list.
- * @param[in/out] pThread The thread to set to ready.
+ * @param[in, out] pThread The thread to set to ready.
  */
 static void _SetThreadToReady(S_ScheduleContext* pContext,
                               S_KernelThread*    pThread);
@@ -240,9 +241,9 @@ static void _SetThreadToReady(S_ScheduleContext* pContext,
  * @details Sets a thread to the sleeping state. This will set the thread to
  * sleeping add it to the context's sleeping list.
  *
- * @param[in/out] pContext The context to which the thread should be put on
+ * @param[in, out] pContext The context to which the thread should be put on
  * the sleeping list.
- * @param[in/out] pThread The thread to set to sleeping.
+ * @param[in, out] pThread The thread to set to sleeping.
  */
 static void _SetThreadToSleeping(S_ScheduleContext* pContext,
                                  S_KernelThread*    pThread);
@@ -253,7 +254,7 @@ static void _SetThreadToSleeping(S_ScheduleContext* pContext,
  * @details Sets a thread to the joining state. No context is updated as the
  * thread should be stored in the resource it is joining.
  *
- * @param[in/out] pThread The thread to set to joining.
+ * @param[in, out] pThread The thread to set to joining.
  */
 static void _SetThreadToJoining(S_KernelThread* pThread);
 
@@ -263,7 +264,7 @@ static void _SetThreadToJoining(S_KernelThread* pThread);
  * @details Sets a thread to the zombie state.  No context is updated as the
  * thread should be stored in the resource that is joining it and will clean it.
  *
- * @param[in/out] pThread The thread to set to zombie.
+ * @param[in, out] pThread The thread to set to zombie.
  */
 static void _SetThreadToZombie(S_KernelThread* pThread);
 
@@ -379,8 +380,10 @@ static void _SchedulerThreadEntry(void)
   pCurrThread = SchedulerGetCurrentThread();
 
   /* Set start time */
-  pCurrThread->startTime     = TimeGetUptime();
-  pCurrThread->executionTime = 0;
+  pCurrThread->startTime         = TimeGetUptime();
+  pCurrThread->currentKernelTime = 0;
+  pCurrThread->execTimeUser      = 0;
+  pCurrThread->execTimeKernel    = 0;
 
   /* Call the thread routine */
   pCurrThread->returnValue = pCurrThread->pRoutine(pCurrThread->pArgs);
@@ -433,15 +436,34 @@ static void _CreateMainProcess(void)
                           KMALLOC_NO_FREE_POOL);
   memset(spMainProcess, 0, sizeof(S_KernelProcess));
 
+  /* Initialize the heap */
+  retCode = MemoryCreateProcessDataAndHeap(spMainProcess);
+  SCHED_ASSERT(retCode == NO_ERROR,
+               "Failed to create main process memory data.",
+               retCode,
+               false);
+
   /* Initialize the attributes */
   spMainProcess->pid         = AtomicIncrement32(&sLastPID);
   spMainProcess->pParent     = NULL;
-  spMainProcess->pChildren   = KQueueCreate(KMALLOC_NO_FREE_POOL);
+  spMainProcess->pChildren   = KQueueCreate(spMainProcess->pHeap);
+  SCHED_ASSERT(spMainProcess->pChildren != NULL,
+               "Failed to create main process children queue.",
+               ERR_NO_MEMORY,
+               false);
   spMainProcess->pMainThread = NULL;
-  spMainProcess->pThreads    = KQueueCreate(KMALLOC_NO_FREE_POOL);
+  spMainProcess->pThreads    = KQueueCreate(spMainProcess->pHeap);
+  SCHED_ASSERT(spMainProcess->pThreads != NULL,
+               "Failed to create main process threads queue.",
+               ERR_NO_MEMORY,
+               false);
   memcpy(spMainProcess->pName, MAIN_PROCESS_NAME, PROCESS_NAME_MAX_LENGTH);
 
-  MemoryCreateProcessDataAndHeap(spMainProcess);
+  retCode = CoreProcessFSCreateEntry(spMainProcess);
+  SCHED_ASSERT(retCode == NO_ERROR,
+               "Failed to create main process ProcFS entry.",
+               retCode,
+               false);
 
   retCode = CreateProcessFDTable(spMainProcess);
   SCHED_ASSERT(retCode == NO_ERROR,
@@ -450,8 +472,6 @@ static void _CreateMainProcess(void)
                false);
 
   KERNEL_SPINLOCK_INIT(spMainProcess->lock);
-
-  /* TODO: Add to process table */
 }
 
 static void _CreateIdleThread(S_ScheduleContext* pContext,
@@ -460,10 +480,21 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
 {
   S_KernelThread*    pIdle;
   S_KernelQueueNode* pNode;
+  E_Return           retCode;
 
   /* Create the thread */
-  pIdle = KMalloc(sizeof(S_KernelThread), ALIGN_ADDRESS, KMALLOC_NO_FREE_POOL);
-  pIdle->pThreadNode        = KQueueCreateNode(pIdle, KMALLOC_NO_FREE_POOL);
+  pIdle = KMallocUser(sizeof(S_KernelThread),
+                      ALIGN_ADDRESS,
+                      pMainProcess->pHeap);
+  SCHED_ASSERT(pIdle != NULL,
+               "Failed to allocate IDLE thread.",
+               ERR_NO_MEMORY,
+               false);
+  pIdle->pThreadNode        = KQueueCreateNode(pIdle, pMainProcess->pHeap);
+  SCHED_ASSERT(pIdle->pThreadNode != NULL,
+               "Failed to create IDLE thread node.",
+               ERR_NO_MEMORY,
+               false);
   pIdle->tid                = AtomicIncrement32(&sLastTID);
   pIdle->type               = THREAD_TYPE_KERNEL;
   pIdle->pArgs              = NULL;
@@ -500,7 +531,11 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
   pContext->pCurrentThread = pIdle;
 
   /* Link to main process */
-  pNode = KQueueCreateNode(pIdle, KMALLOC_NO_FREE_POOL);
+  pNode = KQueueCreateNode(pIdle, pMainProcess->pHeap);
+  SCHED_ASSERT(pNode != NULL,
+               "Failed to create IDLE thread node.",
+               ERR_NO_MEMORY,
+               false);
   if (pMainProcess->pMainThread == NULL)
   {
     pMainProcess->pMainThread = pIdle;
@@ -508,6 +543,12 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
   KQueuePush(pNode, pMainProcess->pThreads);
 
   AtomicDecrement32(&sCurrentThreadsCount);
+
+  retCode = CoreProcessFSCreateThreadEntry(pIdle);
+  SCHED_ASSERT(retCode == NO_ERROR,
+               "Failed to create IDLE thread ProcFS entry.",
+               retCode,
+               false);
 }
 
 static S_KernelThread* _ElectNextThread(S_ScheduleContext* pContext)
@@ -697,6 +738,7 @@ static void _CleanThread(S_KernelThread* pThread)
                      pThread->pProcess);
   }
   CPUDestroyVirtualCPU(pThread);
+  CoreProcessFSDeleteThreadEntry(pThread);
 
   /* Unlink from process */
   KERNEL_LOCK(pThread->pProcess->lock);
@@ -714,7 +756,7 @@ static void _CleanThread(S_KernelThread* pThread)
   KQueueDestroyNode(&pNode);
   KERNEL_UNLOCK(pThread->pProcess->lock);
 
-  KFree(pThread, KMALLOC_PROCESS_HEAP);
+  KFreeUser(pThread, NULL);
 }
 
 static void _RequestThreadStateUpdate(S_ScheduleContext*  pContext,
@@ -828,7 +870,19 @@ static void _UpdateContextStatistics(S_ScheduleContext* pContext)
                           (pContext->stats.totalTime + 1);
 
   /* Update the elapsed time for the thread */
-  pContext->pCurrentThread->executionTime += elapsedTime;
+  if (pContext->pCurrentThread->type == THREAD_TYPE_USER)
+  {
+    pContext->pCurrentThread->execTimeUser +=
+      elapsedTime - pContext->pCurrentThread->currentKernelTime;
+    pContext->pCurrentThread->execTimeKernel +=
+      pContext->pCurrentThread->currentKernelTime;
+
+    pContext->pCurrentThread->currentKernelTime = 0;
+  }
+  else
+  {
+    pContext->pCurrentThread->execTimeKernel += elapsedTime;
+  }
 
   /* Update the index */
   pContext->stats.timesIdx = (timeIdx + 1) % CPU_LOAD_TICK_WINDOW;
@@ -868,12 +922,11 @@ void SchedulerInit(void)
     /* Create the ready list queues */
     for (j = 0; j <= KERNEL_LOWEST_PRIORITY; ++j)
     {
-      ppSchedulerContext[i]->pReadyList[j] = KQueueCreate(KMALLOC_NO_FREE_POOL);
+      ppSchedulerContext[i]->pReadyList[j] = KQueueCreate(NULL);
     }
 
     /* Create the sleeping list queue */
-    ppSchedulerContext[i]->pSleepingList = KQueueCreate(KMALLOC_NO_FREE_POOL);
-
+    ppSchedulerContext[i]->pSleepingList = KQueueCreate(NULL);
     ppSchedulerContext[i]->highestPriority = KERNEL_LOWEST_PRIORITY;
     ppSchedulerContext[i]->mappedCpu       = i;
     ppSchedulerContext[i]->stats.score     = 0;
@@ -1120,87 +1173,115 @@ E_Return CreateThread(S_KernelThread**      ppThread,
     pCurrentProcess = SchedulerGetCurrentProcess();
 
     /* Create the thread */
-    pThread = KMalloc(sizeof(S_KernelThread),
-                      ALIGN_ADDRESS,
-                      KMALLOC_PROCESS_HEAP);
-
+    pThread = KMallocUser(sizeof(S_KernelThread), ALIGN_ADDRESS, NULL);
     if (pThread != NULL)
     {
-      pThread->pThreadNode = KQueueCreateNode(pThread, KMALLOC_PROCESS_HEAP);
+      pThread->pThreadNode = KQueueCreateNode(pThread, pCurrentProcess->pHeap);
       if (pThread->pThreadNode != NULL)
       {
-        pThread->tid             = AtomicIncrement32(&sLastTID);
-        pThread->type            = type;
-        pThread->pArgs           = args;
-        pThread->pEntryPoint     = _SchedulerThreadEntry;
-        pThread->pRoutine        = kRoutine;
-        pThread->stackSize       = 0;
-        pThread->stackEnd        = (uintptr_t)NULL;
         pThread->kernelStackSize = CPUGetStackSize();
         pThread->kernelStackEnd  = MemoryMapStack(pThread->kernelStackSize,
                                                   kIsKernel,
                                                   pCurrentProcess);
-        pThread->priority        = kPriority;
-        pThread->currentState    = THREAD_STATE_READY;
-        pThread->previousState   = THREAD_STATE_READY;
-        pThread->mappedCPU       = 0xFFFFFFFF;
-        pThread->pProcess        = pCurrentProcess;
-        pThread->isScheduled     = false;
-        pThread->pJoiningThread  = NULL;
-
-        /* Create the VCPU after initializing the attributes */
-        pThread->pVCpu = CPUCreateVirtualCPU(pThread);
-        if (pThread->pVCpu != NULL)
+        if (pThread->kernelStackEnd != (uintptr_t)NULL)
         {
-          CPU_MASK_RESET(pThread->affinity);
-          CPU_MASK_COPY(pThread->affinity, kMappedCPUs);
+          pThread->tid             = AtomicIncrement32(&sLastTID);
+          pThread->type            = type;
+          pThread->pArgs           = args;
+          pThread->pEntryPoint     = _SchedulerThreadEntry;
+          pThread->pRoutine        = kRoutine;
+          pThread->stackSize       = 0;
+          pThread->stackEnd        = (uintptr_t)NULL;
 
-          memcpy(pThread->pName, kName, THREAD_NAME_MAX_LENGTH);
-          pThread->pName[THREAD_NAME_MAX_LENGTH - 1] = 0;
+          pThread->priority        = kPriority;
+          pThread->currentState    = THREAD_STATE_READY;
+          pThread->previousState   = THREAD_STATE_READY;
+          pThread->mappedCPU       = 0xFFFFFFFF;
+          pThread->pProcess        = pCurrentProcess;
+          pThread->isScheduled     = false;
+          pThread->pJoiningThread  = NULL;
 
-          KERNEL_SPINLOCK_INIT(pThread->lock);
-
-          /* Link to main process */
-          pNode = KQueueCreateNode(pThread, KMALLOC_PROCESS_HEAP);
-          if (pNode != NULL)
+          /* Create the VCPU after initializing the attributes */
+          pThread->pVCpu = CPUCreateVirtualCPU(pThread);
+          if (pThread->pVCpu != NULL)
           {
+            CPU_MASK_RESET(pThread->affinity);
+            CPU_MASK_COPY(pThread->affinity, kMappedCPUs);
 
-            KERNEL_LOCK(pCurrentProcess->lock);
-            if (pCurrentProcess->pMainThread == NULL)
+            memcpy(pThread->pName, kName, THREAD_NAME_MAX_LENGTH);
+            pThread->pName[THREAD_NAME_MAX_LENGTH - 1] = 0;
+
+            KERNEL_SPINLOCK_INIT(pThread->lock);
+
+            /* Link to main process */
+            pNode = KQueueCreateNode(pThread, pCurrentProcess->pHeap);
+            if (pNode != NULL)
             {
-              pCurrentProcess->pMainThread = pThread;
+              error = CoreProcessFSCreateThreadEntry(pThread);
+              if (error == NO_ERROR)
+              {
+                KERNEL_LOCK(pCurrentProcess->lock);
+                if (pCurrentProcess->pMainThread == NULL)
+                {
+                  pCurrentProcess->pMainThread = pThread;
+                }
+                KQueuePush(pNode, pCurrentProcess->pThreads);
+                KERNEL_UNLOCK(pCurrentProcess->lock);
+
+                /* Put the thread in the scheduler context */
+                pContext = _SelectNextContext(pThread);
+                _SetThreadToReady(pContext, pThread);
+
+                AtomicIncrement32(&sCurrentThreadsCount);
+
+                /* Set return values */
+                *ppThread = pThread;
+              }
+              else
+              {
+                KQueueDestroyNode(&pNode);
+                CPUDestroyVirtualCPU(pThread);
+                MemoryUnmapStack(pThread->kernelStackEnd,
+                                 pThread->kernelStackSize,
+                                 true,
+                                 pCurrentProcess);
+                KQueueDestroyNode(&pThread->pThreadNode);
+                KFreeUser(pThread, NULL);
+              }
             }
-            KQueuePush(pNode, pCurrentProcess->pThreads);
-            KERNEL_UNLOCK(pCurrentProcess->lock);
-
-            /* Put the thread in the scheduler context */
-            pContext = _SelectNextContext(pThread);
-            _SetThreadToReady(pContext, pThread);
-
-            AtomicIncrement32(&sCurrentThreadsCount);
-
-            /* Set return values */
-            *ppThread = pThread;
-            error = NO_ERROR;
+            else
+            {
+              CPUDestroyVirtualCPU(pThread);
+              MemoryUnmapStack(pThread->kernelStackEnd,
+                               pThread->kernelStackSize,
+                               true,
+                               pCurrentProcess);
+              KQueueDestroyNode(&pThread->pThreadNode);
+              KFreeUser(pThread, NULL);
+              error = ERR_NO_MEMORY;
+            }
           }
           else
           {
-            CPUDestroyVirtualCPU(pThread);
+            MemoryUnmapStack(pThread->kernelStackEnd,
+                             pThread->kernelStackSize,
+                             true,
+                             pCurrentProcess);
             KQueueDestroyNode(&pThread->pThreadNode);
-            KFree(pThread, KMALLOC_PROCESS_HEAP);
+            KFreeUser(pThread, NULL);
             error = ERR_NO_MEMORY;
           }
         }
         else
         {
           KQueueDestroyNode(&pThread->pThreadNode);
-          KFree(pThread, KMALLOC_PROCESS_HEAP);
+          KFreeUser(pThread, NULL);
           error = ERR_NO_MEMORY;
         }
       }
       else
       {
-        KFree(pThread, KMALLOC_PROCESS_HEAP);
+        KFreeUser(pThread, NULL);
         error = ERR_NO_MEMORY;
       }
     }
@@ -1254,7 +1335,6 @@ E_Return JoinThread(S_KernelThread* pThread,
 
       /* Clean the thread */
       _CleanThread(pThread);
-
       AtomicDecrement32(&sCurrentThreadsCount);
 
       error = NO_ERROR;
@@ -1318,5 +1398,34 @@ const S_ScheduleContextStatistics* SchedulerGetStatistics(const uint32_t kCPU)
   S_ScheduleContextStatistics* pData;
   pData = &ppSchedulerContext[kCPU]->stats;
   return pData;
+}
+
+const char* SchedulerGetThreadStateString(const E_ThreadState kState)
+{
+  const char* pStateStr;
+
+  switch (kState)
+  {
+    case THREAD_STATE_READY:
+      pStateStr = "READY";
+      break;
+    case THREAD_STATE_RUNNING:
+      pStateStr = "RUNNING";
+      break;
+    case THREAD_STATE_SLEEPING:
+      pStateStr = "SLEEPING";
+      break;
+    case THREAD_STATE_WAITING:
+      pStateStr = "WAITING";
+      break;
+    case THREAD_STATE_ZOMBIE:
+      pStateStr = "ZOMBIE";
+      break;
+    default:
+      pStateStr = "UNKNOWN";
+      break;
+  }
+
+  return pStateStr;
 }
 /************************************ EOF *************************************/

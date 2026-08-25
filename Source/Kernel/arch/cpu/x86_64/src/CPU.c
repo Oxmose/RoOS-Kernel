@@ -27,8 +27,10 @@
 #include <Panic.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stddef.h>
 #include <Memory.h>
+#include <ProcFS.h>
 #include <FastQueue.h>
 #include <Scheduler.h>
 #include <KernelHeap.h>
@@ -52,6 +54,11 @@
  ******************************************************************************/
 /** @brief Current module name */
 #define MODULE_NAME "CPU_X64"
+
+/** @brief Stores the procfs cpu entry name */
+#define CPUS_PROCFS_DIR_PATH "cpuinfo"
+/** @brief CPU info buffer size */
+#define CPUINFO_BUFFER_SIZE 4096
 
 /***************************
  * GDT Flags
@@ -460,6 +467,84 @@ static bool _IPIInterruptHandler(void);
  */
 static void _InitializeIPI(void);
 
+/**
+ * @brief Opens the ProcFS main entry.
+ *
+ * @details Opens the ProcFS main entry. This function will open the
+ * ProcFS main entry and return a pointer to the file handle. The file handle
+ * will be used to read the information from the kernel.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] kpPath The path to the ProcFS entry.
+ * @param[in] flags The flags for opening the file.
+ * @param[in] mode The mode for opening the file.
+ *
+ * @return The pointer to the file handle or -1 in case of error.
+ */
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode);
+
+/**
+ * @brief Closes the ProcFS main entry.
+ *
+ * @details Closes the ProcFS main entry. This function will close the
+ * ProcFS main entry and free the resources used by the entry.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ *
+ * @return The success state or the error code.
+ */
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle);
+
+/**
+ * @brief Read the ProcFS main entry.
+ *
+ * @details Read the ProcFS main entry. This function will read the
+ * information from the kernel and write it to the buffer given as parameter.
+ * The function will return the number of bytes read or an error code.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ * @param[out] pBuffer The buffer to write the information to.
+ * @param[in] count The size of the buffer given as parameter.
+ *
+ * @return The number of bytes read or an error code.
+ */
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count);
+
+/**
+ * @brief Creates the ProcFS entry for the driver.
+ *
+ * @details Creates the ProcFS entry for the driver. This function will
+ * create the ProcFS entry for the driver and register it in the ProcFS.
+ * The entry will be used to read the information from the kernel. The
+ * entry will be created in the /proc/cpuinfo directory.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _CreateProcFSEntry(void);
+
+/**
+ * @brief Creates the CPU information string.
+ * @details Creates the CPU information string. This function will fill the
+ * buffer as much as possible and return the generated size in pInfoSize.
+ *
+ * @param[in] kpInfo The CPU information for which the string should be
+ * generated.
+ * @param[out] pInfoBuffer The buffer used to store the generated string.
+ * @param[in, out] pInfoSize The buffer size. This is updated oncethe generation
+ * is finished, with the actual size of the generated string.
+ */
+static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
+                                   char*                   pInfoBuffer,
+                                   size_t*                 pInfoSize);
+
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
@@ -784,6 +869,20 @@ static S_Driver sX86CPUDriver =
   .pCompatible   = "generic,x86_64",
   .pVersion      = "1.0",
   .pDriverAttach = _CPUAttach
+};
+
+/** @brief ProcFS entry for the CPU driver  */
+static S_ProcFSDirEntry* spProcFSEntry = NULL;
+
+/** @brief PROCFS operations */
+static S_ProcFSFileOperations sProcFSOps =
+{
+  .pOpen    = _ProcFSOpen,
+  .pClose   = _ProcFSClose,
+  .pRead    = _ProcFSRead,
+  .pWrite   = NULL,
+  .pReadDir = NULL,
+  .pIOCTL   = NULL
 };
 
 /*******************************************************************************
@@ -1175,6 +1274,8 @@ static void _InitializeIPI(void)
 
 void CPUInit(void)
 {
+  E_Return error;
+
   sNumberOfCPUs = 1;
 
   /* Setup the shared IDT */
@@ -1193,6 +1294,10 @@ void CPUInit(void)
 
   /* Validate architecture */
   _ValidateArchitecture();
+
+  /* Init the procfs entries */
+  error = _CreateProcFSEntry();
+  CPU_ASSERT(error == NO_ERROR, "Failed to create ProcFS entry", error);
 
   sAllCPUBooted = false;
 }
@@ -1272,7 +1377,7 @@ void CPUAPInit(const uint8_t kCPUId)
     kspLAPICTimerDriver->pInitApCPU(kCPUId);
   }
 
-  KERNEL_INFO("Started CPU %d\n", _bootedCPUCount - 1);
+  KERNEL_INFO("Secondary CPU %d Started\n", _bootedCPUCount - 1);
 
   /* Wait release and schedule */
   while (sAllCPUBooted != true)
@@ -1341,7 +1446,9 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
   uint64_t      rflagsVal;
 
   /* Allocate the new VCPU */
-  pVCpu = KMalloc(sizeof(S_VirtualCPU), ALIGN_ADDRESS, KMALLOC_PROCESS_HEAP);
+  pVCpu = KMallocUser(sizeof(S_VirtualCPU),
+                      ALIGN_ADDRESS,
+                      pThread->pProcess->pHeap);
   if (pVCpu != NULL)
   {
     if (pThread->type == THREAD_TYPE_KERNEL)
@@ -1406,7 +1513,7 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
 
 void CPUDestroyVirtualCPU(S_KernelThread* pThread)
 {
-  KFree(pThread->pVCpu, KMALLOC_PROCESS_HEAP);
+  KFreeUser(pThread->pVCpu, pThread->pProcess->pHeap);
 }
 
 uint32_t CPUGetContextInterruptNumber(const S_KernelThread* kpThread)
@@ -1575,6 +1682,503 @@ bool CPUValidateCPUMask(const S_CPUMask* kpMask)
     valid = false;
   }
   return valid;
+}
+
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode)
+{
+  size_t* pHandle;
+
+  (void)pDriverData;
+  (void)mode;
+  if(flags == O_RDONLY && *kpPath == 0)
+  {
+    pHandle = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    if (pHandle != NULL)
+    {
+      *pHandle = 0;
+    }
+    else
+    {
+      pHandle = (void*)-1;
+    }
+  }
+  else
+  {
+    pHandle = (void*)-1;
+  }
+
+  return pHandle;
+}
+
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
+{
+  int32_t retCode;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    KFreeUser(pFileHandle, NULL);
+    retCode = 0;
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count)
+{
+  int32_t                 retCode;
+  size_t*                 pOffset;
+  const S_CPUInformation* kpInfo;
+  char*                   pInfoBuffer;
+  size_t                  infoSize;
+  size_t                  currentOffset;
+  size_t                  bufferOffset;
+  size_t                  startPos;
+  size_t                  copyStart;
+  size_t                  copySize;
+  size_t                  copied;
+  uint32_t                i;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    pInfoBuffer = KMallocUser(CPUINFO_BUFFER_SIZE, ALIGN_ADDRESS, NULL);
+    if(pInfoBuffer != NULL)
+    {
+      pOffset = (size_t*)pFileHandle;
+      /* Generate CPUID data for each processor */
+      currentOffset = 0;
+      bufferOffset  = 0;
+      copied        = 0;
+      retCode       = 0;
+      startPos      = *pOffset;
+      for (i = 0; i < sNumberOfCPUs; ++i)
+      {
+        kpInfo   = &spCPUConfiguration[i]->cpuInfo;
+        infoSize = CPUINFO_BUFFER_SIZE;
+        _GenerateCPUInfoString(kpInfo, pInfoBuffer, &infoSize);
+
+        /* Skip if we already read that part */
+        if(*pOffset > currentOffset + infoSize)
+        {
+          currentOffset += infoSize;
+          continue;
+        }
+
+        /* Get the start position */
+        copyStart = startPos - currentOffset;
+        copySize = MIN(count, infoSize - copyStart);
+
+        /* Copy */
+        memcpy(pBuffer + bufferOffset, pInfoBuffer + copyStart, copySize);
+
+        /* Update pointers */
+        count         -= copySize;
+        bufferOffset  += copySize;
+        currentOffset += infoSize;
+        startPos      = currentOffset;
+        copied        += copySize;
+      }
+
+      *pOffset += copied;
+      retCode  += copied;
+
+      KFreeUser(pInfoBuffer, NULL);
+    }
+    else
+    {
+      retCode = -1;
+    }
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static E_Return _CreateProcFSEntry(void)
+{
+  E_Return retCode;
+
+  /* Create the entry */
+  retCode = ProcFSCreateEntry(CPUS_PROCFS_DIR_PATH,
+                              0,
+                              NULL,
+                              &sProcFSOps,
+                              NULL,
+                              &spProcFSEntry);
+  return retCode;
+}
+
+static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
+                                   char*                   pInfoBuffer,
+                                   size_t*                 pInfoSize)
+{
+  size_t          maxSize;
+  size_t          offset;
+  S_CPUCacheInfo* pCacheInfo;
+  S_CPUTLBInfo*   pTlbInfo;
+  char*           cacheStr;
+  char*           tlbStr;
+
+  maxSize = *pInfoSize;
+
+  offset = snprintf(pInfoBuffer, maxSize, "processor: %d\n", kpInfo->id);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "vendor_id: %s\n",
+                    kpInfo->pVendor);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "cpu family: %d\n",
+                    kpInfo->family);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "model: %d\n",
+                    kpInfo->model);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "model name: %s\n",
+                    kpInfo->pName);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "stepping: %d\n",
+                    kpInfo->stepping);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "microcode: %d\n",
+                    kpInfo->microcode);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "cpuHz: %d\n",
+                    kpInfo->frequencyHz);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+
+  pCacheInfo = kpInfo->pCaches;
+  while(pCacheInfo != NULL)
+  {
+    switch(pCacheInfo->type)
+    {
+      case CACHE_DATA:
+        cacheStr = "Data";
+        break;
+      case CACHE_INSTRUCTION:
+        cacheStr = "Instruction";
+        break;
+      case CACHE_UNIFIED:
+        cacheStr = "Unified";
+        break;
+      default:
+        cacheStr = "Unknown";
+    }
+    offset = snprintf(pInfoBuffer,
+                      maxSize,
+                      "L%d %s cache:\n"
+                      "\tSize: %dKB\n"
+                      "\tWays: %d\n"
+                      "\tSets: %d\n"
+                      "\tLine size: %dB\n",
+                      pCacheInfo->level + 1,
+                      cacheStr,
+                      pCacheInfo->size / 1024,
+                      pCacheInfo->ways,
+                      pCacheInfo->sets,
+                      pCacheInfo->lineSize
+                    );
+    pInfoBuffer += offset;
+    maxSize -= offset;
+    if(maxSize == 0)
+    {
+      return;
+    }
+    pCacheInfo = pCacheInfo->pNext;
+  }
+
+  pTlbInfo = kpInfo->pTLBs;
+  while(pTlbInfo != NULL)
+  {
+    switch(pTlbInfo->type)
+    {
+      case TLB_DATA:
+        cacheStr = "Data";
+        break;
+      case TLB_INSTRUCTIONS:
+        cacheStr = "Instruction";
+        break;
+      case TLB_UNIFIED:
+        cacheStr = "Unified";
+        break;
+      default:
+        cacheStr = "Unknown";
+    }
+    switch(pTlbInfo->size)
+    {
+      case TLB_4K:
+        tlbStr = "4K";
+        break;
+      case TLB_2MB_4MB:
+        tlbStr = "2MB/4MB";
+        break;
+      case TLB_1G:
+        tlbStr = "1GB";
+        break;
+      default:
+        tlbStr = "Unknown";
+    }
+    offset = snprintf(pInfoBuffer,
+                      maxSize,
+                      "TLB %d %s %s:\n"
+                      "\tWays: %d\n"
+                      "\tSets: %d\n"
+                      "\tEntries: %dB\n",
+                      pTlbInfo->level + 1,
+                      cacheStr,
+                      tlbStr,
+                      pTlbInfo->ways,
+                      pTlbInfo->sets,
+                      pTlbInfo->nbEntries
+                    );
+    pInfoBuffer += offset;
+    maxSize -= offset;
+    if(maxSize == 0)
+    {
+      return;
+    }
+    pTlbInfo = pTlbInfo->pNext;
+  }
+
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "physical id: %d\n",
+                    kpInfo->physicalId);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "siblings: %d\n",
+                    kpInfo->siblings);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "core id: %d\n",
+                    kpInfo->coreId);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "cpu cores: %d\n",
+                    kpInfo->cpuCores);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "apicid: %d\n",
+                    kpInfo->apicId);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "initial apicid: %d\n",
+                    kpInfo->initialApicId);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "fpu: %s\n",
+                    kpInfo->fpu ? "yes": "no");
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "cpuid level: 0x%X\n",
+                    kpInfo->cpuIdLevel);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "wp: %s\n",
+                    kpInfo->wp ? "yes": "no");
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "flags: ");
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = CPUIDGetFlagsString(pInfoBuffer, maxSize, &kpInfo->flags);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "\n");
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "bogomips: %d\n",
+                    kpInfo->bogoMips);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "clflush size: %d\n",
+                    kpInfo->clFlushSize);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+    return;
+  }
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "address sizes: %d bits physical, %d bits virtual\n",
+                    kpInfo->physAddressWidth, kpInfo->virtAddressWidth);
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  if(maxSize == 0)
+  {
+      return;
+}
+  offset = snprintf(pInfoBuffer,
+                    maxSize,
+                    "\n");
+  pInfoBuffer += offset;
+  maxSize -= offset;
+  /* Update size */
+  *pInfoSize = *pInfoSize - maxSize;
+}
+
+void CPUGetMaskString(const S_CPUMask* kpMask, S_CPUMaskString maskString)
+{
+  uint32_t i;
+  size_t   offset;
+  char*    pBuffer;
+
+  offset  = 0;
+  pBuffer = maskString;
+  for (i = 0; i < CPU_MASK_TABLE_SIZE; ++i)
+  {
+    snprintf(pBuffer + offset,
+             17,
+             "%016llX",
+             kpMask->mask[i]);
+    offset += 16;
+  }
+  *((char*)(pBuffer + offset)) = '\0';
 }
 
 /* Stack protection support */

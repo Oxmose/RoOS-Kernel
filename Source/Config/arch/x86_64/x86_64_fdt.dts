@@ -196,7 +196,7 @@
                 compatible = "x86,x86-lapic-timer";
                 interrupt-parent = <&int_ctrl>;
                 interrupts = <0 0x20>; /* 0: is not IRQ; 1: Int line */
-                freq = <1000>;
+                freq = <500>;
                 bus-freq-divider = <128>;
                 base-timer = <&lifetimer>;
                 lapic-node = <&lapic>;
@@ -231,6 +231,7 @@
         };
 
         uart1 {
+            status = "disabled";
             compatible = "x86,x86-generic-serial";
             comm = <0x2F8>;
             baudrate = <115200>;
@@ -238,6 +239,7 @@
         };
 
         uart2 {
+            status = "disabled";
             compatible = "x86,x86-generic-serial";
             comm = <0x3E8>;
             baudrate = <115200>;
@@ -245,6 +247,7 @@
         };
 
         uart3 {
+            status = "disabled";
             compatible = "x86,x86-generic-serial";
             comm = <0x2E8>;
             baudrate = <115200>;

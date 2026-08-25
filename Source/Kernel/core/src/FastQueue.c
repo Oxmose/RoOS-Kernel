@@ -97,8 +97,8 @@ S_FastQueue* FQueueCreate(const size_t kElementCount, const size_t kElementSize)
   /* Create new queue */
   pNewQueue = KMalloc(sizeof(S_FastQueue), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
   pNewQueue->pBuffer = KMalloc((kElementCount + 1) * kElementSize,
-                                ALIGN_ADDRESS,
-                                KMALLOC_FREE_POOL);
+                               ALIGN_ADDRESS,
+                               KMALLOC_FREE_POOL);
 
   /* Init the structure */
   pNewQueue->head = 0;
@@ -116,8 +116,8 @@ void FQueueDestroy(S_FastQueue* pQueue)
                 ERR_INVALID_PARAMETER);
 
   /* Free the memory */
-  KFree(pQueue->pBuffer, KMALLOC_FREE_POOL);
-  KFree(pQueue, KMALLOC_FREE_POOL);
+  KFree(pQueue->pBuffer);
+  KFree(pQueue);
 }
 
 void FQueuePush(S_FastQueue* pQueue, const void* kpData)

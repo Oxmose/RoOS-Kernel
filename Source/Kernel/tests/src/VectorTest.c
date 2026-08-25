@@ -66,22 +66,24 @@
 /*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
-static void* _Alloc(const size_t kSize);
-static void _Free(void* ptr);
+static void* _Alloc(const size_t kSize, void* pMeta);
+static void _Free(void* ptr, void* pMeta);
 
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static void* _Alloc(const size_t kSize)
+static void* _Alloc(const size_t kSize, void* pMeta)
 {
+  (void)pMeta;
   void* addr;
   addr = KMalloc(kSize, ALIGN_ADDRESS, KMALLOC_FREE_POOL);
   return addr;
 }
 
-static void _Free(void* ptr)
+static void _Free(void* ptr, void* pMeta)
 {
-  KFree(ptr, KMALLOC_FREE_POOL);
+  (void)pMeta;
+  KFree(ptr);
 }
 
 void VectorTest(void)
@@ -93,7 +95,7 @@ void VectorTest(void)
   S_Vector* vector_cpy;
   E_Return err;
 
-  vector = VectorCreate(VECTOR_ALLOCATOR(_Alloc, _Free), (void*)0, 0, &err);
+  vector = VectorCreate(VECTOR_ALLOCATOR(_Alloc, _Free, NULL), (void*)0, 0, &err);
   TEST_POINT_ASSERT_RCODE(TEST_VECTOR_CREATE_ID(0),
                           err == NO_ERROR,
                           NO_ERROR,
