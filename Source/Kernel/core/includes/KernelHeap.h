@@ -62,9 +62,7 @@ typedef enum
   /** @brief Free non allowed pool. */
   KMALLOC_NO_FREE_POOL,
   /** @brief Free allowed pool. */
-  KMALLOC_FREE_POOL,
-  /** @brief Current process heap. */
-  KMALLOC_PROCESS_HEAP
+  KMALLOC_FREE_POOL
 } E_KMallocPool;
 
 /** @brief Kernel's heap allocator list node. */
@@ -195,15 +193,43 @@ void* KMalloc(const size_t        kSize,
               const E_KMallocPool kPool);
 
 /**
- * @brief Free allocated memory.
+ * @brief Allocate memory from the user heap.
  *
- * @details Releases allocated memory.IOf the pointer is NULL or has not been
+ * @details Allocate a chunk of memory form the user heap and returns the
+ * start address of the chunk.
+ *
+ * @param[in] kSize The number of byte to allocate.
+ * @param[in] kAlign The alignement in bytes.
+ * @param[in] pHeap The heap to use for the allocation. Can be set to NULL if
+ * the current process heap is to be used.
+ *
+ * @return A pointer to the start address of the allocated memory is returned.
+ */
+void* KMallocUser(const size_t       kSize,
+                  const E_Alignement kAlign,
+                  S_ProcessHeap*     pHeap);
+
+/**
+ * @brief Free allocated memory from the kernel heap.
+ *
+ * @details Releases allocated memory. If the pointer is NULL or has not been
  * allocated previously from the heap, nothing is done.
  *
  * @param[in, out] ptr The start address of the memory area to free.
- * @param[in] kPool The heap pool to use for the deallocation.
  */
-void KFree(void* ptr, const E_KMallocPool kPool);
+void KFree(void* ptr);
+
+/**
+ * @brief Free allocated memory from the user heap.
+ *
+ * @details Releases allocated memory. If the pointer is NULL or has not been
+ * allocated previously from the heap, nothing is done.
+ *
+ * @param[in, out] ptr The start address of the memory area to free.
+ * @param[in] pHeap The heap to use for the allocation. Can be set to NULL if
+ * the current process heap is to be used.
+ */
+void KFreeUser(void* ptr, S_ProcessHeap* pHeap);
 
 #endif /* #ifndef __CORE_KHEAP_H_ */
 

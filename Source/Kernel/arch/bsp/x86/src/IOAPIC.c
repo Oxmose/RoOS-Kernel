@@ -29,9 +29,11 @@
 #include <ACPI.h>
 #include <LAPIC.h>
 #include <Panic.h>
+#include <ProcFS.h>
 #include <Memory.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <Critical.h>
 #include <KernelHeap.h>
@@ -61,10 +63,17 @@
 /** @brief FDT property for is-interrupt-driver */
 #define IOAPIC_FDT_INT_DRIVER_PROP "interrupt-controller"
 
+/** @brief PROCFS directory path */
+#define PROCFS_DIR_PATH "ioapic"
+/** @brief PROCFS string length */
+#define PROCFS_STRING_LENGTH 256
+
 /** @brief IO-APIC register selection. */
 #define IOREGSEL 0x00
 /** @brief IO-APIC data access register. */
 #define IOWIN 0x10
+/** @brief IO-APIC EOI register. */
+#define IOEOI 0x40
 
 /** @brief IO-ACPI memory size */
 #define IOAPIC_MEM_SIZE 0x10
@@ -169,6 +178,15 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode);
 static void _SetIRQMask(const uint32_t kIRQNumber, const bool kEnabled);
 
 /**
+ * @brief Sets the IRQ EOI for the desired IRQ number.
+ *
+ * @details Sets the IRQ EOI for the IRQ number given as parameter.
+ *
+ * @param[in] kIRQNumber The IRQ number to set the EOI.
+ */
+static void _SetIRQEOI(const uint32_t kIRQNumber);
+
+/**
  * @brief Sets the IRQ mask for the desired IRQ number on a given controller.
  *
  * @details Sets the IRQ mask for the IRQ number given as parameter on a given
@@ -239,6 +257,69 @@ static inline void _Write(S_IOAPICControler* pCtrl,
                           const uint32_t     kRegister,
                           const uint32_t     kVal);
 
+/**
+ * @brief Opens the ProcFS main entry.
+ *
+ * @details Opens the ProcFS main entry. This function will open the
+ * ProcFS main entry and return a pointer to the file handle. The file handle
+ * will be used to read the information from the kernel.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] kpPath The path to the ProcFS entry.
+ * @param[in] flags The flags for opening the file.
+ * @param[in] mode The mode for opening the file.
+ *
+ * @return The pointer to the file handle or -1 in case of error.
+ */
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode);
+
+/**
+ * @brief Closes the ProcFS main entry.
+ *
+ * @details Closes the ProcFS main entry. This function will close the
+ * ProcFS main entry and free the resources used by the entry.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ *
+ * @return The success state or the error code.
+ */
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle);
+
+/**
+ * @brief Read the ProcFS main entry.
+ *
+ * @details Read the ProcFS main entry. This function will read the
+ * information from the kernel and write it to the buffer given as parameter.
+ * The function will return the number of bytes read or an error code.
+ *
+ * @param[in] pDriverData The driver data pointer.
+ * @param[in] pFileHandle The file handle pointer.
+ * @param[out] pBuffer The buffer to write the information to.
+ * @param[in] count The size of the buffer given as parameter.
+ *
+ * @return The number of bytes read or an error code.
+ */
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count);
+
+/**
+ * @brief Creates the ProcFS entry for the driver.
+ *
+ * @details Creates the ProcFS entry for the driver. This function will
+ * create the ProcFS entry for the driver and register it in the ProcFS.
+ * The entry will be used to read the information from the kernel. The
+ * entry will be created in the /proc/ioapic directory.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _CreateProcFSEntry(void);
+
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
@@ -264,7 +345,7 @@ static S_Driver sX86IOAPICDriver =
 static S_InterruptDriver sIOAPICDriver =
 {
   .pSetIRQMask          = _SetIRQMask,
-  .pSetIRQEOI           = NULL,
+  .pSetIRQEOI           = _SetIRQEOI,
   .pHandleSpurious      = _HandleSpurious,
   .pGetIRQInterruptLine = _GetInterruptLine
 };
@@ -275,11 +356,33 @@ static S_IOAPICControler* spDrvCtrl = NULL;
 /** @brief IOAPIC ACPI driver handle */
 static const S_ACPIDriver* skpACPIDriver;
 
+/** @brief LAPIC driver handle */
+static S_LAPICDriver* pLAPICDriver;
+
 /** @brief IRQ interrupt offset */
 static uint8_t sIntOffset;
 
 /** @brief CPU's spurious interrupt line */
 static uint32_t sSpuriousIntLine;
+
+/** @brief PROCFS main entry */
+static S_ProcFSDirEntry* spProcFSMainEntry = NULL;
+
+/** @brief PROCFS operations */
+static S_ProcFSFileOperations sProcFSOps =
+{
+  .pOpen    = _ProcFSOpen,
+  .pClose   = _ProcFSClose,
+  .pRead    = _ProcFSRead,
+  .pWrite   = NULL,
+  .pReadDir = NULL,
+  .pIOCTL   = NULL
+};
+
+/** @brief PROCFS string */
+static char sProcFSString[PROCFS_STRING_LENGTH] = {0};
+/** @brief Length of the PROCFS string */
+static size_t sProcFSStringLength = 0;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -291,7 +394,6 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   const uint32_t*     kpLAPICNodeProp;
   const uint32_t*     kpUintProp;
   S_IOAPICControler*  pNewDrvCtrl;
-  S_LAPICDriver*      pLAPICDriver;
   const S_IOAPICNode* kpIOAPICNode;
   E_Return            retCode;
   size_t              propLen;
@@ -335,10 +437,6 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   IOAPIC_ASSERT(skpACPIDriver != NULL && pLAPICDriver != NULL,
                 "Invalid acpi or lapic driver",
                 ERR_INVALID_VALUE);
-
-
-  /* Set IRQ EOI for delegated by the LAPIC */
-  sIOAPICDriver.pSetIRQEOI = pLAPICDriver->pSetIRQEOI;
 
   /* Get the IOAPICs */
   kpIOAPICNode = skpACPIDriver->pGetIOAPICList();
@@ -405,6 +503,9 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
                   retCode);
   }
 
+  retCode = _CreateProcFSEntry();
+  IOAPIC_ASSERT(retCode == NO_ERROR, "Failed to create ProcFS entry", retCode);
+
   return retCode;
 }
 
@@ -430,6 +531,12 @@ static void _SetIRQMask(const uint32_t kIRQNumber, const bool kEnabled)
   IOAPIC_ASSERT(pCtrl != NULL, "No such IRQ", ERR_INVALID_PARAMETER);
 
   _SetIRQMaskFor(pCtrl, remapIRQ, kEnabled);
+}
+
+static void _SetIRQEOI(const uint32_t kIRQNumber)
+{
+  /* Calls the LAPIC EOI function */
+  pLAPICDriver->pSetIRQEOI(kIRQNumber);
 }
 
 static inline void _SetIRQMaskFor(S_IOAPICControler* pCtrl,
@@ -518,6 +625,122 @@ static inline void _Write(S_IOAPICControler* pCtrl,
   KERNEL_UNLOCK(pCtrl->lock);
 }
 
+static void* _ProcFSOpen(void*       pDriverData,
+                         const char* kpPath,
+                         int32_t     flags,
+                         int32_t     mode)
+{
+  size_t* pEntryOffset;
+
+  (void)pDriverData;
+  (void)mode;
+
+  if(flags == O_RDONLY && *kpPath == 0)
+  {
+    pEntryOffset = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    if (pEntryOffset != NULL)
+    {
+      *pEntryOffset = 0;
+    }
+    else
+    {
+      pEntryOffset = (void*)-1;
+    }
+  }
+  else
+  {
+    pEntryOffset = (void*)-1;
+  }
+
+  return pEntryOffset;
+}
+
+static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
+{
+  int32_t retCode;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    KFreeUser(pFileHandle, NULL);
+    retCode = 0;
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static ssize_t _ProcFSRead(void*  pDriverData,
+                           void*  pFileHandle,
+                           void*  pBuffer,
+                           size_t count)
+{
+  int32_t retCode;
+  size_t* pEntryOffset;
+
+  (void)pDriverData;
+
+  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  {
+    pEntryOffset = (size_t*)pFileHandle;
+
+    if (*pEntryOffset < sProcFSStringLength)
+    {
+      retCode = (int32_t)MIN(count, sProcFSStringLength - *pEntryOffset);
+      memcpy(pBuffer, sProcFSString + *pEntryOffset, retCode);
+      *pEntryOffset += retCode;
+    }
+    else
+    {
+      retCode = 0;
+    }
+  }
+  else
+  {
+    retCode = -1;
+  }
+
+  return retCode;
+}
+
+static E_Return _CreateProcFSEntry(void)
+{
+  E_Return                 retCode;
+
+  retCode = ProcFSCreateEntry(PROCFS_DIR_PATH,
+                              0,
+                              NULL,
+                              &sProcFSOps,
+                              NULL,
+                              &spProcFSMainEntry);
+  if (retCode == NO_ERROR)
+  {
+    sProcFSStringLength = snprintf(sProcFSString,
+                                   PROCFS_STRING_LENGTH,
+                                   "Base Address: 0x%p\n"
+                                   "Mapping Size: %d\n"
+                                   "Identifier: %d\n"
+                                   "Version: %d\n"
+                                   "First Interrupt: %d\n"
+                                   "Last Interrupt: %d\n"
+                                   "Interrupt Offset: %d\n"
+                                   "Spurious Interrupt Line: %d\n",
+                                   spDrvCtrl->baseAddr,
+                                   spDrvCtrl->mappingSize,
+                                   spDrvCtrl->identifier,
+                                   spDrvCtrl->version,
+                                   spDrvCtrl->gsib,
+                                   spDrvCtrl->gsil -1,
+                                   sIntOffset,
+                                   sSpuriousIntLine);
+  }
+
+  return retCode;
+}
 /***************************** DRIVER REGISTRATION ****************************/
 DRIVERMGR_REG_FDT(sX86IOAPICDriver);
 

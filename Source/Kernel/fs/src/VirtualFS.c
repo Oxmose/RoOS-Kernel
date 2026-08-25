@@ -95,6 +95,9 @@ typedef struct
   /** @brief File descriptor table */
   S_Vector* pFDTable;
 
+  /** @brief File descriptor table memory pool */
+  S_ProcessHeap* pAllocPool;
+
   /** @brief File descriptor table lock */
   S_KernelSpinlock lock;
 } S_FDTable;
@@ -234,10 +237,11 @@ static bool _RemoveDriverNode(S_VFSNode* pRoot);
  * like the FD tables, etc.
  *
  * @param[in] kSize The size in bytes to allocate.
+ * @param[in] pMeta The metadata used by the allocator.
  *
  * @return A pointer to the allocated region is returned, otherwise, NULL.
  */
-static void* _VFSAllocUser(const size_t kSize);
+static void* _VFSAllocUser(const size_t kSize, void* pMeta);
 
 /**
  * @brief VFS memory free function.
@@ -246,8 +250,9 @@ static void* _VFSAllocUser(const size_t kSize);
  * like the FD tables, etc.
  *
  * @param[in] ptr The pointer to the memory to free.
+ * @param[in] pMeta The metadata used by the allocator.
  */
-static void _VFSFreeUser(void* ptr);
+static void _VFSFreeUser(void* ptr, void* pMeta);
 
 /**
  * @brief Creates a new file descriptor.
@@ -768,7 +773,7 @@ static bool _RemoveDriverNode(S_VFSNode* pRoot)
         pRoot->pParent->pFirstChild = pRoot->pNextSibling;
       }
 
-      KFree(pRoot, KMALLOC_FREE_POOL);
+      KFree(pRoot);
     }
   }
   else
@@ -779,14 +784,14 @@ static bool _RemoveDriverNode(S_VFSNode* pRoot)
   return cleaned;
 }
 
-static void* _VFSAllocUser(const size_t kSize)
+static void* _VFSAllocUser(const size_t kSize, void* pMeta)
 {
-  return KMalloc(kSize, ALIGN_ADDRESS, KMALLOC_PROCESS_HEAP);
+  return KMallocUser(kSize, ALIGN_ADDRESS, pMeta);
 }
 
-static void _VFSFreeUser(void* ptr)
+static void _VFSFreeUser(void* ptr, void* pMeta)
 {
-  return KFree(ptr, KMALLOC_PROCESS_HEAP);
+  return KFreeUser(ptr, pMeta);
 }
 
 static int32_t _CreateFileDescriptor(S_FDTable*  pTable,
@@ -806,18 +811,20 @@ static int32_t _CreateFileDescriptor(S_FDTable*  pTable,
 
   fdId  = -1;
 
-  pFD = KMalloc(sizeof(S_FileDescriptor), ALIGN_ADDRESS, KMALLOC_PROCESS_HEAP);
+  pFD = KMallocUser(sizeof(S_FileDescriptor),
+                    ALIGN_ADDRESS,
+                    pTable->pAllocPool);
   if (pFD != NULL)
   {
-    pFD->pShared = KMalloc(sizeof(S_FileDescriptorShared),
-                           ALIGN_ADDRESS,
-                           KMALLOC_PROCESS_HEAP);
+    pFD->pShared = KMallocUser(sizeof(S_FileDescriptorShared),
+                               ALIGN_ADDRESS,
+                               pTable->pAllocPool);
     if (pFD->pShared != NULL)
     {
       pathLen = strnlen(kpPath, VFS_PATH_MAX_LENGTH);
-      pFD->pShared->pFilePath = KMalloc(pathLen + 1,
-                                        ALIGN_ADDRESS,
-                                        KMALLOC_PROCESS_HEAP);
+      pFD->pShared->pFilePath = KMallocUser(pathLen + 1,
+                                            ALIGN_ADDRESS,
+                                            pTable->pAllocPool);
       if (pFD->pShared->pFilePath != NULL)
       {
         // Find a free slot
@@ -841,9 +848,9 @@ static int32_t _CreateFileDescriptor(S_FDTable*  pTable,
 
         if (retCode != NO_ERROR)
         {
-          KFree(pFD->pShared->pFilePath, KMALLOC_PROCESS_HEAP);
-          KFree(pFD->pShared, KMALLOC_PROCESS_HEAP);
-          KFree(pFD, KMALLOC_PROCESS_HEAP);
+          KFreeUser(pFD->pShared->pFilePath, pTable->pAllocPool);
+          KFreeUser(pFD->pShared, pTable->pAllocPool);
+          KFreeUser(pFD, pTable->pAllocPool);
         }
         else
         {
@@ -852,13 +859,13 @@ static int32_t _CreateFileDescriptor(S_FDTable*  pTable,
       }
       else
       {
-        KFree(pFD->pShared, KMALLOC_PROCESS_HEAP);
-        KFree(pFD, KMALLOC_PROCESS_HEAP);
+        KFreeUser(pFD->pShared, pTable->pAllocPool);
+        KFreeUser(pFD, pTable->pAllocPool);
       }
     }
     else
     {
-      KFree(pFD, KMALLOC_PROCESS_HEAP);
+      KFreeUser(pFD, pTable->pAllocPool);
     }
   }
 
@@ -898,9 +905,9 @@ static void _DestroyFileDescriptor(S_FDTable* pTable, const int32_t kFD)
   VFS_ASSERT(error == NO_ERROR, "Invalid FD destroy.", ERR_INVALID_VALUE, true);
 
   /* release the shared data */
-  KFree(pFD->pShared->pFilePath, KMALLOC_PROCESS_HEAP);
-  KFree(pFD->pShared, KMALLOC_PROCESS_HEAP);
-  KFree(pFD, KMALLOC_PROCESS_HEAP);
+  KFreeUser(pFD->pShared->pFilePath, pTable->pAllocPool);
+  KFreeUser(pFD->pShared, pTable->pAllocPool);
+  KFreeUser(pFD, pTable->pAllocPool);
 }
 
 static E_Return _GetFileDescriptor(S_FDTable*         pTable,
@@ -939,6 +946,7 @@ static void* _GenericOpen(void*       pDrvCtrl,
                           int         mode)
 {
   S_VFSGenericFileDescriptor* pDesc;
+  S_FDTable*                  pTable;
 
   (void)pDrvCtrl;
   (void)flags;
@@ -947,11 +955,20 @@ static void* _GenericOpen(void*       pDrvCtrl,
   /* Check if this is an exact node in the mount points */
   if (kpPath[0] == 0)
   {
-    pDesc = KMalloc(sizeof(S_VFSGenericFileDescriptor),
-                    ALIGN_ADDRESS,
-                    KMALLOC_PROCESS_HEAP);
-    memset(pDesc, 0, sizeof(S_VFSGenericFileDescriptor));
-    pDesc->pMountPt = pDrvCtrl;
+    pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+
+    pDesc = KMallocUser(sizeof(S_VFSGenericFileDescriptor),
+                        ALIGN_ADDRESS,
+                        pTable->pAllocPool);
+    if (pDesc != NULL)
+    {
+      memset(pDesc, 0, sizeof(S_VFSGenericFileDescriptor));
+      pDesc->pMountPt = pDrvCtrl;
+    }
+    else
+    {
+      pDesc = (void*)-1;
+    }
   }
   else
   {
@@ -963,14 +980,17 @@ static void* _GenericOpen(void*       pDrvCtrl,
 
 static int32_t _GenericClose(void* pDrvCtrl, void* pHandle)
 {
-  int32_t retVal;
+  int32_t    retVal;
+  S_FDTable* pTable;
 
   (void)pDrvCtrl;
 
   /* Check if it was correctly opened */
   if (pHandle != NULL && pHandle != (void*)-1)
   {
-    KFree(pHandle, KMALLOC_PROCESS_HEAP);
+    pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+
+    KFreeUser(pHandle, pTable->pAllocPool);
     retVal = 0;
   }
   else
@@ -1122,11 +1142,12 @@ E_Return CreateProcessFDTable(S_KernelProcess* pProcess)
   E_Return           retCode;
 
   /* Allocate the new table */
-  pTable = KMalloc(sizeof(S_FDTable), ALIGN_ADDRESS, KMALLOC_PROCESS_HEAP);
+  pTable = KMallocUser(sizeof(S_FDTable), ALIGN_ADDRESS, pProcess->pHeap);
   if (pTable != NULL)
   {
     pTable->pFDTable = VectorCreate(VECTOR_ALLOCATOR(_VFSAllocUser,
-                                                     _VFSFreeUser),
+                                                     _VFSFreeUser,
+                                                     pProcess->pHeap),
                                     NULL,
                                     VFS_INITIAL_FD_COUNT,
                                     &retCode);
@@ -1134,11 +1155,12 @@ E_Return CreateProcessFDTable(S_KernelProcess* pProcess)
     {
       /* Set the table to the process */
       pProcess->pFileDescriptorTable = pTable;
+      pTable->pAllocPool             = pProcess->pHeap;
       KERNEL_SPINLOCK_INIT(pTable->lock);
     }
     else
     {
-      KFree(pTable, KMALLOC_PROCESS_HEAP);
+      KFreeUser(pTable, pProcess->pHeap);
     }
   }
   else
@@ -1159,6 +1181,7 @@ void DestroyProcessFDTable(S_KernelProcess* pProcess)
   S_FSDriver*             pDriver;
 
   pTable = pProcess->pFileDescriptorTable;
+
   /* Release the file descriptors */
   for (i = 0; i < pTable->pFDTable->size; ++i)
   {
@@ -1179,9 +1202,9 @@ void DestroyProcessFDTable(S_KernelProcess* pProcess)
       }
 
       /* Release the shared data */
-      KFree(pShared->pFilePath, KMALLOC_PROCESS_HEAP);
-      KFree(pShared, KMALLOC_PROCESS_HEAP);
-      KFree(pFD, KMALLOC_PROCESS_HEAP);
+      KFreeUser(pShared->pFilePath, pProcess->pHeap);
+      KFreeUser(pShared, pProcess->pHeap);
+      KFreeUser(pFD, pProcess->pHeap);
     }
   }
 
@@ -1193,7 +1216,7 @@ void DestroyProcessFDTable(S_KernelProcess* pProcess)
              false);
 
   /* Remove the table */
-  KFree(pTable, KMALLOC_PROCESS_HEAP);
+  KFreeUser(pTable, pProcess->pHeap);
 }
 
 T_VFSDriver RegisterVFSDriver(const char*  kpPath,
@@ -1274,7 +1297,7 @@ T_VFSDriver RegisterVFSDriver(const char*  kpPath,
   }
 
   /* Release clean path */
-  KFree(pPath, KMALLOC_FREE_POOL);
+  KFree(pPath);
 
   return pDriver;
 }
@@ -1293,7 +1316,7 @@ E_Return UnregisterDriver(T_VFSDriver driver)
   pNode->pDriver = NULL;
 
   /* Release the driver */
-  KFree(pDriverInstance, KMALLOC_FREE_POOL);
+  KFree(pDriverInstance);
 
   /* Clear the mount point */
   _RemoveDriverNode(pNode);
@@ -1315,8 +1338,10 @@ int32_t VFSOpen(const char* kpPath, int32_t flags, int32_t mode)
   void*       pHandle;
   void*       pDriverData;
 
+  pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+
   /* Allocate the path and clean it */
-  pPath = KMalloc(VFS_PATH_MAX_LENGTH, ALIGN_1_BYTE, KMALLOC_PROCESS_HEAP);
+  pPath = KMallocUser(VFS_PATH_MAX_LENGTH, ALIGN_1_BYTE, pTable->pAllocPool);
   if (pPath != NULL)
   {
     pathLen = _CleanPath(pPath, kpPath);
@@ -1353,7 +1378,6 @@ int32_t VFSOpen(const char* kpPath, int32_t flags, int32_t mode)
 
         if (pDriver != NULL)
         {
-          pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
           pHandle = pDriver->pOpen(pDriverData,
                                   pPath + nextToken,
                                   flags,
@@ -1392,7 +1416,7 @@ int32_t VFSOpen(const char* kpPath, int32_t flags, int32_t mode)
       newFD = -1;
     }
 
-    KFree(pPath, KMALLOC_PROCESS_HEAP);
+    KFreeUser(pPath, pTable->pAllocPool);
   }
   else
   {
@@ -1720,7 +1744,7 @@ E_Return VFSMount(const char* kpPath,
     }
 
     /* Release clean path */
-    KFree(pPath, KMALLOC_FREE_POOL);
+    KFree(pPath);
   }
   else
   {
@@ -1763,7 +1787,7 @@ E_Return VFSUnmount(const char* kpPath)
           pNode->pDriver = NULL;
 
           /* Release the driver */
-          KFree(pDriver, KMALLOC_FREE_POOL);
+          KFree(pDriver);
 
           /* Clear the mount point */
           _RemoveDriverNode(pNode);
@@ -1787,7 +1811,7 @@ E_Return VFSUnmount(const char* kpPath)
   }
 
   /* Release clean path */
-  KFree(pPath, KMALLOC_FREE_POOL);
+  KFree(pPath);
 
   return retCode;
 }

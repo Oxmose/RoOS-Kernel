@@ -88,6 +88,8 @@ void uitoa(uint64_t value, char* buf, uint32_t base);
  * @param[out] ppEnd Points to the end of the part of the string that was
  * converted.
  * @param[in] base The base to use for the convertion.
+ *
+ * @return The function returns the converted value.
  */
 long strtol(const char* pStr, char** ppEnd, int base);
 
@@ -101,6 +103,8 @@ long strtol(const char* pStr, char** ppEnd, int base);
  * @param[out] ppEnd Points to the end of the part of the string that was
  * converted.
  * @param[in] base The base to use for the convertion.
+ *
+ * @return The function returns the converted value.
  */
 unsigned long strtoul(const char* pStr, char** ppEnd, int base);
 
@@ -114,6 +118,9 @@ unsigned long strtoul(const char* pStr, char** ppEnd, int base);
  * @param[in] size The maximal size of the buffer.
  * @param[in] kpFmt The format string to use.
  * @param[in] ... Additional parameters for the format.
+ *
+ * @return The function returns the number of characters written to the buffer
+ * (not including the terminating null byte) or a negative value on error.
  */
 int snprintf(char* pBuffer, size_t size, const char* kpFmt, ...);
 
@@ -127,6 +134,9 @@ int snprintf(char* pBuffer, size_t size, const char* kpFmt, ...);
  * @param[in] size The maximal size of the buffer.
  * @param[in] kpFmt The format string to use.
  * @param[in] args Additional parameters for the format.
+ *
+ * @return The function returns the number of characters written to the buffer
+ * (not including the terminating null byte) or a negative value on error.
  */
 int vsnprintf(char*             pBuffer,
               size_t            size,

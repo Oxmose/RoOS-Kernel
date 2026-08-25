@@ -313,6 +313,15 @@ static void* _KMalloc(const size_t       kSize,
 static void* _KMallocNoFree(const size_t       kSize,
                             const E_Alignement kAlign);
 
+/** @brief Frees memory allocated  from the kernel heap.
+ *
+ * @details Frees a chunk of memory allocated from the kernel heap.
+ *
+ * @param[in] ptr The pointer to the memory to be freed.
+ * @param[in] pHeap The process heap containing the memory chunk.
+ */
+static void _KFree(void *ptr, S_ProcessHeap* pHeap);
+
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
@@ -572,6 +581,57 @@ static void* _KMallocNoFree(const size_t kSize, const E_Alignement kAlign)
   return allocated;
 }
 
+void _KFree(void *ptr, S_ProcessHeap* pHeap)
+{
+  S_Chunk*         pChunk;
+  S_Chunk*         pNext;
+  S_Chunk*         pPrev;
+
+  KHEAP_ASSERT(
+    pHeap->baseAddress <= (uintptr_t)ptr && pHeap->endAddress > (uintptr_t)ptr,
+    "Failed to free memory.",
+    ERR_NO_MEMORY,
+    pHeap != &sKernelHeap);
+
+
+  KERNEL_LOCK(pHeap->lock);
+
+  pChunk = (S_Chunk*)((int8_t*)ptr - HEADER_SIZE);
+
+  pNext = CONTAINER(S_Chunk, all, pChunk->all.pNext);
+  pPrev = CONTAINER(S_Chunk, all, pChunk->all.pPrev);
+
+  pHeap->sMemUsed -= _MemoryChunkSize(pChunk);
+
+  if (pNext->used == false)
+  {
+    _RemoveFree(pNext, pHeap);
+    _Remove(&pNext->all);
+
+    pHeap->sMemMeta -= HEADER_SIZE;
+    pHeap->sMemFree += HEADER_SIZE;
+  }
+
+  if (pPrev->used == false)
+  {
+    _RemoveFree(pPrev, pHeap);
+    _Remove(&pChunk->all);
+
+    _PushFree(pPrev, pHeap);
+    pHeap->sMemMeta -= HEADER_SIZE;
+    pHeap->sMemFree += HEADER_SIZE;
+  }
+  else
+  {
+    pChunk->used = false;
+    LIST_INIT(pChunk, free);
+    _PushFree(pChunk, pHeap);
+  }
+
+  KERNEL_UNLOCK(pHeap->lock);
+}
+
+
 void KernelHeapInit(void)
 {
   S_Chunk* pSecond;
@@ -703,105 +763,57 @@ void* KMalloc(const size_t        kSize,
               const E_Alignement  kAlign,
               const E_KMallocPool kPool)
 {
-  void*            alloc;
-  S_KernelProcess* pCurrentProcess;
+  void* alloc;
 
   alloc = NULL;
 
   if (kPool == KMALLOC_NO_FREE_POOL)
   {
     alloc = _KMallocNoFree(kSize, kAlign);
-    KHEAP_ASSERT(alloc != NULL,
-                 "Failed to allocate memory.",
-                 ERR_NO_MEMORY,
-                 false);
   }
   else if (kPool == KMALLOC_FREE_POOL)
   {
     alloc = _KMalloc(kSize, kAlign, &sKernelHeap);
-    KHEAP_ASSERT(alloc != NULL,
-                 "Failed to allocate memory.",
-                 ERR_NO_MEMORY,
-                 false);
   }
-  else if (kPool == KMALLOC_PROCESS_HEAP)
-  {
-    pCurrentProcess = SchedulerGetCurrentProcess();
-    alloc = _KMalloc(kSize, kAlign, pCurrentProcess->pHeap);
-  }
+  KHEAP_ASSERT(alloc != NULL,
+               "Failed to allocate memory.",
+               ERR_NO_MEMORY,
+               false);
 
   return alloc;
 }
 
-void KFree(void *ptr, const E_KMallocPool kPool)
+void* KMallocUser(const size_t       kSize,
+                  const E_Alignement kAlign,
+                  S_ProcessHeap*     pHeap)
 {
-  S_Chunk*         pChunk;
-  S_Chunk*         pNext;
-  S_Chunk*         pPrev;
-  S_KernelProcess* pCurrentProcess;
-  S_ProcessHeap*   pHeap;
+  void* alloc;
 
-
-  if (kPool == KMALLOC_FREE_POOL)
+  /* Get the current process heap if none is specified */
+  if (pHeap == NULL)
   {
-    pHeap = &sKernelHeap;
-  }
-  else if (kPool == KMALLOC_PROCESS_HEAP)
-  {
-    pCurrentProcess = SchedulerGetCurrentProcess();
-    pHeap = pCurrentProcess->pHeap;
-  }
-  else
-  {
-    pHeap = NULL;
-    KHEAP_ASSERT(false,
-                 "Free memory from non free pool.",
-                 ERR_UNAUTHORIZED_ACTION,
-                 false);
+    pHeap = SchedulerGetCurrentProcess()->pHeap;
   }
 
-  KHEAP_ASSERT(
-    pHeap->baseAddress <= (uintptr_t)ptr && pHeap->endAddress > (uintptr_t)ptr,
-    "Failed to free memory.",
-    ERR_NO_MEMORY,
-    kPool == KMALLOC_PROCESS_HEAP);
+  alloc = _KMalloc(kSize, kAlign, pHeap);
 
+  return alloc;
+}
 
-  KERNEL_LOCK(pHeap->lock);
+void KFree(void *ptr)
+{
+  _KFree(ptr, &sKernelHeap);
+}
 
-  pChunk = (S_Chunk*)((int8_t*)ptr - HEADER_SIZE);
-
-  pNext = CONTAINER(S_Chunk, all, pChunk->all.pNext);
-  pPrev = CONTAINER(S_Chunk, all, pChunk->all.pPrev);
-
-  pHeap->sMemUsed -= _MemoryChunkSize(pChunk);
-
-  if (pNext->used == false)
+void KFreeUser(void *ptr, S_ProcessHeap* pHeap)
+{
+  /* Get the current process heap if none is specified */
+  if (pHeap == NULL)
   {
-    _RemoveFree(pNext, pHeap);
-    _Remove(&pNext->all);
-
-    pHeap->sMemMeta -= HEADER_SIZE;
-    pHeap->sMemFree += HEADER_SIZE;
+    pHeap = SchedulerGetCurrentProcess()->pHeap;
   }
 
-  if (pPrev->used == false)
-  {
-    _RemoveFree(pPrev, pHeap);
-    _Remove(&pChunk->all);
-
-    _PushFree(pPrev, pHeap);
-    pHeap->sMemMeta -= HEADER_SIZE;
-    pHeap->sMemFree += HEADER_SIZE;
-  }
-  else
-  {
-    pChunk->used = false;
-    LIST_INIT(pChunk, free);
-    _PushFree(pChunk, pHeap);
-  }
-
-  KERNEL_UNLOCK(pHeap->lock);
+  _KFree(ptr, pHeap);
 }
 
 /************************************ EOF *************************************/

@@ -38,11 +38,11 @@
 /* Configuration files */
 #include <config.h>
 
-/* Header file */
-#include <TimerManager.h>
-
 /* Unit test header */
 /* TODO */
+
+/* Header file */
+#include <TimerManager.h>
 
 /*******************************************************************************
  * CONSTANTS
@@ -272,11 +272,11 @@ static void _AddAuxTimer(const S_KernelTimer* kpTimer)
   /* Create queue is it does not exist */
   if (spAuxTimersQueue == NULL)
   {
-    spAuxTimersQueue = KQueueCreate(KMALLOC_NO_FREE_POOL);
+    spAuxTimersQueue = KQueueCreate(NULL);
   }
 
   /* Create the new node */
-  pNewNode = KQueueCreateNode((void*)kpTimer, KMALLOC_NO_FREE_POOL);
+  pNewNode = KQueueCreateNode((void*)kpTimer, NULL);
 
   /* Add the timer to the queue */
   KQueuePush(pNewNode, spAuxTimersQueue);

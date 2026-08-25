@@ -120,7 +120,7 @@ static void _WalkFdtNodes(const S_FDTNode* kpNode, const bool kPreInit)
   S_Driver*       pDriver;
   uintptr_t       driverTableCursor;
   size_t          propLen;
-
+  E_Return        retCode;
   if (kpNode != NULL)
   {
     /* Manage disabled nodes */
@@ -145,7 +145,20 @@ static void _WalkFdtNodes(const S_FDTNode* kpNode, const bool kPreInit)
           {
             if (strcmp(pDriver->pCompatible, kpCompatible) == 0)
             {
-              pDriver->pDriverAttach(kpNode);
+              retCode =pDriver->pDriverAttach(kpNode);
+              if (retCode != NO_ERROR)
+              {
+                KERNEL_ERROR("%s failed to attach to node %s with error %d\n",
+                             pDriver->pName,
+                             kpNode->pName,
+                             retCode);
+              }
+              else
+              {
+                KERNEL_INFO("%s attached to node %s\n",
+                            pDriver->pName,
+                            kpNode->pName);
+              }
             }
             driverTableCursor += sizeof(uintptr_t);
             pDriver = *(S_Driver**)driverTableCursor;

@@ -104,7 +104,7 @@ E_Return KernelSemaphoreInit(S_KernelSemaphore* pSemaphore,
       pSemaphore->lockState = kInitialValue;
     }
 
-    pSemaphore->pWaitingList = KQueueCreate(KMALLOC_FREE_POOL);
+    pSemaphore->pWaitingList = KQueueCreate(NULL);
     if (pSemaphore->pWaitingList != NULL)
     {
       pSemaphore->flags = kFlags;

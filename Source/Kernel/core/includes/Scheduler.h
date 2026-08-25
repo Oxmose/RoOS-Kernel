@@ -255,6 +255,22 @@ E_Return JoinThread(S_KernelThread* pThread,
  */
 E_Return SleepNs(const uint64_t kTimeNs);
 
+/**
+ * @brief Returns the string representation of a thread state.
+ *
+ * @details Returns the string representation of a thread state. This function
+ * is useful for debugging and logging purposes, allowing developers to easily
+ *  interpret the current state of a thread.
+ *
+ * @param[in] kState The thread state for which the string representation is
+ * requested.
+ *
+ * @return The function returns a constant character pointer to the string
+ * representation of the thread state. If the state is unknown, it returns
+ * "UNKNOWN".
+ */
+const char* SchedulerGetThreadStateString(const E_ThreadState kState);
+
 #endif /* #ifndef __CORE_SCHEDULER_H_ */
 
 /************************************ EOF *************************************/

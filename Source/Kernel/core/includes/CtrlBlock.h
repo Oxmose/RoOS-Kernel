@@ -133,6 +133,24 @@ typedef struct S_KernelProcess
 
   /** @brief Stores the information for the process heap. */
   S_ProcessHeap* pHeap;
+
+  /**************************************
+   * ProcFS management
+   *************************************/
+  /** @brief Stores the ProcFS entry for the process */
+  void* pProcFSEntry;
+  /** @brief Stores the ProcFS entry for the process threads */
+  void* pProcFSThreadsEntry;
+  /** @brief Stores the ProcFS entry for the process status */
+  void* pProcFSStatusEntry;
+  /** @brief Stores the ProcFS entry for the process scheduler statistics */
+  void* pProcFSSchedulerStatsEntry;
+  /** @brief Stores the ProcFS entry for the process memory map */
+  void* pProcFSMemoryMapEntry;
+  /** @brief Stores the ProcFS entry for the process file descriptors */
+  void* pProcFSFileDescriptorsEntry;
+  /** @brief The lock for the ProcFS management */
+  S_KernelSpinlock procFSLock;
 } S_Process;
 
 /** @brief This is the representation of the thread for the kernel. */
@@ -199,7 +217,13 @@ typedef struct S_KernelThread
   uint64_t endTime;
 
   /** @brief Thread's execution time. */
-  uint64_t executionTime;
+  uint64_t currentKernelTime;
+
+  /** @brief Thread's user execution time. */
+  uint64_t execTimeUser;
+
+  /** @brief Thread's kernel execution time. */
+  uint64_t execTimeKernel;
 
   /**************************************
    * Scheduler management
@@ -238,6 +262,16 @@ typedef struct S_KernelThread
 
   /** @brief Thread's error table */
   S_ErrorTable errorTable;
+
+  /**************************************
+   * ProcFS management
+   *************************************/
+  /** @brief Stores the ProcFS entry for the process */
+  void* pProcFSEntry;
+  /** @brief Stores the ProcFS entry for the process status */
+  void* pProcFSStatusEntry;
+  /** @brief Stores the ProcFS entry for the process scheduler statistics */
+  void* pProcFSSchedulerStatsEntry;
 } S_KernelThread;
 
 /*******************************************************************************

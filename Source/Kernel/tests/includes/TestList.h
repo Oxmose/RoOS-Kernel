@@ -41,6 +41,7 @@
 #define TEST_OS_UHASHTABLE_ENABLED                0
 #define TEST_SCHEDULER_ENABLED                    1
 #define TEST_VFS_ENABLED                          0
+#define TEST_PROCFS_ENABLED                       0
 #define TEST_OS_VECTOR_ENABLED                    0
 #define TEST_OS_KQUEUE_ENABLED                    0
 #define TEST_OS_FAST_QUEUES_ENABLED               0
@@ -114,6 +115,18 @@
 #define TEST_VFS_REMOVE_DRIVER(X)    (1700 + X)
 #define TEST_VFS_FD_TABLE_CREATE(X)  (1800 + X)
 #define TEST_VFS_FD_TABLE_DESTROY(X) (1900 + X)
+
+/** @brief ProcFS test */
+#define TEST_PROCFS_CREATE_DIR(X)    (X)
+#define TEST_PROCFS_CREATE_ENTRY(X)  (100 + X)
+#define TEST_PROCFS_REMOVE(X)        (200 + X)
+#define TEST_PROCFS_OPEN(X)          (300 + X)
+#define TEST_PROCFS_READ(X)          (400 + X)
+#define TEST_PROCFS_WRITE(X)         (500 + X)
+#define TEST_PROCFS_READDIR(X)       (600 + X)
+#define TEST_PROCFS_IOCTL(X)         (700 + X)
+#define TEST_PROCFS_ERRORS(X)        (800 + X)
+
 /** @brief Interrupt test */
 #define TEST_INTERRUPT(X) (X)
 
@@ -446,6 +459,8 @@ void VFSCreateFDTest(void* pArgs);
 void VFSDestroyFDTest(void* pArgs);
 void VFSGenericTest(void* pArgs);
 void VirtualFSTest(void);
+/** @brief ProcFS test function */
+void ProcFSTest(void);
 
 
 #endif /* #ifdef _TESTING_FRAMEWORK_ENABLED */

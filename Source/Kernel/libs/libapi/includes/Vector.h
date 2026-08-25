@@ -46,17 +46,22 @@ typedef struct
    * @brief The memory allocation function used by the allocator.
    *
    * @param[in] kSize The size in bytes to be allocated.
+   * @param[in] pMeta The metadata used by the allocator.
    *
    * @return A pointer to the allocated memory is returned. NULL is returned
    * if no memory was allocated.
    */
-  void*(*pMalloc)(const size_t kSize);
+  void*(*pMalloc)(const size_t kSize, void* pMeta);
   /**
    * @brief The memory free function used by the allocator.
    *
    * @param[out] ptr The start address of the memory to free.
+   * @param[in] pMeta The metadata used by the allocator.
    */
-  void(*pFree)(void* ptr);
+  void(*pFree)(void* ptr, void* pMeta);
+
+  /** @brief The metadata used by the allocator. */
+  void* pMeta;
 } S_VectorAllocator;
 
 /** @brief Vector structure. */
@@ -80,8 +85,10 @@ typedef struct
  *
  * @param[in] MALLOC The memory allocation function used by the allocator.
  * @param[in] FREE The memory free function used by the allocator.
+ * @param[in] META The metadata function used by the allocator.
  */
-#define VECTOR_ALLOCATOR(MALLOC, FREE) (S_VectorAllocator){MALLOC, FREE}
+#define VECTOR_ALLOCATOR(MALLOC, FREE, META) \
+  (S_VectorAllocator){MALLOC, FREE, META}
 
 /*******************************************************************************
  * GLOBAL VARIABLES

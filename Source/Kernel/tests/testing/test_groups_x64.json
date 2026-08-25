@@ -24,6 +24,10 @@
     "testname": "VFS"
   },
   {
+    "name": "Process File System",
+    "testname": "PROCFS"
+  },
+  {
     "name": "Kernel Heap",
     "testname": "KHEAP"
   },

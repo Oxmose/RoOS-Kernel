@@ -26,6 +26,7 @@
 /* Included headers */
 #include <CPU.h>
 #include <Panic.h>
+#include <ProcFS.h>
 #include <Memory.h>
 #include <Console.h>
 #include <Scheduler.h>
@@ -139,6 +140,14 @@ void X64KernelEntry(void)
   MemoryInit();
   KERNEL_SUCCESS("Memory manager initialized.\n");
 
+  /* Initialize the virtual filesystem */
+  VirtualFileSystemInit();
+  KERNEL_SUCCESS("VFS initialized.\n");
+
+  /* Initialize the ProcFS */
+  ProcFSInit();
+  KERNEL_SUCCESS("ProcFS initialized.\n");
+
   /* Initialize the pre-init drivers */
   DriverManagerInit(true);
   KERNEL_SUCCESS("Drivers Pre Init initialized.\n");
@@ -146,10 +155,6 @@ void X64KernelEntry(void)
   /* Initilize the scheduler */
   SchedulerInit();
   KERNEL_SUCCESS("Scheduler initialized.\n");
-
-  /* Initialize the virtual filesystem */
-  VirtualFileSystemInit();
-  KERNEL_SUCCESS("VFS initialized.\n");
 
   /* Initialize the drivers */
   DriverManagerInit(false);
@@ -168,7 +173,7 @@ void X64KernelEntry(void)
    * running CPUs excepted this one have their interrupt enabled.
    */
   CPUStartSMP();
-  KERNEL_SUCCESS("SMP started.\n");
+  KERNEL_SUCCESS("All processors initialized.\n");
 
   KERNEL_INFO("Kernel started successfully.\n");
 
@@ -182,6 +187,7 @@ void X64KernelEntry(void)
   TEST_POINT_FUNCTION(InterruptsTest, TEST_INTERRUPT_ENABLED);
   TEST_POINT_FUNCTION(DeviceTreeTest, TEST_DEVTREE_ENABLED);
   TEST_POINT_FUNCTION(VirtualFSTest, TEST_VFS_ENABLED);
+  TEST_POINT_FUNCTION(ProcFSTest, TEST_PROCFS_ENABLED);
   TEST_POINT_FUNCTION(CPUIDTest, TEST_CPUID_ENABLED);
   TEST_POINT_FUNCTION(KernelMutexTest, TEST_OS_KMUTEX_ENABLED);
   TEST_POINT_FUNCTION(KernelSemaphoreTest, TEST_OS_KSEMAPHORE_ENABLED);

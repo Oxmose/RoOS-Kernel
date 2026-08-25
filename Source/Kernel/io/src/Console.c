@@ -102,6 +102,22 @@ void ConsoleInit(void)
   kpConsoleNode = FDTGetNodeByName(FDT_CONSOLE_NODE_NAME);
   if (kpConsoleNode != NULL)
   {
+    /* Get the output device */
+    kpStrProp = FDTGetProp(kpConsoleNode, FDT_CONS_OUTPUT_DEV_PROP, &propLen);
+    if (kpStrProp != NULL && propLen > 0)
+    {
+      sStdoutFd = VFSOpen(kpStrProp, O_RDWR, 0);
+      ConsoleClear();
+      if (sStdoutFd < 0)
+      {
+        KERNEL_ERROR("Failed to open console output device.\n");
+      }
+      else
+      {
+        KERNEL_INFO("Console output device opened: %s\n", kpStrProp);
+      }
+    }
+
     /* Get the input device */
     kpStrProp = FDTGetProp(kpConsoleNode, FDT_CONS_INPUT_DEV_PROP, &propLen);
     if (kpStrProp != NULL && propLen > 0)
@@ -111,21 +127,12 @@ void ConsoleInit(void)
       {
         KERNEL_ERROR("Failed to open console input device.\n");
       }
-    }
-
-    /* Get the output device */
-    kpStrProp = FDTGetProp(kpConsoleNode, FDT_CONS_OUTPUT_DEV_PROP, &propLen);
-    if (kpStrProp != NULL && propLen > 0)
-    {
-      sStdoutFd = VFSOpen(kpStrProp, O_RDWR, 0);
-      if (sStdoutFd < 0)
+      else
       {
-        KERNEL_ERROR("Failed to open console output device.\n");
+        KERNEL_INFO("Console input device opened: %s\n", kpStrProp);
       }
     }
   }
-
-  ConsoleClear();
 }
 
 void ConsoleClear(void)
