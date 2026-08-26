@@ -52,6 +52,16 @@ typedef enum
   ALIGN_8_BYTES = 8,
   /** @brief 16 bytes alignment boundary. */
   ALIGN_16_BYTES = 16,
+  /** @brief 32 bytes alignment boundary. */
+  ALIGN_32_BYTES = 32,
+  /** @brief 64 bytes alignment boundary. */
+  ALIGN_64_BYTES = 64,
+  /** @brief 128 bytes alignment boundary. */
+  ALIGN_128_BYTES = 128,
+  /** @brief 256 bytes alignment boundary. */
+  ALIGN_256_BYTES = 256,
+  /** @brief 512 bytes alignment boundary. */
+  ALIGN_512_BYTES = 512,
   /** @brief Address size bytes alignment boundary. */
   ALIGN_ADDRESS = sizeof(uintptr_t)
 } E_Alignement;

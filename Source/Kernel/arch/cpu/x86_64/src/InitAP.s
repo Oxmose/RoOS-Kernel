@@ -99,16 +99,19 @@ __kinitApPM:
   ; Enable SSE
   mov eax, cr0
   and al, ~0x04
-  or  al, 0x22
+  or  al, 0x2
   mov cr0, eax
+
+  ; Enable Base read / write, XSAVE, FXSAVE, SIMD PAE and PGE
   mov eax, cr4
-  or  ax, 0x600
+  or  eax, 0x506A0
   mov cr4, eax
 
-  ; Enable PAE and PGE
-  mov eax, cr4
-  or  eax, 0xA0
-  mov cr4, eax
+  ; Configure XCR0 for x87, SSE and AVX
+  mov ecx, 0
+  mov eax, 0x7
+  mov edx, 0
+  xsetbv
 
   ; Switch to compatibility mode, enable NXE and SYSCALL/SYSRET
   mov ecx, 0xC0000080

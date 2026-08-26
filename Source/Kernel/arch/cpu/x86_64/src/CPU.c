@@ -554,6 +554,8 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
 extern int8_t _KERNEL_STACKS_BASE;
 /** @brief Stores the number of CPU that booted. */
 extern volatile uint32_t _bootedCPUCount;
+/** @brief Stores the support for xsaveopt. */
+extern uint32_t _xSaveoptSupported;
 
 /************************* Exported global variables **************************/
 /* None */
@@ -1152,6 +1154,9 @@ static void _ValidateArchitecture(void)
   CPU_ASSERT(pNewCpuInfo->flags.fxsr,
              "CPU does not support FX instructions",
              ERR_NOT_SUPPORTED);
+  CPU_ASSERT(pNewCpuInfo->flags.xsave,
+             "CPU does not support XSAVE/XRSTOR instructions",
+             ERR_NOT_SUPPORTED);
   CPU_ASSERT(pNewCpuInfo->flags.sse,
              "CPU does not support SSE",
              ERR_NOT_SUPPORTED);
@@ -1178,6 +1183,9 @@ static void _ValidateArchitecture(void)
   spCPUConfiguration[cpuId]->cpu1GBPageSupport = pNewCpuInfo->flags.page1gb;
   spCPUConfiguration[cpuId]->physAddressWidth = pNewCpuInfo->physAddressWidth;
   spCPUConfiguration[cpuId]->virtAddressWidth = pNewCpuInfo->virtAddressWidth;
+
+  /* Save the global support to xsaveopt */
+  _xSaveoptSupported = pNewCpuInfo->flags.xsaveopt;
 
   if (pNewCpuInfo->id != 0)
   {
@@ -1439,11 +1447,11 @@ void CPUInvalidateTLBEntry(const uintptr_t kVirtAddress)
 void* CPUCreateVirtualCPU(S_KernelThread* pThread)
 {
   S_VirtualCPU* pVCpu;
-  S_FXData*     pFxData;
   uintptr_t     stack;
   uint64_t      csVal;
   uint64_t      dsVal;
   uint64_t      rflagsVal;
+  size_t        fxDataSize;
 
   /* Allocate the new VCPU */
   pVCpu = KMallocUser(sizeof(S_VirtualCPU),
@@ -1451,68 +1459,80 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
                       pThread->pProcess->pHeap);
   if (pVCpu != NULL)
   {
-    if (pThread->type == THREAD_TYPE_KERNEL)
+    /* Setup the FX Data */
+    fxDataSize = spCPUConfiguration[0]->cpuInfo.fxStateSize;
+    pVCpu->fxDataRegion = (uintptr_t)KMallocUser(fxDataSize,
+                                                 ALIGN_64_BYTES,
+                                                 pThread->pProcess->pHeap);
+    if (pVCpu->fxDataRegion != (uintptr_t)NULL)
     {
-      csVal     = KERNEL_CS_64;
-      dsVal     = KERNEL_DS_64;
-      rflagsVal = KERNEL_THREAD_INIT_RFLAGS;
-      stack     = pThread->kernelStackEnd;
+      if (pThread->type == THREAD_TYPE_KERNEL)
+      {
+        csVal     = KERNEL_CS_64;
+        dsVal     = KERNEL_DS_64;
+        rflagsVal = KERNEL_THREAD_INIT_RFLAGS;
+        stack     = pThread->kernelStackEnd;
+      }
+      else
+      {
+        csVal     = USER_CS_64 | 0x3;
+        dsVal     = USER_DS_64 | 0x3;
+        rflagsVal = USER_THREAD_INIT_RFLAGS;
+        stack     = pThread->stackEnd;
+      }
+
+      /* Setup the interrupt context */
+      pVCpu->intContext.intId     = 0;
+      pVCpu->intContext.errorCode = 0;
+      pVCpu->intContext.cs        = csVal;
+      pVCpu->intContext.rflags    = rflagsVal;
+
+      /* Set the entry point */
+      pVCpu->intContext.rip = (uintptr_t)pThread->pEntryPoint;
+      pVCpu->cpuState.rdi   = (uintptr_t)pThread->pArgs;
+
+      /* Setup stack pointers */
+      pVCpu->cpuState.rsp   = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
+      pVCpu->cpuState.rbp   = pVCpu->cpuState.rsp;
+
+      /* Setup the CPU state */
+      pVCpu->cpuState.rsi = 0;
+      pVCpu->cpuState.rdx = 0;
+      pVCpu->cpuState.rcx = 0;
+      pVCpu->cpuState.rbx = 0;
+      pVCpu->cpuState.rax = 0;
+      pVCpu->cpuState.r8  = 0;
+      pVCpu->cpuState.r9  = 0;
+      pVCpu->cpuState.r10 = 0;
+      pVCpu->cpuState.r11 = 0;
+      pVCpu->cpuState.r12 = 0;
+      pVCpu->cpuState.r13 = 0;
+      pVCpu->cpuState.r14 = 0;
+      pVCpu->cpuState.r15 = 0;
+      pVCpu->cpuState.ss  = dsVal;
+      pVCpu->cpuState.gs  = dsVal;
+      pVCpu->cpuState.fs  = dsVal;
+      pVCpu->cpuState.es  = dsVal;
+      pVCpu->cpuState.ds  = dsVal;
     }
     else
     {
-      csVal     = USER_CS_64 | 0x3;
-      dsVal     = USER_DS_64 | 0x3;
-      rflagsVal = USER_THREAD_INIT_RFLAGS;
-      stack     = pThread->stackEnd;
+      KFreeUser(pVCpu, pThread->pProcess->pHeap);
+      pVCpu = NULL;
     }
-
-    memset(pVCpu, 0, sizeof(S_VirtualCPU));
-
-    /* Setup the interrupt context */
-    pVCpu->intContext.intId     = 0;
-    pVCpu->intContext.errorCode = 0;
-    pVCpu->intContext.cs        = csVal;
-    pVCpu->intContext.rflags    = rflagsVal;
-
-    /* Set the entry point */
-    pVCpu->intContext.rip = (uintptr_t)pThread->pEntryPoint;
-    pVCpu->cpuState.rdi   = (uintptr_t)pThread->pArgs;
-
-    /* Setup stack pointers */
-    pVCpu->cpuState.rsp   = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
-    pVCpu->cpuState.rbp   = pVCpu->cpuState.rsp;
-
-    /* Setup the CPU state */
-    pVCpu->cpuState.rsi = 0;
-    pVCpu->cpuState.rdx = 0;
-    pVCpu->cpuState.rcx = 0;
-    pVCpu->cpuState.rbx = 0;
-    pVCpu->cpuState.rax = 0;
-    pVCpu->cpuState.r8  = 0;
-    pVCpu->cpuState.r9  = 0;
-    pVCpu->cpuState.r10 = 0;
-    pVCpu->cpuState.r11 = 0;
-    pVCpu->cpuState.r12 = 0;
-    pVCpu->cpuState.r13 = 0;
-    pVCpu->cpuState.r14 = 0;
-    pVCpu->cpuState.r15 = 0;
-    pVCpu->cpuState.ss  = dsVal;
-    pVCpu->cpuState.gs  = dsVal;
-    pVCpu->cpuState.fs  = dsVal;
-    pVCpu->cpuState.es  = dsVal;
-    pVCpu->cpuState.ds  = dsVal;
-
-    /* Setup the FPU */
-    pFxData = (S_FXData*)(((uintptr_t)pVCpu->fxData + 0xF) &
-                          0xFFFFFFFFFFFFFFF0);
-    pFxData->mxcsr = MXCSR_PRECISION_EXC_MASK;
   }
+
 
   return pVCpu;
 }
 
 void CPUDestroyVirtualCPU(S_KernelThread* pThread)
 {
+  S_VirtualCPU* pVCpu;
+
+  pVCpu = pThread->pVCpu;
+
+  KFreeUser((void*)pVCpu->fxDataRegion, pThread->pProcess->pHeap);
   KFreeUser(pThread->pVCpu, pThread->pProcess->pHeap);
 }
 

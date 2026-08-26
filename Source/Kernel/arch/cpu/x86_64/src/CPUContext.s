@@ -79,7 +79,7 @@ global CPUSaveContextAndSchedule
 ;-------------------------------------------------------------------------------
 ; EXPORTED DATA
 ;-------------------------------------------------------------------------------
-; None
+global _xSaveoptSupported
 
 ;-------------------------------------------------------------------------------
 ; CODE
@@ -180,12 +180,19 @@ CPUSaveContext:
   mov [rax + VCPU_OFF_DS], ds
 
   ; Save the FxData
-  mov rbx, rax
-  add rbx, VCPU_OFF_FXD
-  add rbx, 0xF                   ; ALIGN Region
-  and rbx, 0xFFFFFFFFFFFFFFF0    ; ALIGN Region
-  fxsave [rbx]
+  mov rdi, [rax + VCPU_OFF_FXD]
+  mov rax, 0xFFFFFFFFFFFFFFFF
+  mov rdx, 0xFFFFFFFFFFFFFFFF
 
+  mov rbx, [_xSaveoptSupported]
+  cmp rbx, 0
+  je __noXSaveopt
+  xsaveopt64 [rdi]
+  jmp __saveContextEnd
+__noXSaveopt:
+  xsave64 [rdi]
+
+__saveContextEnd:
   ret
 
 ;-------------------------------------------------------------------------------
@@ -195,14 +202,15 @@ CPUSaveContext:
 ;     RDI - The pointer to the thread to restore
 CPURestoreContext:
   ; The current thread is sent as parameter, load the VCPU
-  mov rax, [rdi]
+  mov rcx, [rdi]
 
   ; Restore the FxData
-  mov rbx, rax
-  add rbx, VCPU_OFF_FXD
-  add rbx, 0xF                   ; ALIGN Region
-  and rbx, 0xFFFFFFFFFFFFFFF0    ; ALIGN Region
-  fxrstor [rbx]
+  mov rax, 0xFFFFFFFFFFFFFFFF
+  mov rdx, 0xFFFFFFFFFFFFFFFF
+  mov rsi, [rcx + VCPU_OFF_FXD]
+  xrstor64 [rsi]
+
+  mov rax, rcx
 
   ; Restore registers
   mov es, [rax + VCPU_OFF_ES]
@@ -225,7 +233,7 @@ CPURestoreContext:
   mov rdx, [rax + VCPU_OFF_RDX]
   mov rcx, [rax + VCPU_OFF_RCX]
 
-  ; Use FXData as temporary stack for the return
+  ; Prepare the return
   mov rsp, [rax + VCPU_OFF_RSP]
   sub rsp, 8
 
@@ -292,18 +300,28 @@ CPUSaveContextAndSchedule:
   mov [rdi + VCPU_OFF_SS], rax
 
   ; Save the FxData
-  mov rbx, rax
-  add rbx, VCPU_OFF_FXD
-  add rbx, 0xF                   ; ALIGN Region
-  and rbx, 0xFFFFFFFFFFFFFFF0    ; ALIGN Region
-  fxsave [rbx]
+  mov rax, 0xFFFFFFFFFFFFFFFF
+  mov rdx, 0xFFFFFFFFFFFFFFFF
+  mov rdi, [rdi + VCPU_OFF_FXD]
 
+  mov rbx, [_xSaveoptSupported]
+  cmp rbx, 0
+  je __noXSaveopt1
+  xsaveopt64 [rdi]
+  jmp __saveContextEnd1
+__noXSaveopt1:
+  xsave64 [rdi]
+
+__saveContextEnd1:
   call SchedulerSchedule
   ret
 
 ;-------------------------------------------------------------------------------
 ; DATA
 ;-------------------------------------------------------------------------------
-; None
+section .data
+align 4
+_xSaveoptSupported:
+  dd 0
 
 ; EOF

@@ -54,6 +54,8 @@
 #define CPUID_GETCACHEINFO_INTEL       0x00000004
 /** @brief Cache information for Intel CPUs */
 #define CPUID_GETEXTBASE_FEATURES      0x00000007
+/** @brief Request extended state flags. */
+#define CPUID_GET_EXTENDED_STATE_FLAGS 0x0000000D
 /** @brief Request extended CPUID features. */
 #define CPUID_GETEXTENDED_AVAILABLE    0x80000000
 /** @brief Request Intel CPUID features. */
@@ -629,6 +631,20 @@
 #define EBX_IBPB_RET (1U << 30)
 /** @brief Branch Sampling. */
 #define EBX_BRANCH_SAMPLING (1U << 31)
+
+/****************************************
+ * CPUID Extended States 0x8000000D
+ ***************************************/
+/** @brief XSAVEOPT instruction. */
+#define EAX_XSAVEOPT (1U << 0)
+/** @brief XSAVEC instruction. */
+#define EAX_XSAVEC (1U << 1)
+/** @brief XGETBV instruction. */
+#define EAX_XGETBV (1U << 2)
+/** @brief XSS (XSave State) support. */
+#define EAX_XSS (1U << 3)
+/** @brief XFD (XSave Data Pointer) support. */
+#define EAX_XFD (1U << 4)
 
 /****************************************
  * CPUID Extended Features 0x80000021
@@ -1312,10 +1328,13 @@ static uint32_t _GetCPUIDMax(const uint32_t kExt);
  * unsupported CPUID leaf. All pointers are required to be non-null.
  *
  * @param[in] kCode The opperation code for the CPUID instruction.
+ * @param[in] kLeaf The leaf to request from the CPUID instruction.
  * @param[out] regs The register used to store the CPUID instruction return.
  * @return 1 in case of succes, 0 otherwise.
  */
-static int32_t _PerformCPUID(const uint32_t kCode, uint32_t pRegs[4]);
+static int32_t _PerformCPUID(const uint32_t kCode,
+                             const uint32_t kLeaf,
+                             uint32_t       pRegs[4]);
 
 /**
  * @brief Retrieves the CPU vendor information.
@@ -1517,17 +1536,20 @@ static uint32_t _GetCPUIDMax(const uint32_t kExt)
   uint32_t regs[4];
 
   /* Host supports CPUID. Return highest supported CPUID input value. */
+  memset(regs, 0, sizeof(uint32_t) * 4);
   __asm__ __volatile__("cpuid"
-                       : "=a"(*regs),
-                         "=b"(*(regs+1)),
-                         "=c"(*(regs+2)),
-                         "=d"(*(regs+3))
+                       : "=a"(regs[0]),
+                         "=b"(regs[1]),
+                         "=c"(regs[2]),
+                         "=d"(regs[3])
                        : "a"(kExt));
 
   return regs[EAX_REG];
 }
 
-static int32_t _PerformCPUID(const uint32_t kCode, uint32_t pRegs[4])
+static int32_t _PerformCPUID(const uint32_t kCode,
+                             const uint32_t kLeaf,
+                             uint32_t       pRegs[4])
 {
   uint32_t ext;
   uint32_t maxLevel;
@@ -1537,12 +1559,13 @@ static int32_t _PerformCPUID(const uint32_t kCode, uint32_t pRegs[4])
 
   if (maxLevel != 0 && maxLevel >= kCode)
   {
+    memset(pRegs, 0, sizeof(uint32_t) * 4);
     __asm__ __volatile__("cpuid"
-                         : "=a"(*pRegs),
-                           "=b"(*(pRegs + 1)),
-                           "=c"(*(pRegs + 2)),
-                           "=d"(*(pRegs + 3))
-                         : "a"(kCode));
+                         : "=a"(pRegs[0]),
+                           "=b"(pRegs[1]),
+                           "=c"(pRegs[2]),
+                           "=d"(pRegs[3])
+                         : "a"(kCode), "c"(kLeaf));
     maxLevel = 1;
   }
   else
@@ -1559,7 +1582,7 @@ static void _GetVendorInfo(S_CPUInformation* pCpuInf)
   uint8_t  i;
   uint32_t regs[4];
 
-  ret =_PerformCPUID(CPUID_GETVENDORSTRING, regs);
+  ret =_PerformCPUID(CPUID_GETVENDORSTRING, 0, regs);
   if (ret == 1)
   {
     for (i = 0; i < 4; ++i)
@@ -1604,17 +1627,17 @@ static void _GetCPUName(S_CPUInformation* pCpuInf)
   uint32_t regs[4];
 
   memcpy(pCpuInf->pName, "UNKNOWN", 8);
-  ret = _PerformCPUID(CPUID_GETBRANDSTRING_START, regs);
+  ret = _PerformCPUID(CPUID_GETBRANDSTRING_START, 0,regs);
   if (ret == 1)
   {
     memcpy(pCpuInf->pName, (uint8_t*)regs, 16);
   }
-  ret = _PerformCPUID(CPUID_GETBRANDSTRING_MID, regs);
+  ret = _PerformCPUID(CPUID_GETBRANDSTRING_MID, 0, regs);
   if (ret == 1)
   {
     memcpy(pCpuInf->pName + 16, (uint8_t*)regs, 16);
   }
-  ret = _PerformCPUID(CPUID_GETBRANDSTRING_END, regs);
+  ret = _PerformCPUID(CPUID_GETBRANDSTRING_END, 0, regs);
   if (ret == 1)
   {
     memcpy(pCpuInf->pName + 32, (uint8_t*)regs, 16);
@@ -1627,7 +1650,7 @@ static void _GetGeneralInformation(S_CPUInformation* pCpuInf)
   uint32_t regs[4];
 
   /* Get basic CPU information */
-  ret = _PerformCPUID(CPUID_GETFEATURES, regs);
+  ret = _PerformCPUID(CPUID_GETFEATURES, 0, regs);
   if (ret == 1)
   {
     pCpuInf->family = CPUID_FAMILY_ID(regs);
@@ -1656,7 +1679,7 @@ static void _GetGeneralInformation(S_CPUInformation* pCpuInf)
   }
 
   /* Get the max CPUID */
-  ret = _PerformCPUID(CPUID_GETEXTENDED_AVAILABLE, regs);
+  ret = _PerformCPUID(CPUID_GETEXTENDED_AVAILABLE, 0, regs);
   if (ret == 1)
   {
     pCpuInf->cpuIdLevel = regs[EAX_REG];
@@ -1672,7 +1695,7 @@ static void _GetGeneralFeaturesGeneral(S_CPUInformation* pCpuInf)
   int32_t  ret;
   uint32_t regs[4];
 
-  ret = _PerformCPUID(CPUID_GETFEATURES, regs);
+  ret = _PerformCPUID(CPUID_GETFEATURES, 0, regs);
   if (ret == 1)
   {
     pCpuInf->flags.sse3 = ((regs[ECX_REG] & ECX_SSE3) == ECX_SSE3);
@@ -1752,9 +1775,8 @@ static void _GetGeneralFeaturesBase(S_CPUInformation* pCpuInf)
   uint32_t regs[4];
   uint32_t maxLeaves;
 
-  regs[ECX_REG] = 0;
   maxLeaves = 0;
-  ret = _PerformCPUID(CPUID_GETEXTBASE_FEATURES, regs);
+  ret = _PerformCPUID(CPUID_GETEXTBASE_FEATURES, 0, regs);
   if (ret == 1)
   {
     maxLeaves = regs[EAX_REG];
@@ -1890,8 +1912,7 @@ static void _GetGeneralFeaturesBase(S_CPUInformation* pCpuInf)
         ((regs[EDX_REG] & EDX_SPEC_CTRL_SSBD) == EDX_SPEC_CTRL_SSBD);
   }
 
-  regs[ECX_REG] = 1;
-  ret = _PerformCPUID(CPUID_GETEXTBASE_FEATURES, regs);
+  ret = _PerformCPUID(CPUID_GETEXTBASE_FEATURES, 1, regs);
   if (maxLeaves > 1 && ret == 1)
   {
     pCpuInf->flags.avx_vnni =
@@ -1931,8 +1952,7 @@ static void _GetGeneralFeaturesBase(S_CPUInformation* pCpuInf)
     pCpuInf->flags.cet_sss = ((regs[EDX_REG] & EDX_CET_SSS) == EDX_CET_SSS);
   }
 
-  regs[ECX_REG] = 2;
-  ret = _PerformCPUID(CPUID_GETEXTBASE_FEATURES, regs);
+  ret = _PerformCPUID(CPUID_GETEXTBASE_FEATURES, 2, regs);
   if (maxLeaves > 2 && ret == 1)
   {
     pCpuInf->flags.intel_psfd =
@@ -1956,7 +1976,7 @@ static void _GetGeneralFeaturesExtended(S_CPUInformation* pCpuInf)
   int32_t  ret;
   uint32_t regs[4];
 
-  ret = _PerformCPUID(CPUID_GETEXTENTED_FEATURES, regs);
+  ret = _PerformCPUID(CPUID_GETEXTENTED_FEATURES, 0, regs);
   if (ret == 1)
   {
     pCpuInf->flags.lahf_lm = ((regs[ECX_REG] & ECX_LAHF_LM) == ECX_LAHF_LM);
@@ -2032,12 +2052,34 @@ static void _GetGeneralFeaturesExtended(S_CPUInformation* pCpuInf)
   }
 }
 
+static void _GetGeneralExtendedState(S_CPUInformation* pCpuInf)
+{
+  int32_t  ret;
+  uint32_t regs[4];
+
+  ret = _PerformCPUID(CPUID_GET_EXTENDED_STATE_FLAGS, 0, regs);
+  if (ret == 1)
+  {
+    pCpuInf->fxStateSize = regs[EBX_REG];
+
+    ret = _PerformCPUID(CPUID_GET_EXTENDED_STATE_FLAGS, 1, regs);
+    if (ret == 1)
+    {
+      pCpuInf->flags.xsaveopt = ((regs[EAX_REG] & EAX_XSAVEOPT) == EAX_XSAVEOPT);
+      pCpuInf->flags.xsavec = ((regs[EAX_REG] & EAX_XSAVEC) == EAX_XSAVEC);
+      pCpuInf->flags.xgetbv = ((regs[EAX_REG] & EAX_XGETBV) == EAX_XGETBV);
+      pCpuInf->flags.xss = ((regs[EAX_REG] & EAX_XSS) == EAX_XSS);
+      pCpuInf->flags.xfd = ((regs[EAX_REG] & EAX_XFD) == EAX_XFD);
+    }
+  }
+}
+
 static void _GetGeneralPowerManagement(S_CPUInformation* pCpuInf)
 {
   int32_t  ret;
   uint32_t regs[4];
 
-  ret = _PerformCPUID(CPUID_GETPOWERMANAGEMENT, regs);
+  ret = _PerformCPUID(CPUID_GETPOWERMANAGEMENT, 0, regs);
   if (ret == 1)
   {
     pCpuInf->flags.constant_tsc =
@@ -2050,7 +2092,7 @@ static void _GetGeneralCapacityExtended(S_CPUInformation* pCpuInf)
   int32_t  ret;
   uint32_t regs[4];
 
-  ret = _PerformCPUID(CPUID_GETCAPACITY_EXT_FLAGS, regs);
+  ret = _PerformCPUID(CPUID_GETCAPACITY_EXT_FLAGS, 0, regs);
   if (ret == 1)
   {
     pCpuInf->flags.clzero = ((regs[EBX_REG] & EBX_CLZERO) == EBX_CLZERO);
@@ -2105,7 +2147,7 @@ static void _GetGeneralAMDTextInfo(S_CPUInformation* pCpuInf)
   int32_t  ret;
   uint32_t regs[4];
 
-  ret = _PerformCPUID(CPUID_GETAMDEXTINFO, regs);
+  ret = _PerformCPUID(CPUID_GETAMDEXTINFO, 0, regs);
   if (ret == 1)
   {
     pCpuInf->flags.no_nested_data_bp =
@@ -2152,10 +2194,10 @@ static void _GetGeneralAMDTextInfo(S_CPUInformation* pCpuInf)
 
 static void _GetGeneralFeatures(S_CPUInformation* pCpuInf)
 {
-
   _GetGeneralFeaturesGeneral(pCpuInf);
   _GetGeneralFeaturesBase(pCpuInf);
   _GetGeneralFeaturesExtended(pCpuInf);
+  _GetGeneralExtendedState(pCpuInf);
   _GetGeneralPowerManagement(pCpuInf);
   _GetGeneralCapacityExtended(pCpuInf);
   _GetGeneralAMDTextInfo(pCpuInf);
@@ -2166,7 +2208,7 @@ static void _GetMemoryInformation(S_CPUInformation* pCpuInf)
   int32_t  ret;
   uint32_t regs[4];
 
-  ret = _PerformCPUID(CPUID_GETCAPACITY_EXT_FLAGS, regs);
+  ret = _PerformCPUID(CPUID_GETCAPACITY_EXT_FLAGS, 0, regs);
   if (ret == 1)
   {
     pCpuInf->physAddressWidth = regs[EAX_REG] & 0xFF;
@@ -2192,8 +2234,7 @@ static void _GetCacheInformationUnified(S_CPUInformation* pCpuInf,
   i = 0;
   while (true)
   {
-    regs[ECX_REG] = i;
-    ret = _PerformCPUID(kLeaf, regs);
+    ret = _PerformCPUID(kLeaf, i, regs);
     if (ret == 1)
     {
       cacheType = CPUID_CACHE_TYPE(regs);
@@ -2281,7 +2322,7 @@ static void _GetCacheInformationAmd(S_CPUInformation* pCpuInf)
   uint32_t          regs[4];
 
   /* Get the L1 info */
-  ret = _PerformCPUID(CPUID_GETL1CACHETLBINFO_AMD, regs);
+  ret = _PerformCPUID(CPUID_GETL1CACHETLBINFO_AMD, 0, regs);
   if (ret == 1)
   {
     /* Allocate the structure and fill the information */
@@ -2320,7 +2361,7 @@ static void _GetCacheInformationAmd(S_CPUInformation* pCpuInf)
   }
 
   /* Get the L2 and L3 info */
-  ret = _PerformCPUID(CPUID_GETL2CACHETLBINFO_AMD, regs);
+  ret = _PerformCPUID(CPUID_GETL2CACHETLBINFO_AMD, 0, regs);
   if (ret == 1)
   {
     /* Allocate the structure and fill the information */
@@ -2714,6 +2755,11 @@ size_t CPUIDGetFlagsString(char*                 pBuffer,
   PRINT_FLAG_INFO(kpInfo->srso_uk_no, "srso_uk_no");
   PRINT_FLAG_INFO(kpInfo->srso_msr_fix, "srso_msr_fix");
   PRINT_FLAG_INFO(kpInfo->constant_tsc, "constant_tsc");
+  PRINT_FLAG_INFO(kpInfo->xsaveopt, "xsaveopt");
+  PRINT_FLAG_INFO(kpInfo->xsavec, "xsavec");
+  PRINT_FLAG_INFO(kpInfo->xgetbv, "xgetbv");
+  PRINT_FLAG_INFO(kpInfo->xss, "xss");
+  PRINT_FLAG_INFO(kpInfo->xfd, "xfd");
 
   return mainOffset;
 }

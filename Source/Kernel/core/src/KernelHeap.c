@@ -479,19 +479,20 @@ static void* _KMalloc(const size_t       kSize,
                       const E_Alignement kAlign,
                       S_ProcessHeap*     pHeap)
 {
-  size_t   n;
-  size_t   size;
-  S_Chunk* pChunk;
-  S_Chunk* pChunk2;
-  size_t   size2;
-  size_t   len;
-  void*    allocated;
+  size_t    n;
+  size_t    size;
+  S_Chunk*  pChunk;
+  S_Chunk*  pChunk2;
+  size_t    size2;
+  size_t    len;
+  uintptr_t align;
+  void*     allocated;
 
   if (kSize != 0)
   {
     KERNEL_LOCK(pHeap->lock);
 
-    size = (kSize + kAlign - 1) & (~(kAlign - 1));
+    size = kSize;
 
     if (size < MIN_SIZE)
     {
@@ -515,6 +516,11 @@ static void* _KMalloc(const size_t       kSize,
       if (n < NUM_SIZES)
       {
         pChunk = LIST_POP(&pHeap->spFreeChunk[n], free);
+
+        /* Ensure correct alignement */
+        align = (kAlign - 1);
+        size += ((uintptr_t)pChunk->pData & align);
+
         size2 = _MemoryChunkSize(pChunk);
         len = 0;
 
@@ -539,7 +545,7 @@ static void* _KMalloc(const size_t       kSize,
         pHeap->sMemFree -= size2;
         pHeap->sMemUsed += size2 - len - HEADER_SIZE;
 
-        allocated = pChunk->pData;
+        allocated = (void*)(((uintptr_t)pChunk->pData + align) & ~align);
       }
     }
     else
