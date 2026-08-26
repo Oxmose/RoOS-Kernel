@@ -412,7 +412,7 @@ static void _PrintStackTrace(uintptr_t* lastRBP)
                         : /* no input */
                         : "%rax");
 
-  _PanicPrintf("                              ==== Stack Trace ====\n");
+  _PanicPrintf("                              ==== Stack Trace ====");
 
   dummyProcess.pMemoryData = &metadata;
   isMapped = MemoryIsMapped((uintptr_t)lastRBP,

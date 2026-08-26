@@ -172,39 +172,8 @@ typedef struct
   /** @brief Stores the current CPU state */
   S_CPUState cpuState;
   /** @brief FXSAVE / FXRSTOR data region */
-  uint8_t fxData[FXDATA_REGION_SIZE];
+  uintptr_t fxDataRegion;
 } __attribute__((packed)) S_VirtualCPU;
-
-/** @brief Defines the memory layout of the FXData region */
-typedef struct
-{
-  /** @brief FPU Control Word */
-  uint16_t fcw;
-  /** @brief FPU Status Word */
-  uint16_t fsw;
-  /** @brief FPU Tag Word */
-  uint16_t ftw;
-  /** @brief FPU Final Opcode */
-  uint16_t fop;
-  /** @brief FPU Intruction Pointer */
-  uint32_t fip;
-  /** @brief FPU Control Status */
-  uint16_t fcs;
-  /** @brief FPU Reserved */
-  uint16_t reserved0;
-  /** @brief FPU Data Pointer */
-  uint32_t fdp;
-  /** @brief FPU Data Pointer Selector */
-  uint16_t fds;
-  /** @brief FPU Reserved */
-  uint16_t reserved1;
-  /** @brief MXCSR Register */
-  uint32_t mxcsr;
-  /** @brief MXCSR Mask Register */
-  uint32_t mxcsrMask;
-  /** @brief Other SSE/FPU Work Register */
-  uint8_t registers[];
-} S_FXData;
 
 /*******************************************************************************
  * MACROS

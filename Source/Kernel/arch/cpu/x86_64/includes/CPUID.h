@@ -596,6 +596,16 @@ typedef struct
   bool srso_msr_fix : 1;
   /** @brief Constant TSC clock */
   bool constant_tsc : 1;
+  /** @brief XSAVEOPT instruction */
+  bool xsaveopt : 1;
+  /** @brief XSAVEC instruction */
+  bool xsavec : 1;
+  /** @brief XSAVES instruction */
+  bool xgetbv : 1;
+  /** @brief XSS (XSave State) support */
+  bool xss : 1;
+  /** @brief XFD (XSave Data Pointer) support */
+  bool xfd : 1;
 } S_CPUFlagsInfo;
 
 /** @brief Enumeration of the supported CPU types. */
@@ -741,6 +751,8 @@ typedef struct
   uint8_t physAddressWidth;
   /** @brief CPU virtual addressing width */
   uint8_t virtAddressWidth;
+  /** @brief Size of the FXData region */
+  uint32_t fxStateSize;
   /** @brief CPU flags */
   S_CPUFlagsInfo flags;
 } S_CPUInformation;
