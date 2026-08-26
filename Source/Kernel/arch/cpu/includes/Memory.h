@@ -58,6 +58,32 @@
 /** @brief Defines the error for physical address */
 #define MEMMGR_PHYS_ADDR_ERROR ((uintptr_t)0xFFFFFFFFFFFFFFFFULL)
 
+typedef enum
+{
+  /** @brief 1 byte alignment boundary. */
+  ALIGN_1_BYTE = 1,
+  /** @brief 2 bytes alignment boundary. */
+  ALIGN_2_BYTES = 2,
+  /** @brief 4 bytes alignment boundary. */
+  ALIGN_4_BYTES = 4,
+  /** @brief 8 bytes alignment boundary. */
+  ALIGN_8_BYTES = 8,
+  /** @brief 16 bytes alignment boundary. */
+  ALIGN_16_BYTES = 16,
+  /** @brief 32 bytes alignment boundary. */
+  ALIGN_32_BYTES = 32,
+  /** @brief 64 bytes alignment boundary. */
+  ALIGN_64_BYTES = 64,
+  /** @brief 128 bytes alignment boundary. */
+  ALIGN_128_BYTES = 128,
+  /** @brief 256 bytes alignment boundary. */
+  ALIGN_256_BYTES = 256,
+  /** @brief 512 bytes alignment boundary. */
+  ALIGN_512_BYTES = 512,
+  /** @brief Address size bytes alignment boundary. */
+  ALIGN_ADDRESS = sizeof(uintptr_t)
+} E_Alignement;
+
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/

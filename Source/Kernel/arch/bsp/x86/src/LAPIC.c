@@ -992,25 +992,19 @@ static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
   cpuCount = CPUGetCount();
 
   /* Init structures */
-  pDrvCtrl = KMalloc(sizeof(S_LAPICTimerControler),
-                     ALIGN_ADDRESS,
-                     KMALLOC_NO_FREE_POOL);
+  pDrvCtrl = KMalloc(sizeof(S_LAPICTimerControler), KMALLOC_NO_FREE_POOL);
   spDrvCtrl = pDrvCtrl;
   memset(pDrvCtrl, 0, sizeof(S_LAPICTimerControler));
 
   pDrvCtrl->pInternalFrequency = KMalloc(sizeof(uint64_t) * cpuCount,
-                                         ALIGN_8_BYTES,
                                          KMALLOC_NO_FREE_POOL);
   memset(pDrvCtrl->pInternalFrequency, 0, sizeof(uint64_t) * cpuCount);
 
   pDrvCtrl->pDisabledNesting = KMalloc(sizeof(uint32_t) * cpuCount,
-                                       ALIGN_4_BYTES,
                                        KMALLOC_NO_FREE_POOL);
   memset(pDrvCtrl->pDisabledNesting, 0, sizeof(uint32_t) * cpuCount);
 
-  pTimerDrv = KMalloc(sizeof(S_KernelTimer),
-                      ALIGN_ADDRESS,
-                      KMALLOC_NO_FREE_POOL);
+  pTimerDrv = KMalloc(sizeof(S_KernelTimer), KMALLOC_NO_FREE_POOL);
   memset(pTimerDrv, 0, sizeof(S_KernelTimer));
 
   pTimerDrv->pGetFrequency  = _TimerGetFrequency;
@@ -1375,7 +1369,7 @@ static void* _ProcFSOpen(void*       pDriverData,
 
   if(flags == O_RDONLY && *kpPath == 0)
   {
-    pEntryOffset = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    pEntryOffset = KMallocUser(sizeof(size_t), NULL);
     if (pEntryOffset == NULL)
     {
       pEntryOffset = (void*)-1;
@@ -1518,9 +1512,7 @@ static void* _ProcFSTimerOpen(void*       pDriverData,
       timerId = (uint32_t)strtoul(kpPath, NULL, 10);
       if (timerId < CPUGetCount())
       {
-        pHandle = KMallocUser(sizeof(S_LAPICTimerProcFSHandle),
-                              ALIGN_ADDRESS,
-                              NULL);
+        pHandle = KMallocUser(sizeof(S_LAPICTimerProcFSHandle), NULL);
         if (pHandle != NULL)
         {
           pHandle->offset = 0;
@@ -1543,9 +1535,7 @@ static void* _ProcFSTimerOpen(void*       pDriverData,
   }
   else if (flags == O_RDONLY && *kpPath == 0)
   {
-    pHandle = KMallocUser(sizeof(S_LAPICTimerProcFSHandle),
-                          ALIGN_ADDRESS,
-                          NULL);
+    pHandle = KMallocUser(sizeof(S_LAPICTimerProcFSHandle), NULL);
     if (pHandle != NULL)
     {
       pHandle->offset = 0;

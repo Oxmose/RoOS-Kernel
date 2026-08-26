@@ -981,13 +981,11 @@ static void _AddBlock(S_MemoryList* pList,
   {
     if (pList->pAllocPool == NULL)
     {
-      pRange = KMalloc(sizeof(S_MemoryRange), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+      pRange = KMalloc(sizeof(S_MemoryRange), KMALLOC_FREE_POOL);
     }
     else
     {
-      pRange = KMallocUser(sizeof(S_MemoryRange),
-                           ALIGN_ADDRESS,
-                           pList->pAllocPool);
+      pRange = KMallocUser(sizeof(S_MemoryRange), pList->pAllocPool);
     }
     MEM_ASSERT(pRange != NULL,
                "Failed to allocate new memory range",
@@ -1109,15 +1107,11 @@ static void _RemoveBlock(S_MemoryList*  pList,
       /* Create new node */
       if (pList->pAllocPool == NULL)
       {
-        pRange = KMalloc(sizeof(S_MemoryRange),
-                         ALIGN_ADDRESS,
-                         KMALLOC_FREE_POOL);
+        pRange = KMalloc(sizeof(S_MemoryRange), KMALLOC_FREE_POOL);
       }
       else
       {
-        pRange = KMallocUser(sizeof(S_MemoryRange),
-                             ALIGN_ADDRESS,
-                             pList->pAllocPool);
+        pRange = KMallocUser(sizeof(S_MemoryRange), pList->pAllocPool);
       }
       MEM_ASSERT(pRange != NULL,
                  "Failed to allocate new memory range",
@@ -2301,9 +2295,7 @@ static void _CreateFramesMetadata(void)
     pRange = pNode->pData;
 
     /* Allocate a new node in the frame meta table */
-    pMetaTable = KMalloc(sizeof(S_FrameMetadataTable),
-                         ALIGN_ADDRESS,
-                         KMALLOC_NO_FREE_POOL);
+    pMetaTable = KMalloc(sizeof(S_FrameMetadataTable), KMALLOC_NO_FREE_POOL);
 
     /* Allocate the reference count table from this block by iteration */
     base      = pRange->base;
@@ -3580,8 +3572,7 @@ E_Return MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess)
   {
     /* Create the memory structure */
     pMemProcInfo = KMallocUser(sizeof(S_ProcessMemoryMetadata),
-                              ALIGN_ADDRESS,
-                              pProcess->pHeap);
+                               pProcess->pHeap);
     if (pMemProcInfo != NULL)
     {
       /* Create the page directory */

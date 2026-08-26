@@ -86,15 +86,15 @@ static void _TestKHeapNoFree(void)
   upBound = downBound + (uintptr_t)&_KERNEL_NON_FREE_HEAP_SIZE;
 
   /* Test 1 Byte alignement */
-  allocated = downBound - 1;
+  allocated = downBound - 8;
   for (i = 0; i < 5; ++i)
   {
     previousAlloc = allocated;
-    allocated = (uintptr_t)KMalloc(1, ALIGN_1_BYTE, KMALLOC_NO_FREE_POOL);
+    allocated = (uintptr_t)KMalloc(1, KMALLOC_NO_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALIGN(i),
-                              (allocated & 0xF) == i,
-                              i,
-                              allocated & 0xF,
+                              (allocated & 0x7) == 0,
+                              0,
+                              allocated & 0x7,
                               TEST_KHEAP_ENABLED);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_RANGE(i),
                               downBound <= allocated && allocated <= upBound,
@@ -102,19 +102,19 @@ static void _TestKHeapNoFree(void)
                               allocated,
                               TEST_KHEAP_ENABLED);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALLOC(i),
-                              previousAlloc +1 == allocated,
-                              previousAlloc +1,
+                              previousAlloc + 8 == allocated,
+                              previousAlloc + 8,
                               allocated,
                               TEST_KHEAP_ENABLED);
   }
 
   /* Test 2 Byte alignement */
   previousAlloc = allocated;
-  allocated = (uintptr_t)KMalloc(1, ALIGN_2_BYTES, KMALLOC_NO_FREE_POOL);
+  allocated = (uintptr_t)KMalloc(1, KMALLOC_NO_FREE_POOL);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALIGN(5),
-                            (allocated & 0x1) == 0,
+                            (allocated & 0x7) == 0,
                             0,
-                            allocated & 0x1,
+                            allocated & 0x7,
                             TEST_KHEAP_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_RANGE(5),
                             downBound <= allocated && allocated <= upBound,
@@ -122,19 +122,19 @@ static void _TestKHeapNoFree(void)
                             allocated,
                             TEST_KHEAP_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALLOC(5),
-                            previousAlloc +2 == allocated,
-                            previousAlloc +2,
+                            previousAlloc + 8 == allocated,
+                            previousAlloc + 8,
                             allocated,
                             TEST_KHEAP_ENABLED);
 
   for (i = 0; i < 4; ++i)
   {
     previousAlloc = allocated;
-    allocated = (uintptr_t)KMalloc(1, ALIGN_2_BYTES, KMALLOC_NO_FREE_POOL);
+    allocated = (uintptr_t)KMalloc(1, KMALLOC_NO_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALIGN(i + 6),
-                              (allocated & 0x1) == 0,
+                              (allocated & 0x7) == 0,
                               0,
-                              allocated & 0x1,
+                              allocated & 0x7,
                               TEST_KHEAP_ENABLED);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_RANGE(i + 6),
                               downBound <= allocated && allocated <= upBound,
@@ -142,19 +142,19 @@ static void _TestKHeapNoFree(void)
                               allocated,
                               TEST_KHEAP_ENABLED);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALLOC(i + 6),
-                              previousAlloc +2 == allocated,
-                              previousAlloc +2,
+                              previousAlloc + 8 == allocated,
+                              previousAlloc + 8,
                               allocated,
                               TEST_KHEAP_ENABLED);
   }
 
   /* Test 4 Byte alignement */
   previousAlloc = allocated;
-  allocated = (uintptr_t)KMalloc(1, ALIGN_4_BYTES, KMALLOC_NO_FREE_POOL);
+  allocated = (uintptr_t)KMalloc(1, KMALLOC_NO_FREE_POOL);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALIGN(10),
-                            (allocated & 0x3) == 0,
+                            (allocated & 0x7) == 0,
                             0,
-                            allocated & 0x3,
+                            allocated & 0x7,
                             TEST_KHEAP_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_RANGE(10),
                             downBound <= allocated && allocated <= upBound,
@@ -162,19 +162,19 @@ static void _TestKHeapNoFree(void)
                             allocated,
                             TEST_KHEAP_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALLOC(10),
-                            previousAlloc +2 == allocated,
-                            previousAlloc +2,
+                            previousAlloc + 8 == allocated,
+                            previousAlloc + 8,
                             allocated,
                             TEST_KHEAP_ENABLED);
 
   for (i = 0; i < 5; ++i)
   {
     previousAlloc = allocated;
-    allocated = (uintptr_t)KMalloc(1, ALIGN_4_BYTES, KMALLOC_NO_FREE_POOL);
+    allocated = (uintptr_t)KMalloc(1, KMALLOC_NO_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALIGN(i + 11),
-                              (allocated & 0x3) == 0,
+                              (allocated & 0x7) == 0,
                               0,
-                              allocated & 0x3,
+                              allocated & 0x7,
                               TEST_KHEAP_ENABLED);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_RANGE(i + 11),
                               downBound <= allocated && allocated <= upBound,
@@ -182,15 +182,15 @@ static void _TestKHeapNoFree(void)
                               allocated,
                               TEST_KHEAP_ENABLED);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALLOC(i + 11),
-                              previousAlloc +4 == allocated,
-                              previousAlloc +4,
+                              previousAlloc + 8 == allocated,
+                              previousAlloc + 8,
                               allocated,
                               TEST_KHEAP_ENABLED);
   }
 
   /* Test 8 Byte alignement */
   previousAlloc = allocated;
-  allocated = (uintptr_t)KMalloc(1, ALIGN_8_BYTES, KMALLOC_NO_FREE_POOL);
+  allocated = (uintptr_t)KMalloc(1, KMALLOC_NO_FREE_POOL);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALIGN(16),
                             (allocated & 0x7) == 0,
                             0,
@@ -202,14 +202,14 @@ static void _TestKHeapNoFree(void)
                             allocated,
                             TEST_KHEAP_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALLOC(16),
-                            previousAlloc +4 == allocated,
-                            previousAlloc +4,
+                            previousAlloc + 8 == allocated,
+                            previousAlloc + 8,
                             allocated,
                             TEST_KHEAP_ENABLED);
   for (i = 0; i < 3; ++i)
   {
     previousAlloc = allocated;
-    allocated = (uintptr_t)KMalloc(1, ALIGN_8_BYTES, KMALLOC_NO_FREE_POOL);
+    allocated = (uintptr_t)KMalloc(1, KMALLOC_NO_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALIGN(i + 17),
                               (allocated & 0x7) == 0,
                               0,
@@ -221,8 +221,8 @@ static void _TestKHeapNoFree(void)
                               allocated,
                               TEST_KHEAP_ENABLED);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_NO_FREE_ALLOC(i + 17),
-                              previousAlloc +8 == allocated,
-                              previousAlloc +8,
+                              previousAlloc + 8 == allocated,
+                              previousAlloc + 8,
                               allocated,
                               TEST_KHEAP_ENABLED);
   }
@@ -241,7 +241,7 @@ static void _TestKHeapFree(void)
   /* Test 1 Byte alignement */
   for (i = 0; i < 5; ++i)
   {
-    allocated = (uintptr_t)KMalloc(1, ALIGN_1_BYTE, KMALLOC_FREE_POOL);
+    allocated = (uintptr_t)KMalloc(1, KMALLOC_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_RANGE(i),
                               downBound <= allocated && allocated <= upBound,
                               0,
@@ -250,11 +250,11 @@ static void _TestKHeapFree(void)
   }
 
   /* Test 2 Byte alignement */
-  allocated = (uintptr_t)KMalloc(1, ALIGN_2_BYTES, KMALLOC_FREE_POOL);
+  allocated = (uintptr_t)KMalloc(1, KMALLOC_FREE_POOL);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_ALIGN(5),
-                            (allocated & 0x1) == 0,
+                            (allocated & 0x7) == 0,
                             0,
-                            allocated & 0x1,
+                            allocated & 0x7,
                             TEST_KHEAP_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_RANGE(5),
                             downBound <= allocated && allocated <= upBound,
@@ -264,11 +264,11 @@ static void _TestKHeapFree(void)
 
   for (i = 0; i < 4; ++i)
   {
-    allocated = (uintptr_t)KMalloc(1, ALIGN_2_BYTES, KMALLOC_FREE_POOL);
+    allocated = (uintptr_t)KMalloc(1, KMALLOC_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_ALIGN(i + 6),
-                              (allocated & 0x1) == 0,
+                              (allocated & 0x7) == 0,
                               0,
-                              allocated & 0x1,
+                              allocated & 0x7,
                               TEST_KHEAP_ENABLED);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_RANGE(i + 6),
                               downBound <= allocated && allocated <= upBound,
@@ -278,11 +278,11 @@ static void _TestKHeapFree(void)
   }
 
   /* Test 4 Byte alignement */
-  allocated = (uintptr_t)KMalloc(1, ALIGN_4_BYTES, KMALLOC_FREE_POOL);
+  allocated = (uintptr_t)KMalloc(1, KMALLOC_FREE_POOL);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_ALIGN(10),
-                            (allocated & 0x3) == 0,
+                            (allocated & 0x7) == 0,
                             0,
-                            allocated & 0x3,
+                            allocated & 0x7,
                             TEST_KHEAP_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_RANGE(10),
                             downBound <= allocated && allocated <= upBound,
@@ -292,11 +292,11 @@ static void _TestKHeapFree(void)
 
   for (i = 0; i < 5; ++i)
   {
-    allocated = (uintptr_t)KMalloc(1, ALIGN_4_BYTES, KMALLOC_FREE_POOL);
+    allocated = (uintptr_t)KMalloc(1, KMALLOC_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_ALIGN(i + 11),
-                              (allocated & 0x3) == 0,
+                              (allocated & 0x7) == 0,
                               0,
-                              allocated & 0x3,
+                              allocated & 0x7,
                               TEST_KHEAP_ENABLED);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_RANGE(i + 11),
                               downBound <= allocated && allocated <= upBound,
@@ -306,7 +306,7 @@ static void _TestKHeapFree(void)
   }
 
   /* Test 8 Byte alignement */
-  allocated = (uintptr_t)KMalloc(1, ALIGN_8_BYTES, KMALLOC_FREE_POOL);
+  allocated = (uintptr_t)KMalloc(1, KMALLOC_FREE_POOL);
   TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_ALIGN(16),
                             (allocated & 0x7) == 0,
                             0,
@@ -319,7 +319,7 @@ static void _TestKHeapFree(void)
                             TEST_KHEAP_ENABLED);
   for (i = 0; i < 3; ++i)
   {
-    allocated = (uintptr_t)KMalloc(1, ALIGN_8_BYTES, KMALLOC_FREE_POOL);
+    allocated = (uintptr_t)KMalloc(1, KMALLOC_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_ALIGN(i + 17),
                               (allocated & 0x7) == 0,
                               0,
@@ -334,7 +334,7 @@ static void _TestKHeapFree(void)
 
   for (i = 0; i < 200; ++i)
   {
-    sAllocated[i] = (uintptr_t)KMalloc(32, ALIGN_8_BYTES, KMALLOC_FREE_POOL);
+    sAllocated[i] = (uintptr_t)KMalloc(32, KMALLOC_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_ALLOC(i * 3),
                               (sAllocated[i] & 0x7) == 0,
                               0,
@@ -357,7 +357,7 @@ static void _TestKHeapFree(void)
   for (i = 199; i >= 0; --i)
   {
     KFree((void*)sAllocated[i]);
-    sSecondAllocated[i] = (uintptr_t)KMalloc(32, ALIGN_8_BYTES, KMALLOC_FREE_POOL);
+    sSecondAllocated[i] = (uintptr_t)KMalloc(32, KMALLOC_FREE_POOL);
     TEST_POINT_ASSERT_POINTER(TEST_KHEAP_FREE_ALLOC(600 + i * 3),
                               (sAllocated[i] & 0x7) == 0,
                               0,

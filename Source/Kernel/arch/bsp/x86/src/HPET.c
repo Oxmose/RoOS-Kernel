@@ -357,9 +357,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   /* Init structures */
   memset(&sDrvCtrl, 0, sizeof(S_HPETControler));
 
-  pTimerDrv = KMalloc(sizeof(S_KernelTimer),
-                      ALIGN_ADDRESS,
-                      KMALLOC_NO_FREE_POOL);
+  pTimerDrv = KMalloc(sizeof(S_KernelTimer), KMALLOC_NO_FREE_POOL);
   memset(pTimerDrv, 0, sizeof(S_KernelTimer));
   pTimerDrv->pEnable     = _Enable;
   pTimerDrv->pDisable    = _Disable;
@@ -507,7 +505,7 @@ static void* _ProcFSOpen(void*       pDriverData,
 
   if(flags == O_RDONLY && *kpPath == 0)
   {
-    pEntryOffset = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    pEntryOffset = KMallocUser(sizeof(size_t), NULL);
     if (pEntryOffset != NULL)
     {
       *pEntryOffset = 0;

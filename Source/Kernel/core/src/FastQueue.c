@@ -95,9 +95,8 @@ S_FastQueue* FQueueCreate(const size_t kElementCount, const size_t kElementSize)
   S_FastQueue* pNewQueue;
 
   /* Create new queue */
-  pNewQueue = KMalloc(sizeof(S_FastQueue), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+  pNewQueue = KMalloc(sizeof(S_FastQueue), KMALLOC_FREE_POOL);
   pNewQueue->pBuffer = KMalloc((kElementCount + 1) * kElementSize,
-                               ALIGN_ADDRESS,
                                KMALLOC_FREE_POOL);
 
   /* Init the structure */

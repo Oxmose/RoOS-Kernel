@@ -417,15 +417,11 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   if (spDrvCtrl == NULL)
   {
     /* Init structures */
-    spDrvCtrl = KMalloc(sizeof(S_RTCControler),
-                        ALIGN_ADDRESS,
-                        KMALLOC_NO_FREE_POOL);
+    spDrvCtrl = KMalloc(sizeof(S_RTCControler), KMALLOC_NO_FREE_POOL);
     memset(spDrvCtrl, 0, sizeof(S_RTCControler));
     KERNEL_SPINLOCK_INIT(spDrvCtrl->lock);
 
-    pTimerDrv = KMalloc(sizeof(S_KernelTimer),
-                        ALIGN_ADDRESS,
-                        KMALLOC_NO_FREE_POOL);
+    pTimerDrv = KMalloc(sizeof(S_KernelTimer), KMALLOC_NO_FREE_POOL);
     memset(pTimerDrv, 0, sizeof(S_KernelTimer));
 
     pTimerDrv->pGetFrequency  = _GetFrequency;
@@ -828,7 +824,7 @@ static void* _ProcFSOpen(void*       pDriverData,
   (void)mode;
   if(flags == O_RDONLY && *kpPath == 0)
   {
-    pHandle = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    pHandle = KMallocUser(sizeof(size_t), NULL);
     if (pHandle != NULL)
     {
       *pHandle = 0;

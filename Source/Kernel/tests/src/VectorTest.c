@@ -76,7 +76,7 @@ static void* _Alloc(const size_t kSize, void* pMeta)
 {
   (void)pMeta;
   void* addr;
-  addr = KMalloc(kSize, ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+  addr = KMalloc(kSize, KMALLOC_FREE_POOL);
   return addr;
 }
 

@@ -672,7 +672,7 @@ static void _AddDriverNode(S_VFSNode*  pRoot,
     }
 
     /* Create the node */
-    pNode = KMalloc(sizeof(S_VFSNode), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+    pNode = KMalloc(sizeof(S_VFSNode), KMALLOC_FREE_POOL);
     memcpy(pNode->pMountPoint, kpPath, token - 1);
     pNode->pMountPoint[token - 1] = 0;
     pNode->mountPointLength = token - 1;
@@ -786,7 +786,7 @@ static bool _RemoveDriverNode(S_VFSNode* pRoot)
 
 static void* _VFSAllocUser(const size_t kSize, void* pMeta)
 {
-  return KMallocUser(kSize, ALIGN_ADDRESS, pMeta);
+  return KMallocUser(kSize, pMeta);
 }
 
 static void _VFSFreeUser(void* ptr, void* pMeta)
@@ -811,20 +811,15 @@ static int32_t _CreateFileDescriptor(S_FDTable*  pTable,
 
   fdId  = -1;
 
-  pFD = KMallocUser(sizeof(S_FileDescriptor),
-                    ALIGN_ADDRESS,
-                    pTable->pAllocPool);
+  pFD = KMallocUser(sizeof(S_FileDescriptor), pTable->pAllocPool);
   if (pFD != NULL)
   {
     pFD->pShared = KMallocUser(sizeof(S_FileDescriptorShared),
-                               ALIGN_ADDRESS,
                                pTable->pAllocPool);
     if (pFD->pShared != NULL)
     {
       pathLen = strnlen(kpPath, VFS_PATH_MAX_LENGTH);
-      pFD->pShared->pFilePath = KMallocUser(pathLen + 1,
-                                            ALIGN_ADDRESS,
-                                            pTable->pAllocPool);
+      pFD->pShared->pFilePath = KMallocUser(pathLen + 1, pTable->pAllocPool);
       if (pFD->pShared->pFilePath != NULL)
       {
         // Find a free slot
@@ -957,9 +952,7 @@ static void* _GenericOpen(void*       pDrvCtrl,
   {
     pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
 
-    pDesc = KMallocUser(sizeof(S_VFSGenericFileDescriptor),
-                        ALIGN_ADDRESS,
-                        pTable->pAllocPool);
+    pDesc = KMallocUser(sizeof(S_VFSGenericFileDescriptor), pTable->pAllocPool);
     if (pDesc != NULL)
     {
       memset(pDesc, 0, sizeof(S_VFSGenericFileDescriptor));
@@ -1116,7 +1109,7 @@ static ssize_t _GenericIOCTL(void*    pDriverData,
 void VirtualFileSystemInit(void)
 {
   /* Initialize the mount point */
-  spRootPoint = KMalloc(sizeof(S_VFSNode), ALIGN_ADDRESS, KMALLOC_NO_FREE_POOL);
+  spRootPoint = KMalloc(sizeof(S_VFSNode), KMALLOC_NO_FREE_POOL);
   spRootPoint->mountPointLength = 0;
   spRootPoint->pMountPoint[0]   = 0;
   spRootPoint->pDriver          = NULL;
@@ -1142,7 +1135,7 @@ E_Return CreateProcessFDTable(S_KernelProcess* pProcess)
   E_Return           retCode;
 
   /* Allocate the new table */
-  pTable = KMallocUser(sizeof(S_FDTable), ALIGN_ADDRESS, pProcess->pHeap);
+  pTable = KMallocUser(sizeof(S_FDTable), pProcess->pHeap);
   if (pTable != NULL)
   {
     pTable->pFDTable = VectorCreate(VECTOR_ALLOCATOR(_VFSAllocUser,
@@ -1235,7 +1228,7 @@ T_VFSDriver RegisterVFSDriver(const char*  kpPath,
   char*       pPath;
 
   /* Allocate the path and clean it */
-  pPath = KMalloc(VFS_PATH_MAX_LENGTH, ALIGN_1_BYTE, KMALLOC_FREE_POOL);
+  pPath = KMalloc(VFS_PATH_MAX_LENGTH, KMALLOC_FREE_POOL);
   pathLen = _CleanPath(pPath, kpPath);
 
   if (pathLen > 0)
@@ -1252,9 +1245,7 @@ T_VFSDriver RegisterVFSDriver(const char*  kpPath,
       {
         if (pNode->pDriver == NULL)
         {
-          pDriver = KMalloc(sizeof(S_FSDriver),
-                            ALIGN_ADDRESS,
-                            KMALLOC_FREE_POOL);
+          pDriver = KMalloc(sizeof(S_FSDriver), KMALLOC_FREE_POOL);
           pNode->pDriver = pDriver;
           pDriver->pNode = pNode;
         }
@@ -1266,7 +1257,7 @@ T_VFSDriver RegisterVFSDriver(const char*  kpPath,
       else
       {
         /* No driver exist, allocate a new one */
-        pDriver = KMalloc(sizeof(S_FSDriver), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+        pDriver = KMalloc(sizeof(S_FSDriver), KMALLOC_FREE_POOL);
         _AddDriverNode(pNode, pPath + nextToken, pathLen - nextToken, pDriver);
       }
 
@@ -1341,7 +1332,7 @@ int32_t VFSOpen(const char* kpPath, int32_t flags, int32_t mode)
   pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
 
   /* Allocate the path and clean it */
-  pPath = KMallocUser(VFS_PATH_MAX_LENGTH, ALIGN_1_BYTE, pTable->pAllocPool);
+  pPath = KMallocUser(VFS_PATH_MAX_LENGTH, pTable->pAllocPool);
   if (pPath != NULL)
   {
     pathLen = _CleanPath(pPath, kpPath);
@@ -1692,7 +1683,7 @@ E_Return VFSMount(const char* kpPath,
   if (kpFsName != NULL && kpDevPath != NULL && kpPath != NULL)
   {
     /* Allocate the path and clean it */
-    pPath = KMalloc(VFS_PATH_MAX_LENGTH, ALIGN_1_BYTE, KMALLOC_FREE_POOL);
+    pPath = KMalloc(VFS_PATH_MAX_LENGTH, KMALLOC_FREE_POOL);
     _CleanPath(pPath, kpPath);
 
     /* Search for a registered driver */
@@ -1764,7 +1755,7 @@ E_Return VFSUnmount(const char* kpPath)
   E_Return    retCode;
 
   /* Allocate the path and clean it */
-  pPath = KMalloc(VFS_PATH_MAX_LENGTH, ALIGN_1_BYTE, KMALLOC_FREE_POOL);
+  pPath = KMalloc(VFS_PATH_MAX_LENGTH, KMALLOC_FREE_POOL);
   pathLen = _CleanPath(pPath, kpPath);
 
   if (pathLen > 0)

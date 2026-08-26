@@ -442,9 +442,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   kpIOAPICNode = skpACPIDriver->pGetIOAPICList();
   while (kpIOAPICNode != NULL)
   {
-    pNewDrvCtrl = KMalloc(sizeof(S_IOAPICControler),
-                          ALIGN_ADDRESS,
-                          KMALLOC_NO_FREE_POOL);
+    pNewDrvCtrl = KMalloc(sizeof(S_IOAPICControler), KMALLOC_NO_FREE_POOL);
     memset(pNewDrvCtrl, 0, sizeof(S_IOAPICControler));
     /* Link IO APIC controller */
     pNewDrvCtrl->pNext = spDrvCtrl;
@@ -637,7 +635,7 @@ static void* _ProcFSOpen(void*       pDriverData,
 
   if(flags == O_RDONLY && *kpPath == 0)
   {
-    pEntryOffset = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    pEntryOffset = KMallocUser(sizeof(size_t), NULL);
     if (pEntryOffset != NULL)
     {
       *pEntryOffset = 0;

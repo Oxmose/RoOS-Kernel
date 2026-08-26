@@ -51,7 +51,7 @@
 #define MODULE_NAME "KHEAP"
 
 /** @brief Memory chunk alignement. */
-#define ALIGN 4
+#define ALIGN 8
 
 /** @brief S_Chunk minimal size. */
 #define MIN_SIZE sizeof(S_List)
@@ -288,15 +288,12 @@ static inline void _PushFree(S_Chunk *pChunk, S_ProcessHeap* pHeap);
  * start address of the chunk.
  *
  * @param[in] kSize The number of byte to allocate.
- * @param[in] kAlign The alignement in bytes.
  * @param[in] pHeap The process heap to allocate from.
-
+ *
  * @return A pointer to the start address of the allocated memory is returned.
  * If the memory cannot be allocated, a kernel panic is raised.
  */
-static void* _KMalloc(const size_t       kSize,
-                      const E_Alignement kAlign,
-                      S_ProcessHeap*     pHeap);
+static void* _KMalloc(const size_t kSize, S_ProcessHeap* pHeap);
 
                          /**
  * @brief Allocate memory from the kernel heap without ability to free later.
@@ -305,13 +302,11 @@ static void* _KMalloc(const size_t       kSize,
  * start address of the chunk.
  *
  * @param[in] kSize The number of byte to allocate.
- * @param[in] kAlign The alignement in bytes.
  *
  * @return A pointer to the start address of the allocated memory is returned.
  * If the memory cannot be allocated, a kernel panic is raised.
  */
-static void* _KMallocNoFree(const size_t       kSize,
-                            const E_Alignement kAlign);
+static void* _KMallocNoFree(const size_t kSize);
 
 /** @brief Frees memory allocated  from the kernel heap.
  *
@@ -475,9 +470,7 @@ static inline void _PushFree(S_Chunk *pChunk, S_ProcessHeap* pHeap)
   pHeap->sMemFree += len;
 }
 
-static void* _KMalloc(const size_t       kSize,
-                      const E_Alignement kAlign,
-                      S_ProcessHeap*     pHeap)
+static void* _KMalloc(const size_t kSize, S_ProcessHeap* pHeap)
 {
   size_t    n;
   size_t    size;
@@ -485,18 +478,27 @@ static void* _KMalloc(const size_t       kSize,
   S_Chunk*  pChunk2;
   size_t    size2;
   size_t    len;
-  uintptr_t align;
   void*     allocated;
+  size_t    alignLeft;
 
   if (kSize != 0)
   {
     KERNEL_LOCK(pHeap->lock);
 
-    size = kSize;
+    /* Ensure to stay aligned */
+    alignLeft = (HEADER_SIZE + kSize) & (ALIGN - 1);
+    if (alignLeft != 0)
+    {
+      size = kSize + ALIGN - alignLeft;
+    }
+    else
+    {
+      size = kSize;
+    }
 
     if (size < MIN_SIZE)
     {
-        size = MIN_SIZE;
+      size = MIN_SIZE;
     }
 
     n = _MemoryChunkSlot(size - 1) + 1;
@@ -516,10 +518,6 @@ static void* _KMalloc(const size_t       kSize,
       if (n < NUM_SIZES)
       {
         pChunk = LIST_POP(&pHeap->spFreeChunk[n], free);
-
-        /* Ensure correct alignement */
-        align = (kAlign - 1);
-        size += ((uintptr_t)pChunk->pData & align);
 
         size2 = _MemoryChunkSize(pChunk);
         len = 0;
@@ -545,7 +543,7 @@ static void* _KMalloc(const size_t       kSize,
         pHeap->sMemFree -= size2;
         pHeap->sMemUsed += size2 - len - HEADER_SIZE;
 
-        allocated = (void*)(((uintptr_t)pChunk->pData + align) & ~align);
+        allocated = (void*)pChunk->pData;
       }
     }
     else
@@ -563,7 +561,7 @@ static void* _KMalloc(const size_t       kSize,
   return allocated;
 }
 
-static void* _KMallocNoFree(const size_t kSize, const E_Alignement kAlign)
+static void* _KMallocNoFree(const size_t kSize)
 {
   void*     allocated;
   uintptr_t allocAlign;
@@ -574,7 +572,7 @@ static void* _KMallocNoFree(const size_t kSize, const E_Alignement kAlign)
   {
     KERNEL_LOCK(sLock);
 
-    allocAlign = (sNonFreeHeapHead + (kAlign - 1)) & ~((uintptr_t)kAlign - 1);
+    allocAlign = (sNonFreeHeapHead + (ALIGN - 1)) & ~((uintptr_t)ALIGN - 1);
     if (allocAlign + kSize <= sNonFreeHeapEnd)
     {
       allocated = (void*)allocAlign;
@@ -589,9 +587,9 @@ static void* _KMallocNoFree(const size_t kSize, const E_Alignement kAlign)
 
 void _KFree(void *ptr, S_ProcessHeap* pHeap)
 {
-  S_Chunk*         pChunk;
-  S_Chunk*         pNext;
-  S_Chunk*         pPrev;
+  S_Chunk* pChunk;
+  S_Chunk* pNext;
+  S_Chunk* pPrev;
 
   KHEAP_ASSERT(
     pHeap->baseAddress <= (uintptr_t)ptr && pHeap->endAddress > (uintptr_t)ptr,
@@ -655,9 +653,9 @@ void KernelHeapInit(void)
 
   /* Initialize the free pool */
   memset(&sKernelHeap, 0, sizeof(S_ProcessHeap));
-  sKernelHeap.baseAddress = (uintptr_t)pMemStart;
-  sKernelHeap.endAddress  = (uintptr_t)pMemEnd;
-  sKernelHeap.currentHead = (uintptr_t)pMemStart;
+  sKernelHeap.baseAddress  = (uintptr_t)pMemStart;
+  sKernelHeap.endAddress   = (uintptr_t)pMemEnd;
+  sKernelHeap.currentHead  = (uintptr_t)pMemStart;
   sKernelHeap.sMemUsed     = 0;
   sKernelHeap.sMemFree     = 0;
   sKernelHeap.sMemMeta     = 0;
@@ -719,9 +717,9 @@ E_Return CreateProcessHeap(S_ProcessHeap** ppHeap)
     pMemEnd   = (int8_t*)(((uintptr_t)pMem + size) &  (~(ALIGN - 1)));
 
     memset(pHeap, 0, sizeof(S_ProcessHeap));
-    pHeap->baseAddress = (uintptr_t)pMemStart;
-    pHeap->endAddress  = (uintptr_t)pMemEnd;
-    pHeap->currentHead = (uintptr_t)pMemStart;
+    pHeap->baseAddress  = (uintptr_t)pMemStart;
+    pHeap->endAddress   = (uintptr_t)pMemEnd;
+    pHeap->currentHead  = (uintptr_t)pMemStart;
     pHeap->sMemUsed     = 0;
     pHeap->sMemFree     = 0;
     pHeap->sMemMeta     = 0;
@@ -765,9 +763,7 @@ void DestroyProcessHeap(S_ProcessHeap* pHeap)
   KHEAP_ASSERT(error == NO_ERROR, "Failed to unmap kernel heap.", error, false);
 }
 
-void* KMalloc(const size_t        kSize,
-              const E_Alignement  kAlign,
-              const E_KMallocPool kPool)
+void* KMalloc(const size_t kSize, const E_KMallocPool kPool)
 {
   void* alloc;
 
@@ -775,11 +771,11 @@ void* KMalloc(const size_t        kSize,
 
   if (kPool == KMALLOC_NO_FREE_POOL)
   {
-    alloc = _KMallocNoFree(kSize, kAlign);
+    alloc = _KMallocNoFree(kSize);
   }
   else if (kPool == KMALLOC_FREE_POOL)
   {
-    alloc = _KMalloc(kSize, kAlign, &sKernelHeap);
+    alloc = _KMalloc(kSize, &sKernelHeap);
   }
   KHEAP_ASSERT(alloc != NULL,
                "Failed to allocate memory.",
@@ -789,9 +785,7 @@ void* KMalloc(const size_t        kSize,
   return alloc;
 }
 
-void* KMallocUser(const size_t       kSize,
-                  const E_Alignement kAlign,
-                  S_ProcessHeap*     pHeap)
+void* KMallocUser(const size_t kSize, S_ProcessHeap* pHeap)
 {
   void* alloc;
 
@@ -801,7 +795,7 @@ void* KMallocUser(const size_t       kSize,
     pHeap = SchedulerGetCurrentProcess()->pHeap;
   }
 
-  alloc = _KMalloc(kSize, kAlign, pHeap);
+  alloc = _KMalloc(kSize, pHeap);
 
   return alloc;
 }

@@ -215,10 +215,10 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   pTimerDrv = NULL;
 
   /* Init structures */
-  pDrvCtrl = KMalloc(sizeof(S_TSCControler), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+  pDrvCtrl = KMalloc(sizeof(S_TSCControler), KMALLOC_FREE_POOL);
   memset(pDrvCtrl, 0, sizeof(S_TSCControler));
 
-  pTimerDrv = KMalloc(sizeof(S_KernelTimer), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+  pTimerDrv = KMalloc(sizeof(S_KernelTimer), KMALLOC_FREE_POOL);
   memset(pTimerDrv, 0, sizeof(S_KernelTimer));
 
   pTimerDrv->pGetFrequency  = _GetFrequency;

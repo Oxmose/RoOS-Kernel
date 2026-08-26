@@ -295,12 +295,8 @@ void TimeManagerInit(void)
   sCpuCount = CPUGetCount();
 
   /* Initialize the structures */
-  spSysTickCount = KMalloc(sizeof(uint64_t) * sCpuCount,
-                           ALIGN_8_BYTES,
-                           KMALLOC_NO_FREE_POOL);
-  spActiveWait = KMalloc(sizeof(uint64_t) * sCpuCount,
-                         ALIGN_8_BYTES,
-                         KMALLOC_NO_FREE_POOL);
+  spSysTickCount = KMalloc(sizeof(uint64_t) * sCpuCount, KMALLOC_NO_FREE_POOL);
+  spActiveWait = KMalloc(sizeof(uint64_t) * sCpuCount, KMALLOC_NO_FREE_POOL);
 
   /* Get the FDT timers node */
   kpTimerNode = FDTGetNodeByName(FDT_TIMECONFIG_NODE_NAME);

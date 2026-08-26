@@ -57,7 +57,7 @@
 #define IDLE_THREAD_NAME "ROOS_IDLE\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
 
 /** @brief Scheduler requests queue size in number of elements */
-#define SCHEDULER_REQUEST_QUEUE_SIZE 25
+#define SCHEDULER_REQUEST_QUEUE_SIZE 250
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -431,9 +431,7 @@ static void _CreateMainProcess(void)
 {
   E_Return retCode;
 
-  spMainProcess = KMalloc(sizeof(S_KernelProcess),
-                          ALIGN_ADDRESS,
-                          KMALLOC_NO_FREE_POOL);
+  spMainProcess = KMalloc(sizeof(S_KernelProcess), KMALLOC_NO_FREE_POOL);
   memset(spMainProcess, 0, sizeof(S_KernelProcess));
 
   /* Initialize the heap */
@@ -483,9 +481,7 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
   E_Return           retCode;
 
   /* Create the thread */
-  pIdle = KMallocUser(sizeof(S_KernelThread),
-                      ALIGN_ADDRESS,
-                      pMainProcess->pHeap);
+  pIdle = KMallocUser(sizeof(S_KernelThread), pMainProcess->pHeap);
   SCHED_ASSERT(pIdle != NULL,
                "Failed to allocate IDLE thread.",
                ERR_NO_MEMORY,
@@ -911,13 +907,11 @@ void SchedulerInit(void)
 
   /* Create the scheduling contexts. */
   ppSchedulerContext = KMalloc(sizeof(S_ScheduleContext*) * cpuCount,
-                               ALIGN_ADDRESS,
                                KMALLOC_NO_FREE_POOL);
   /* Initialize the contexts */
   for (i = 0; i < cpuCount; ++i)
   {
     ppSchedulerContext[i] = KMalloc(sizeof(S_ScheduleContext),
-                                    ALIGN_ADDRESS,
                                     KMALLOC_NO_FREE_POOL);
     /* Create the ready list queues */
     for (j = 0; j <= KERNEL_LOWEST_PRIORITY; ++j)
@@ -926,7 +920,7 @@ void SchedulerInit(void)
     }
 
     /* Create the sleeping list queue */
-    ppSchedulerContext[i]->pSleepingList = KQueueCreate(NULL);
+    ppSchedulerContext[i]->pSleepingList   = KQueueCreate(NULL);
     ppSchedulerContext[i]->highestPriority = KERNEL_LOWEST_PRIORITY;
     ppSchedulerContext[i]->mappedCpu       = i;
     ppSchedulerContext[i]->stats.score     = 0;
@@ -934,7 +928,6 @@ void SchedulerInit(void)
     /* Create the requests queues */
     ppSchedulerContext[i]->ppRequestQueues = KMalloc(sizeof(S_FastQueue*) *
                                                       cpuCount,
-                                                     ALIGN_ADDRESS,
                                                      KMALLOC_NO_FREE_POOL);
     for (j = 0; j < cpuCount; ++j)
     {
@@ -1173,7 +1166,7 @@ E_Return CreateThread(S_KernelThread**      ppThread,
     pCurrentProcess = SchedulerGetCurrentProcess();
 
     /* Create the thread */
-    pThread = KMallocUser(sizeof(S_KernelThread), ALIGN_ADDRESS, NULL);
+    pThread = KMallocUser(sizeof(S_KernelThread), NULL);
     if (pThread != NULL)
     {
       pThread->pThreadNode = KQueueCreateNode(pThread, pCurrentProcess->pHeap);
