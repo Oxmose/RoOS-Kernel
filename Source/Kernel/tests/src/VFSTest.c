@@ -2291,7 +2291,7 @@ void VFSRemoveNodeTest(void* pArgs)
 
   for (i = 0; i < 16; ++i)
   {
-    pNodePool[i] = KMalloc(sizeof(S_VFSNode), ALIGN_ADDRESS, KMALLOC_FREE_POOL);
+    pNodePool[i] = KMalloc(sizeof(S_VFSNode), KMALLOC_FREE_POOL);
   }
 
   pRemoveNode = (T_RemoveDriverNode)pArgs;

@@ -425,9 +425,7 @@ static E_Return _UartAttach(const S_FDTNode* kpFdtNode)
   E_UARTBaudrate   baudRate;
 
   /* Init structures */
-  pDrvCtrl = KMalloc(sizeof(S_UARTControler),
-                     ALIGN_ADDRESS,
-                     KMALLOC_NO_FREE_POOL);
+  pDrvCtrl = KMalloc(sizeof(S_UARTControler), KMALLOC_NO_FREE_POOL);
 
   KERNEL_SPINLOCK_INIT(pDrvCtrl->lock);
 

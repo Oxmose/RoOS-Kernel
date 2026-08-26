@@ -173,6 +173,8 @@ typedef struct
   S_CPUState cpuState;
   /** @brief FXSAVE / FXRSTOR data region */
   uintptr_t fxDataRegion;
+  /** @brief FXSAVE / FXRSTOR data region (non-aligned) */
+  uintptr_t fxDataRegionNonAligned;
 } __attribute__((packed)) S_VirtualCPU;
 
 /*******************************************************************************

@@ -237,7 +237,7 @@ void InterruptInit(void)
               kspCpuInterruptConfig->maxInterruptLine + 1;
 
   /* Allocate and blank custom interrupt handlers */
-  spHandlerTable = KMalloc(tableSize, ALIGN_ADDRESS, KMALLOC_NO_FREE_POOL);
+  spHandlerTable = KMalloc(tableSize, KMALLOC_NO_FREE_POOL);
   memset(spHandlerTable, 0, tableSize);
 
   /* Init driver */

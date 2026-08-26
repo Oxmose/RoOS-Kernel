@@ -230,7 +230,6 @@ if __name__ == "__main__":
                 except subprocess.TimeoutExpired:
                     p.kill()
                     p.wait(TEST_TIMEOUT)
-                    os.system("killall qemu-system-i386")
                     os.system("killall qemu-system-x86_64")
 
                 outputFile.close()

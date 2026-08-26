@@ -291,7 +291,7 @@ static E_Return _CopyEntryHandle(S_ProcFSEntry*       pDstEntry,
   memcpy(pDstEntry, kpSrcEntry, sizeof(S_ProcFSEntry));
 
   nameLen = strnlen(kpSrcEntry->entryData.name, VFS_PATH_MAX_LENGTH);
-  pDstEntry->entryData.name = KMallocUser(nameLen + 1, ALIGN_1_BYTE, NULL);
+  pDstEntry->entryData.name = KMallocUser(nameLen + 1, NULL);
   if (pDstEntry->entryData.name != NULL)
   {
     memcpy(pDstEntry->entryData.name, kpSrcEntry->entryData.name, nameLen);
@@ -423,7 +423,7 @@ static void* _ProcFSVFSOpen(void*       pDrvCtrl,
   (void)pDrvCtrl;
 
   /* Allocate the new structure */
-  pEntry = KMallocUser(sizeof(S_ProcFSEntry), ALIGN_ADDRESS, NULL);
+  pEntry = KMallocUser(sizeof(S_ProcFSEntry), NULL);
   if (pEntry != NULL)
   {
     /* Check if we want to open an entry of a directory directory */
@@ -907,11 +907,8 @@ E_Return ProcFSCreateDir(const char*        kpName,
         if (returnVal == NO_ERROR)
         {
           /* Create the entry */
-          pNewDirectory = KMalloc(sizeof(S_ProcFSEntry),
-                                  ALIGN_ADDRESS,
-                                  KMALLOC_FREE_POOL);
+          pNewDirectory = KMalloc(sizeof(S_ProcFSEntry), KMALLOC_FREE_POOL);
           pNewDirectory->entryData.name = KMalloc(nameLen + 1,
-                                                  ALIGN_ADDRESS,
                                                   KMALLOC_FREE_POOL);
 
           /* Populate entry data */
@@ -1086,12 +1083,8 @@ E_Return ProcFSCreateEntry(const char*             kpName,
       if (returnVal == NO_ERROR)
       {
         /* Create the entry */
-        pNewEntry = KMalloc(sizeof(S_ProcFSEntry),
-                            ALIGN_ADDRESS,
-                            KMALLOC_FREE_POOL);
-        pNewEntry->entryData.name = KMalloc(nameLen + 1,
-                                    ALIGN_ADDRESS,
-                                    KMALLOC_FREE_POOL);
+        pNewEntry = KMalloc(sizeof(S_ProcFSEntry), KMALLOC_FREE_POOL);
+        pNewEntry->entryData.name = KMalloc(nameLen + 1, KMALLOC_FREE_POOL);
 
         /* Populate entry data */
         memcpy(pNewEntry->entryData.name, kpName, nameLen);

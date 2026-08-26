@@ -39,32 +39,6 @@
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/** @brief Defines the allowed memory allignement for memory allocation. */
-typedef enum
-{
-  /** @brief 1 byte alignment boundary. */
-  ALIGN_1_BYTE = 1,
-  /** @brief 2 bytes alignment boundary. */
-  ALIGN_2_BYTES = 2,
-  /** @brief 4 bytes alignment boundary. */
-  ALIGN_4_BYTES = 4,
-  /** @brief 8 bytes alignment boundary. */
-  ALIGN_8_BYTES = 8,
-  /** @brief 16 bytes alignment boundary. */
-  ALIGN_16_BYTES = 16,
-  /** @brief 32 bytes alignment boundary. */
-  ALIGN_32_BYTES = 32,
-  /** @brief 64 bytes alignment boundary. */
-  ALIGN_64_BYTES = 64,
-  /** @brief 128 bytes alignment boundary. */
-  ALIGN_128_BYTES = 128,
-  /** @brief 256 bytes alignment boundary. */
-  ALIGN_256_BYTES = 256,
-  /** @brief 512 bytes alignment boundary. */
-  ALIGN_512_BYTES = 512,
-  /** @brief Address size bytes alignment boundary. */
-  ALIGN_ADDRESS = sizeof(uintptr_t)
-} E_Alignement;
 
 /** @brief Defines the allowed memory pool for memory allocation. */
 typedef enum
@@ -192,15 +166,12 @@ void DestroyProcessHeap(S_ProcessHeap* pHeap);
  * start address of the chunk.
  *
  * @param[in] kSize The number of byte to allocate.
- * @param[in] kAlign The alignement in bytes.
  * @param[in] kPool The heap pool to use for the allocation.
  *
  * @return A pointer to the start address of the allocated memory is returned.
  * If the memory cannot be allocated, a kernel panic is raised.
  */
-void* KMalloc(const size_t        kSize,
-              const E_Alignement  kAlign,
-              const E_KMallocPool kPool);
+void* KMalloc(const size_t kSize, const E_KMallocPool kPool);
 
 /**
  * @brief Allocate memory from the user heap.
@@ -209,15 +180,12 @@ void* KMalloc(const size_t        kSize,
  * start address of the chunk.
  *
  * @param[in] kSize The number of byte to allocate.
- * @param[in] kAlign The alignement in bytes.
  * @param[in] pHeap The heap to use for the allocation. Can be set to NULL if
  * the current process heap is to be used.
  *
  * @return A pointer to the start address of the allocated memory is returned.
  */
-void* KMallocUser(const size_t       kSize,
-                  const E_Alignement kAlign,
-                  S_ProcessHeap*     pHeap);
+void* KMallocUser(const size_t kSize,  S_ProcessHeap* pHeap);
 
 /**
  * @brief Free allocated memory from the kernel heap.

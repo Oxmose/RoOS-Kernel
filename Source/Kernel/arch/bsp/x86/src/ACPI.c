@@ -1310,9 +1310,7 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
                    sDrvCtrl.detectedCPUCount);
 
       /* Create new LAPIC node */
-      pLAPICNode = KMalloc(sizeof(S_LAPICNode),
-                           ALIGN_ADDRESS,
-                           KMALLOC_NO_FREE_POOL);
+      pLAPICNode = KMalloc(sizeof(S_LAPICNode), KMALLOC_NO_FREE_POOL);
 
       /* Fill the descriptor */
       pLAPICNode->lapic.lapicId = ((S_LAPIC*)madtEntry)->lapicId;
@@ -1330,9 +1328,7 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
                    "    IO-APIC");
 
       /* Create new IO APIC node */
-      pIOApicNode = KMalloc(sizeof(S_IOAPICNode),
-                            ALIGN_ADDRESS,
-                            KMALLOC_NO_FREE_POOL);
+      pIOApicNode = KMalloc(sizeof(S_IOAPICNode), KMALLOC_NO_FREE_POOL);
 
       /* Fill the descriptor */
       pIOApicNode->ioApic.ioApicId = ((S_IOAPIC*)madtEntry)->ioApicId;
@@ -1348,7 +1344,6 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
     {
       /* Create new IO APIC node */
       pIntOverrideNode = KMalloc(sizeof(S_InterruptOverrideNode),
-                                 ALIGN_ADDRESS,
                                  KMALLOC_NO_FREE_POOL);
 
       /* Fill the descriptor */
@@ -1404,7 +1399,7 @@ static void _ParseHPET(const S_ACPIHPETDescriptor* kpHpetPtr)
               ERR_INVALID_VALUE);
 
   /* Create the new HPET node */
-  pHpetNode = KMalloc(sizeof(S_HPETNode), ALIGN_ADDRESS, KMALLOC_NO_FREE_POOL);
+  pHpetNode = KMalloc(sizeof(S_HPETNode), KMALLOC_NO_FREE_POOL);
 
   /* Fill the descriptor */
   pHpetNode->hpet.hwRev         = (kpHpetPtr->flags & HPET_FLAGS_HW_REV_MASK) >>
@@ -1494,7 +1489,7 @@ static void* _ProcFSOpen(void*       pDriverData,
 
   if(flags == O_RDONLY && *kpPath == 0)
   {
-    pEntryOffset = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    pEntryOffset = KMallocUser(sizeof(size_t), NULL);
     if (pEntryOffset == NULL)
     {
       pEntryOffset = (void*)-1;

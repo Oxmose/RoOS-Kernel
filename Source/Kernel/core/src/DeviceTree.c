@@ -407,7 +407,7 @@ static void _ApplyActionPhandle(S_FDTNode*     pNode,
 {
   S_PHandle* pNewHandle;
 
-  pNewHandle = KMalloc(sizeof(S_PHandle), ALIGN_ADDRESS, KMALLOC_NO_FREE_POOL);
+  pNewHandle = KMalloc(sizeof(S_PHandle), KMALLOC_NO_FREE_POOL);
 
   pNewHandle->id    = FDTTOCPU32(*pProperty->pCells);
   pNewHandle->pLink = (void*)pNode;
@@ -476,9 +476,7 @@ static S_FDTProperty* _ParseProperty(uint32_t* pOffset, S_FDTNode* pNode)
     ++(*pOffset);
 
     /* Allocate new property */
-    pProperty = KMalloc(sizeof(S_FDTProperty),
-                        ALIGN_ADDRESS,
-                        KMALLOC_NO_FREE_POOL);
+    pProperty = KMalloc(sizeof(S_FDTProperty), KMALLOC_NO_FREE_POOL);
     memset(pProperty, 0, sizeof(S_FDTProperty));
 
     kpInitProperty = (uint32_t*)&sFDTDesc.pStructs[*pOffset];
@@ -489,16 +487,14 @@ static S_FDTProperty* _ParseProperty(uint32_t* pOffset, S_FDTNode* pNode)
     kpName = sFDTDesc.pStrings + FDTTOCPU32(kpInitProperty[1]);
     length = strnlen(kpName, FDT_PROPERTY_NAME_MAX_LENGTH - 1);
 
-    pProperty->pName = KMalloc(length + 1, ALIGN_ADDRESS, KMALLOC_NO_FREE_POOL);
+    pProperty->pName = KMalloc(length + 1, KMALLOC_NO_FREE_POOL);
     memcpy(pProperty->pName, kpName, length);
     pProperty->pName[length] = 0;
 
     /* Copy the property cells */
     if (pProperty->length != 0)
     {
-      pProperty->pCells = KMalloc(pProperty->length,
-                                  ALIGN_ADDRESS,
-                                  KMALLOC_NO_FREE_POOL);
+      pProperty->pCells = KMalloc(pProperty->length, KMALLOC_NO_FREE_POOL);
       memcpy(pProperty->pCells,
              sFDTDesc.pStructs + *pOffset,
              pProperty->length);
@@ -544,7 +540,7 @@ static S_FDTNode* _ParseNode(uint32_t*     pOffset,
     ++(*pOffset);
 
     /* Allocate new node */
-    pNode   = KMalloc(sizeof(S_FDTNode), ALIGN_ADDRESS, KMALLOC_NO_FREE_POOL);
+    pNode   = KMalloc(sizeof(S_FDTNode), KMALLOC_NO_FREE_POOL);
     retNode = pNode;
     memset(pNode, 0, sizeof(S_FDTNode));
 
@@ -555,7 +551,7 @@ static S_FDTNode* _ParseNode(uint32_t*     pOffset,
     kpInitName = (char*)&sFDTDesc.pStructs[*pOffset];
     length    = strnlen(kpInitName, FDT_NODE_NAME_MAX_LENGTH - 1);
 
-    pNode->pName = KMalloc(length + 1, ALIGN_ADDRESS, KMALLOC_NO_FREE_POOL);
+    pNode->pName = KMalloc(length + 1, KMALLOC_NO_FREE_POOL);
     memcpy(pNode->pName, kpInitName, length);
     pNode->pName[length] = 0;
 
@@ -609,9 +605,7 @@ static S_FDTNode* _ParseNode(uint32_t*     pOffset,
           {
             for (i = 0; i < pProperty->length / sizeof(uintptr_t); i += 2)
             {
-              pMemNode = KMalloc(sizeof(S_FDTMemoryNode),
-                                  ALIGN_ADDRESS,
-                                  KMALLOC_NO_FREE_POOL);
+              pMemNode = KMalloc(sizeof(S_FDTMemoryNode), KMALLOC_NO_FREE_POOL);
               pMemNode->baseAddress = *(((uintptr_t*)pProperty->pCells) + i);
               pMemNode->size = *(((uintptr_t*)pProperty->pCells) + 1 + i);
 
@@ -637,9 +631,7 @@ static S_FDTNode* _ParseNode(uint32_t*     pOffset,
           {
             if (strcmp(pProperty->pName, "reg") == 0)
             {
-              pMemNode = KMalloc(sizeof(S_FDTMemoryNode),
-                                 ALIGN_ADDRESS,
-                                 KMALLOC_NO_FREE_POOL);
+              pMemNode = KMalloc(sizeof(S_FDTMemoryNode), KMALLOC_NO_FREE_POOL);
               pMemNode->baseAddress = *((uintptr_t*)pProperty->pCells);
               pMemNode->size = *(((uintptr_t*)pProperty->pCells) + 1);
 
@@ -692,9 +684,7 @@ static void _ParseReservedMemory(void)
 
   while (startAddr != 0 && size != 0)
   {
-    pNode = KMalloc(sizeof(S_FDTMemoryNode),
-                    ALIGN_ADDRESS,
-                    KMALLOC_NO_FREE_POOL);
+    pNode = KMalloc(sizeof(S_FDTMemoryNode), KMALLOC_NO_FREE_POOL);
 
     pNode->baseAddress = startAddr;
     pNode->size        = size;

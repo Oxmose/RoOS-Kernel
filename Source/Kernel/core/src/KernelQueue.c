@@ -103,13 +103,11 @@ S_KernelQueueNode* KQueueCreateNode(void* pData, S_ProcessHeap* pHeapPool)
   if (pHeapPool == NULL)
   {
     /* Create new queue */
-    pNewNode = KMalloc(sizeof(S_KernelQueueNode),
-                        ALIGN_ADDRESS,
-                        KMALLOC_FREE_POOL);
+    pNewNode = KMalloc(sizeof(S_KernelQueueNode), KMALLOC_FREE_POOL);
   }
   else
   {
-    pNewNode = KMallocUser(sizeof(S_KernelQueueNode), ALIGN_ADDRESS, pHeapPool);
+    pNewNode = KMallocUser(sizeof(S_KernelQueueNode), pHeapPool);
   }
 
   if (pNewNode != NULL)
@@ -164,13 +162,11 @@ S_KernelQueue* KQueueCreate(S_ProcessHeap* pHeapPool)
   if (pHeapPool == NULL)
   {
     /* Create new queue */
-    pNewQueue = KMalloc(sizeof(S_KernelQueue),
-                        ALIGN_ADDRESS,
-                        KMALLOC_FREE_POOL);
+    pNewQueue = KMalloc(sizeof(S_KernelQueue), KMALLOC_FREE_POOL);
   }
   else
   {
-    pNewQueue = KMallocUser(sizeof(S_KernelQueue), ALIGN_ADDRESS, pHeapPool);
+    pNewQueue = KMallocUser(sizeof(S_KernelQueue), pHeapPool);
   }
 
   if (pNewQueue != NULL)

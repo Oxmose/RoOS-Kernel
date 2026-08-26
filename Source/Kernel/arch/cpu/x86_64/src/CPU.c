@@ -1259,12 +1259,10 @@ static void _InitializeIPI(void)
 
   /* Create the IPI queues */
   spIPIRequestQueue = KMalloc(sizeof(S_FastQueue**) * sNumberOfCPUs,
-                              ALIGN_ADDRESS,
                               KMALLOC_NO_FREE_POOL);
   for (i = 0; i < sNumberOfCPUs; ++i)
   {
     spIPIRequestQueue[i] = KMalloc(sizeof(S_FastQueue*) * sNumberOfCPUs,
-                                   ALIGN_ADDRESS,
                                    KMALLOC_NO_FREE_POOL);
     for (j = 0; j < sNumberOfCPUs; ++j)
     {
@@ -1289,9 +1287,7 @@ void CPUInit(void)
   /* Setup the shared IDT */
   _SetupIDT();
 
-  spCPUConfiguration[0] = KMalloc(sizeof(S_CPUConfig),
-                                  ALIGN_8_BYTES,
-                                  KMALLOC_NO_FREE_POOL);
+  spCPUConfiguration[0] = KMalloc(sizeof(S_CPUConfig), KMALLOC_NO_FREE_POOL);
   /* Set the main CPU kernel stack */
   spCPUConfiguration[0]->kernelStackEnd = ((uintptr_t)&_KERNEL_STACKS_BASE) +
                                            KERNEL_STACK_SIZE - 1;
@@ -1362,7 +1358,6 @@ void CPUAPInit(const uint8_t kCPUId)
 
   /* Create the internal structure */
   spCPUConfiguration[kCPUId] = KMalloc(sizeof(S_CPUConfig),
-                                       ALIGN_8_BYTES,
                                        KMALLOC_NO_FREE_POOL);
   /* Set the main CPU kernel stack */
   spCPUConfiguration[kCPUId]->kernelStackEnd =
@@ -1454,18 +1449,18 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
   size_t        fxDataSize;
 
   /* Allocate the new VCPU */
-  pVCpu = KMallocUser(sizeof(S_VirtualCPU),
-                      ALIGN_ADDRESS,
-                      pThread->pProcess->pHeap);
+  pVCpu = KMallocUser(sizeof(S_VirtualCPU), pThread->pProcess->pHeap);
   if (pVCpu != NULL)
   {
-    /* Setup the FX Data */
-    fxDataSize = spCPUConfiguration[0]->cpuInfo.fxStateSize;
-    pVCpu->fxDataRegion = (uintptr_t)KMallocUser(fxDataSize,
-                                                 ALIGN_64_BYTES,
+    /* Setup the FX Data and align */
+    fxDataSize = spCPUConfiguration[0]->cpuInfo.fxStateSize + ALIGN_64_BYTES;
+    pVCpu->fxDataRegionNonAligned = (uintptr_t)KMallocUser(fxDataSize,
                                                  pThread->pProcess->pHeap);
-    if (pVCpu->fxDataRegion != (uintptr_t)NULL)
+
+    if (pVCpu->fxDataRegionNonAligned != (uintptr_t)NULL)
     {
+      pVCpu->fxDataRegion = ALIGN_UP(pVCpu->fxDataRegionNonAligned,
+                                     ALIGN_64_BYTES);
       if (pThread->type == THREAD_TYPE_KERNEL)
       {
         csVal     = KERNEL_CS_64;
@@ -1532,7 +1527,7 @@ void CPUDestroyVirtualCPU(S_KernelThread* pThread)
 
   pVCpu = pThread->pVCpu;
 
-  KFreeUser((void*)pVCpu->fxDataRegion, pThread->pProcess->pHeap);
+  KFreeUser((void*)pVCpu->fxDataRegionNonAligned, pThread->pProcess->pHeap);
   KFreeUser(pThread->pVCpu, pThread->pProcess->pHeap);
 }
 
@@ -1715,7 +1710,7 @@ static void* _ProcFSOpen(void*       pDriverData,
   (void)mode;
   if(flags == O_RDONLY && *kpPath == 0)
   {
-    pHandle = KMallocUser(sizeof(size_t), ALIGN_ADDRESS, NULL);
+    pHandle = KMallocUser(sizeof(size_t), NULL);
     if (pHandle != NULL)
     {
       *pHandle = 0;
@@ -1774,7 +1769,7 @@ static ssize_t _ProcFSRead(void*  pDriverData,
 
   if(pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
-    pInfoBuffer = KMallocUser(CPUINFO_BUFFER_SIZE, ALIGN_ADDRESS, NULL);
+    pInfoBuffer = KMallocUser(CPUINFO_BUFFER_SIZE, NULL);
     if(pInfoBuffer != NULL)
     {
       pOffset = (size_t*)pFileHandle;

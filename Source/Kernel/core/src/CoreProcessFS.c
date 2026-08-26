@@ -365,7 +365,7 @@ static void* _ProcFSGenericOpen(void*       pExtraData,
   (void)mode;
   if(flags == O_RDONLY && *kpPath == 0)
   {
-    pHandle = KMallocUser(sizeof(S_ProcessFileHandle), ALIGN_ADDRESS, NULL);
+    pHandle = KMallocUser(sizeof(S_ProcessFileHandle), NULL);
     if (pHandle != NULL)
     {
       pHandle->pProcess = (S_KernelProcess*)pExtraData;
@@ -423,7 +423,7 @@ static ssize_t _ProcFSStatusRead(void*  pExtraData,
   if (pFileHandle != NULL &&pFileHandle != (void*)-1)
   {
     pProcessFileHandle = (S_ProcessFileHandle*)pFileHandle;
-    pBufferChar = KMallocUser(PROCESS_STATUS_LENGTH, ALIGN_ADDRESS, NULL);
+    pBufferChar = KMallocUser(PROCESS_STATUS_LENGTH, NULL);
     if (pBufferChar != NULL)
     {
       pProcess = (S_KernelProcess*)pExtraData;
@@ -572,7 +572,7 @@ static ssize_t _ProcFSSchedStatsRead(void*  pExtraData,
   if (pFileHandle != NULL &&pFileHandle != (void*)-1)
   {
     pProcessFileHandle = (S_ProcessFileHandle*)pFileHandle;
-    pBufferChar = KMallocUser(PROCESS_STATUS_LENGTH, ALIGN_ADDRESS, NULL);
+    pBufferChar = KMallocUser(PROCESS_STATUS_LENGTH, NULL);
     if (pBufferChar != NULL)
     {
       pProcess = (S_KernelProcess*)pExtraData;
@@ -744,7 +744,7 @@ static void* _ProcFSThreadGenericOpen(void*       pExtraData,
   (void)mode;
   if(flags == O_RDONLY && *kpPath == 0)
   {
-    pHandle = KMallocUser(sizeof(S_ThreadFileHandle), ALIGN_ADDRESS, NULL);
+    pHandle = KMallocUser(sizeof(S_ThreadFileHandle), NULL);
     if (pHandle != NULL)
     {
       pHandle->pThread = (S_KernelThread*)pExtraData;

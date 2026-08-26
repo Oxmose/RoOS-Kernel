@@ -2246,9 +2246,7 @@ static void _GetCacheInformationUnified(S_CPUInformation* pCpuInf,
       }
 
       /* Allocate the structure and fill the information */
-      pNewCacheInfo = KMalloc(sizeof(S_CPUCacheInfo),
-                              ALIGN_ADDRESS,
-                              KMALLOC_NO_FREE_POOL);
+      pNewCacheInfo = KMalloc(sizeof(S_CPUCacheInfo), KMALLOC_NO_FREE_POOL);
 
       pNewCacheInfo->ways = CPUID_CACHE_WAYS(regs) + 1;
       pNewCacheInfo->parts = CPUID_CACHE_PARTS(regs) + 1;
@@ -2326,9 +2324,7 @@ static void _GetCacheInformationAmd(S_CPUInformation* pCpuInf)
   if (ret == 1)
   {
     /* Allocate the structure and fill the information */
-    pNewCacheInfo = KMalloc(sizeof(S_CPUCacheInfo),
-                            ALIGN_ADDRESS,
-                            KMALLOC_NO_FREE_POOL);
+    pNewCacheInfo = KMalloc(sizeof(S_CPUCacheInfo), KMALLOC_NO_FREE_POOL);
 
     pNewCacheInfo->ways = CPUID_AMD_ICACHE_WAYS(regs);
     pNewCacheInfo->parts = CPUID_AMD_ICACHE_PARTS(regs);
@@ -2343,9 +2339,7 @@ static void _GetCacheInformationAmd(S_CPUInformation* pCpuInf)
     pCpuInf->pCaches = pNewCacheInfo;
 
     /* Allocate the structure and fill the information */
-    pNewCacheInfo = KMalloc(sizeof(S_CPUCacheInfo),
-                            ALIGN_ADDRESS,
-                            KMALLOC_NO_FREE_POOL);
+    pNewCacheInfo = KMalloc(sizeof(S_CPUCacheInfo), KMALLOC_NO_FREE_POOL);
 
     pNewCacheInfo->ways = CPUID_AMD_DCACHE_WAYS(regs);
     pNewCacheInfo->parts = CPUID_AMD_DCACHE_PARTS(regs);
@@ -2365,9 +2359,7 @@ static void _GetCacheInformationAmd(S_CPUInformation* pCpuInf)
   if (ret == 1)
   {
     /* Allocate the structure and fill the information */
-    pNewCacheInfo = KMalloc(sizeof(S_CPUCacheInfo),
-                            ALIGN_ADDRESS,
-                            KMALLOC_NO_FREE_POOL);
+    pNewCacheInfo = KMalloc(sizeof(S_CPUCacheInfo), KMALLOC_NO_FREE_POOL);
 
     pNewCacheInfo->ways = _GetCacheAssocAmd(CPUID_AMD_L2CACHE_WAYS(regs));
     pNewCacheInfo->parts = CPUID_AMD_L2CACHE_PARTS(regs);
@@ -2382,9 +2374,7 @@ static void _GetCacheInformationAmd(S_CPUInformation* pCpuInf)
     pCpuInf->pCaches = pNewCacheInfo;
 
     /* Allocate the structure and fill the information */
-    pNewCacheInfo = KMalloc(sizeof(S_CPUCacheInfo),
-                            ALIGN_ADDRESS,
-                            KMALLOC_NO_FREE_POOL);
+    pNewCacheInfo = KMalloc(sizeof(S_CPUCacheInfo), KMALLOC_NO_FREE_POOL);
 
     pNewCacheInfo->ways = _GetCacheAssocAmd(CPUID_AMD_L3CACHE_WAYS(regs));
     pNewCacheInfo->parts = CPUID_AMD_L3CACHE_PARTS(regs);
