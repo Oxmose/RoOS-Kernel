@@ -114,9 +114,9 @@ static void _PrintCpuFlags(const S_VirtualCPU* kpVCpu);
  * will be unwinded and the symbols printed based on the information passed by
  * multiboot at initialization time.
  *
- * @param[in] lastRPB The last RBP in the stack to display.
+ * @param[in] kpVCpu The pointer to the VCPU state at the moment of the panic.
  */
-static void _PrintStackTrace(uintptr_t* lastRPB);
+static void _PrintStackTrace(const S_VirtualCPU* kpVCpu);
 
 /**
  * @brief Builds a VCPU when the panic is not called from an interrupt context.
@@ -189,6 +189,13 @@ static char* skpInterruptHeader[] =
   "Virtualization Exception",
   "Control Protection Exception"
 };
+/** @brief Dummy Context Buffer */
+static uint8_t sDummyContextBuffer[1024] = {0};
+/** @brief Dummy CPU state and interrupt context */
+static S_CPUState* sDummyCPUState = (S_CPUState*)sDummyContextBuffer;
+/** @brief Dummy interrupt context */
+static S_InterruptContext* sDummyIntContext =
+  (S_InterruptContext*)(sDummyContextBuffer + sizeof(S_CPUState));
 
 /*******************************************************************************
  * FUNCTIONS
@@ -218,7 +225,8 @@ static void _PrintHeader(const S_VirtualCPU* kpVCpu, const bool kInterrupt)
 {
   const S_InterruptContext* kpIntState;
 
-  kpIntState = &kpVCpu->intContext;
+  kpIntState = (const S_InterruptContext*)(kpVCpu->context +
+                                           sizeof(S_CPUState));
   _PanicPrintf("\n/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\"
                "    KERNEL PANIC    "
                "/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\\n");
@@ -249,8 +257,10 @@ static void _PrintCpuState(const S_VirtualCPU* kpVCpu)
   uint64_t                  CR3;
   uint64_t                  CR4;
 
-  kpCPUState = &kpVCpu->cpuState;
-  kpIntState = &kpVCpu->intContext;
+  kpIntState = (const S_InterruptContext*)(kpVCpu->context +
+                                           sizeof(S_CPUState));
+
+  kpCPUState = (const S_CPUState*)kpVCpu->context;
 
   __asm__ __volatile__ ("mov %%cr0, %%rax\n\t"
                         "mov %%rax, %0\n\t"
@@ -290,12 +300,9 @@ static void _PrintCpuState(const S_VirtualCPU* kpVCpu)
                 CR2,
                 CR3,
                 CR4);
-  _PanicPrintf("CS: 0x%04X | DS: 0x%04X | SS: 0x%04X | ES: 0x%04X | "
-                "FS: 0x%04X | GS: 0x%04X\n",
+  _PanicPrintf("CS: 0x%04X | SS: 0x%04X | FS: 0x%04X | GS: 0x%04X\n",
                 kpIntState->cs & 0xFFFF,
-                kpCPUState->ds & 0xFFFF,
-                kpCPUState->ss & 0xFFFF,
-                kpCPUState->es & 0xFFFF ,
+                kpIntState->ss & 0xFFFF,
                 kpCPUState->fs & 0xFFFF ,
                 kpCPUState->gs & 0xFFFF);
 }
@@ -304,7 +311,8 @@ static void _PrintCpuFlags(const S_VirtualCPU* kpVCpu)
 {
   const S_InterruptContext* kpIntState;
 
-  kpIntState = &kpVCpu->intContext;
+  kpIntState = (const S_InterruptContext*)(kpVCpu->context +
+                                           sizeof(S_CPUState));
 
   int8_t cf_f = (kpIntState->rflags & 0x1);
   int8_t pf_f = (kpIntState->rflags & 0x4) >> 2;
@@ -398,13 +406,18 @@ static void _PrintCpuFlags(const S_VirtualCPU* kpVCpu)
   _PanicPrintf("\n");
 }
 
-static void _PrintStackTrace(uintptr_t* lastRBP)
+static void _PrintStackTrace(const S_VirtualCPU* kpVCpu)
 {
   size_t                  i;
   uintptr_t               callAddr;
   S_KernelProcess         dummyProcess;
   S_ProcessMemoryMetadata metadata;
   bool                    isMapped;
+  const S_CPUState*       kpCPUState;
+  uintptr_t*              lastRBP;
+
+  kpCPUState = (const S_CPUState*)(kpVCpu->context);
+  lastRBP = (uintptr_t*)kpCPUState->rbp;
 
   __asm__ __volatile__ ("mov %%cr3, %%rax\n\t"
                         "mov %%rax, %0\n\t"
@@ -445,39 +458,39 @@ static void _PrintStackTrace(uintptr_t* lastRBP)
 
 static void _BuildVCPU(S_VirtualCPU* pVCPU)
 {
+  pVCPU->context = ((uintptr_t)sDummyCPUState);
+
   /* Get the CPU registers */
-  __asm__ __volatile__ ("mov %%rsp, %0\n\t" : "=m" (pVCPU->cpuState.rbp));
-  __asm__ __volatile__ ("mov %%rbp, %0\n\t" : "=m" (pVCPU->cpuState.rsp));
-  __asm__ __volatile__ ("mov %%rdi, %0\n\t" : "=m" (pVCPU->cpuState.rdi));
-  __asm__ __volatile__ ("mov %%rsi, %0\n\t" : "=m" (pVCPU->cpuState.rsi));
-  __asm__ __volatile__ ("mov %%rdx, %0\n\t" : "=m" (pVCPU->cpuState.rdx));
-  __asm__ __volatile__ ("mov %%rcx, %0\n\t" : "=m" (pVCPU->cpuState.rcx));
-  __asm__ __volatile__ ("mov %%rbx, %0\n\t" : "=m" (pVCPU->cpuState.rbx));
-  __asm__ __volatile__ ("mov %%rax, %0\n\t" : "=m" (pVCPU->cpuState.rax));
-  __asm__ __volatile__ ("mov %%r8, %0\n\t"  : "=m" (pVCPU->cpuState.r8));
-  __asm__ __volatile__ ("mov %%r9, %0\n\t"  : "=m" (pVCPU->cpuState.r9));
-  __asm__ __volatile__ ("mov %%r10, %0\n\t" : "=m" (pVCPU->cpuState.r10));
-  __asm__ __volatile__ ("mov %%r11, %0\n\t" : "=m" (pVCPU->cpuState.r11));
-  __asm__ __volatile__ ("mov %%r12, %0\n\t" : "=m" (pVCPU->cpuState.r12));
-  __asm__ __volatile__ ("mov %%r13, %0\n\t" : "=m" (pVCPU->cpuState.r13));
-  __asm__ __volatile__ ("mov %%r14, %0\n\t" : "=m" (pVCPU->cpuState.r14));
-  __asm__ __volatile__ ("mov %%r15, %0\n\t" : "=m" (pVCPU->cpuState.r15));
-  __asm__ __volatile__ ("mov %%ss, %0\n\t"  : "=m" (pVCPU->cpuState.ss));
-  __asm__ __volatile__ ("mov %%gs, %0\n\t"  : "=m" (pVCPU->cpuState.gs));
-  __asm__ __volatile__ ("mov %%es, %0\n\t"  : "=m" (pVCPU->cpuState.es));
-  __asm__ __volatile__ ("mov %%ds, %0\n\t"  : "=m" (pVCPU->cpuState.ds));
+  __asm__ __volatile__ ("mov %%rsp, %0\n\t" : "=m" (sDummyCPUState->rbp));
+  __asm__ __volatile__ ("mov %%rbp, %0\n\t" : "=m" (sDummyCPUState->rsp));
+  __asm__ __volatile__ ("mov %%rdi, %0\n\t" : "=m" (sDummyCPUState->rdi));
+  __asm__ __volatile__ ("mov %%rsi, %0\n\t" : "=m" (sDummyCPUState->rsi));
+  __asm__ __volatile__ ("mov %%rdx, %0\n\t" : "=m" (sDummyCPUState->rdx));
+  __asm__ __volatile__ ("mov %%rcx, %0\n\t" : "=m" (sDummyCPUState->rcx));
+  __asm__ __volatile__ ("mov %%rbx, %0\n\t" : "=m" (sDummyCPUState->rbx));
+  __asm__ __volatile__ ("mov %%rax, %0\n\t" : "=m" (sDummyCPUState->rax));
+  __asm__ __volatile__ ("mov %%r8, %0\n\t"  : "=m" (sDummyCPUState->r8));
+  __asm__ __volatile__ ("mov %%r9, %0\n\t"  : "=m" (sDummyCPUState->r9));
+  __asm__ __volatile__ ("mov %%r10, %0\n\t" : "=m" (sDummyCPUState->r10));
+  __asm__ __volatile__ ("mov %%r11, %0\n\t" : "=m" (sDummyCPUState->r11));
+  __asm__ __volatile__ ("mov %%r12, %0\n\t" : "=m" (sDummyCPUState->r12));
+  __asm__ __volatile__ ("mov %%r13, %0\n\t" : "=m" (sDummyCPUState->r13));
+  __asm__ __volatile__ ("mov %%r14, %0\n\t" : "=m" (sDummyCPUState->r14));
+  __asm__ __volatile__ ("mov %%r15, %0\n\t" : "=m" (sDummyCPUState->r15));
+  __asm__ __volatile__ ("mov %%gs, %0\n\t"  : "=m" (sDummyCPUState->gs));
 
 
   /* Set dummy interrupt values */
-  __asm__ __volatile__ ("mov %%cs, %0\n\t"  : "=m" (pVCPU->intContext.cs));
-  pVCPU->intContext.rip = (uintptr_t)KernelPanic;
-  pVCPU->intContext.errorCode = 0xFFFF;
-  pVCPU->intContext.intId     = 0xFFFF;
+  __asm__ __volatile__ ("mov %%cs, %0\n\t"  : "=m" (sDummyIntContext->cs));
+  __asm__ __volatile__ ("mov %%ss, %0\n\t"  : "=m" (sDummyIntContext->ss));
+  sDummyIntContext->rip = (uintptr_t)KernelPanic;
+  sDummyIntContext->errorCode = 0xFFFF;
+  sDummyIntContext->intId     = 0xFFFF;
 
   /* Save current state */
   __asm__ __volatile__("pushfq\n\t"
                        "pop %0\n\t"
-                       : "=g" (pVCPU->intContext.rflags)
+                       : "=g" (sDummyIntContext->rflags)
                        :
                        : "memory");
 }
@@ -528,7 +541,7 @@ void KernelPanic(const uint32_t kErrorCode,
     _PrintHeader(kpVCPU, kFromInterrupt);
     _PrintCpuState(kpVCPU);
     _PrintCpuFlags(kpVCPU);
-    _PrintStackTrace((uintptr_t*)kpVCPU->cpuState.rbp);
+    _PrintStackTrace(kpVCPU);
 
     /* Print panic information */
     _PanicPrintf("\n                              ==== Information ====\n");

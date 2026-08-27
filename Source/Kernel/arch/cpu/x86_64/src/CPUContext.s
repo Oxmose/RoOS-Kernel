@@ -25,33 +25,8 @@
 ; DEFINES
 ;-------------------------------------------------------------------------------
 ; The following defines shall correspond to the virtual CPU context
-%define VCPU_OFF_INT 0x00
-%define VCPU_OFF_ERR 0x08
-%define VCPU_OFF_RIP 0x10
-%define VCPU_OFF_CS  0x18
-%define VCPU_OFF_FLG 0x20
-%define VCPU_OFF_RSP 0x28
-%define VCPU_OFF_RBP 0x30
-%define VCPU_OFF_RDI 0x38
-%define VCPU_OFF_RSI 0x40
-%define VCPU_OFF_RDX 0x48
-%define VCPU_OFF_RCX 0x50
-%define VCPU_OFF_RBX 0x58
-%define VCPU_OFF_RAX 0x60
-%define VCPU_OFF_R8  0x68
-%define VCPU_OFF_R9  0x70
-%define VCPU_OFF_R10 0x78
-%define VCPU_OFF_R11 0x80
-%define VCPU_OFF_R12 0x88
-%define VCPU_OFF_R13 0x90
-%define VCPU_OFF_R14 0x98
-%define VCPU_OFF_R15 0xA0
-%define VCPU_OFF_SS  0xA8
-%define VCPU_OFF_GS  0xB0
-%define VCPU_OFF_FS  0xB8
-%define VCPU_OFF_ES  0xC0
-%define VCPU_OFF_DS  0xC8
-%define VCPU_OFF_FXD 0xD0
+%define VCPU_OFF_CTX 0x0
+%define VCPU_OFF_FXD 0x8
 
 ;-------------------------------------------------------------------------------
 ; MACRO DEFINE
@@ -109,18 +84,43 @@ CPUGetId:
 ; Param:
 ;     None
 CPUSaveContext:
-  ; Save a bit of context
+  ; Save return address
   push rax
   push rbx
-  push rdx
-  push rcx
+  mov  rax, [rsp + 16]
+  mov  rbx, [rsp + 8]
+  mov  [rsp + 16], rbx
+  mov  rbx, [rsp]
+  mov  [rsp + 8], rbx
+  add  rsp, 8
 
-  ; Get the current CPU
-  xor rax, rax
-  call CPUGetId
-  pop rcx
+  ; Save the rest of the context
+  push rcx
+  push rdx
+  push rsi
+  push rdi
+
+  push r15
+  push r14
+  push r13
+  push r12
+  push r11
+  push r10
+  push r9
+  push r8
+
+  push fs
+  push gs
+
+  push rbp
+  push rsp
+
+  ; Restore the return address
+  mov r15, rax
 
   ; Get the offset in the schedule contexts
+  xor rax, rax
+  call CPUGetId
   mov rbx, 8
   mul rbx
 
@@ -130,60 +130,19 @@ CPUSaveContext:
   add rax, rbx
   mov rax, [rax]
 
-  ; Load the thread
+  ; Load the thread vcpu
+  mov rax, [rax]
   mov rax, [rax]
 
-  ; Load the thread vCPU
-  mov rax, [rax]
-
-  ; Restore RDX used with mul
-  pop rdx
-
-  ; Save the interrupt context
-  mov rbx, [rsp + 24]               ; Int id
-  mov [rax + VCPU_OFF_INT], rbx
-  mov rbx, [rsp + 32]               ; Int code
-  mov [rax + VCPU_OFF_ERR], rbx
-  mov rbx, [rsp + 40]               ; RIP
-  mov [rax + VCPU_OFF_RIP], rbx
-  mov rbx, [rsp + 48]               ; CS
-  mov [rax + VCPU_OFF_CS], rbx
-  mov rbx, [rsp + 56]               ; RFLAGS
-  mov [rax + VCPU_OFF_FLG], rbx
-  mov rbx, [rsp + 64]               ; RSP
-  mov [rax + VCPU_OFF_RSP], rbx
-  mov rbx, [rsp + 72]               ; SS
-  mov [rax + VCPU_OFF_SS], rbx
-
-  mov [rax + VCPU_OFF_RBP], rbp
-  mov [rax + VCPU_OFF_RDI], rdi
-  mov [rax + VCPU_OFF_RSI], rsi
-  mov [rax + VCPU_OFF_RDX], rdx
-  mov [rax + VCPU_OFF_RCX], rcx
-  pop rbx                         ; restore prelude rbx
-  mov [rax + VCPU_OFF_RBX], rbx
-  pop rbx                         ; restore prelude rax
-  mov [rax + VCPU_OFF_RAX], rbx
-
-  mov [rax + VCPU_OFF_R8],  r8
-  mov [rax + VCPU_OFF_R9],  r9
-  mov [rax + VCPU_OFF_R10], r10
-  mov [rax + VCPU_OFF_R11], r11
-  mov [rax + VCPU_OFF_R12], r12
-  mov [rax + VCPU_OFF_R13], r13
-  mov [rax + VCPU_OFF_R14], r14
-  mov [rax + VCPU_OFF_R15], r15
-
-  mov [rax + VCPU_OFF_GS], gs
-  mov [rax + VCPU_OFF_FS], fs
-  mov [rax + VCPU_OFF_ES], es
-  mov [rax + VCPU_OFF_DS], ds
+  ; Save the old context and update the new one
+  mov  rdi, [rax + VCPU_OFF_CTX]
+  push rdi
+  mov  [rax + VCPU_OFF_CTX], rsp
 
   ; Save the FxData
   mov rdi, [rax + VCPU_OFF_FXD]
   mov rax, 0xFFFFFFFFFFFFFFFF
   mov rdx, 0xFFFFFFFFFFFFFFFF
-
   mov rbx, [_xSaveoptSupported]
   cmp rbx, 0
   je __noXSaveopt
@@ -193,6 +152,76 @@ __noXSaveopt:
   xsave64 [rdi]
 
 __saveContextEnd:
+  ; Restore the return address
+  jmp r15
+
+
+;-------------------------------------------------------------------------------
+; Save the CPU context of a thread and call the scheduler
+;
+; Param:
+;     RDI - The VCPU of the current thread
+CPUSaveContextAndSchedule:
+  ; Save the current stack pointer, RAX, RDI, RSI are scratch registers
+  mov rax, rsp
+  mov rdx, ss
+  mov rcx, cs
+
+  ; Create interrupt stack
+  push rdx
+  push rax
+  pushfq
+  push rcx
+  push __saveContextReturn
+  push 0
+  push 0
+
+  ; Context
+  push rax
+  push rbx
+  push rcx
+  push rdx
+  push rsi
+  push rdi
+
+  push r15
+  push r14
+  push r13
+  push r12
+  push r11
+  push r10
+  push r9
+  push r8
+
+  push fs
+  push gs
+
+  push rbp
+  push rsp
+
+  ; Save the old context
+  mov  rax, [rdi + VCPU_OFF_CTX]
+  push rax
+
+  ; Save the new context
+  mov [rdi + VCPU_OFF_CTX], rsp
+
+  ; Save the FxData
+  mov rax, 0xFFFFFFFFFFFFFFFF
+  mov rdx, 0xFFFFFFFFFFFFFFFF
+  mov rdi, [rdi + VCPU_OFF_FXD]
+  mov rbx, [_xSaveoptSupported]
+  cmp rbx, 0
+  je __noXSaveopt1
+  xsaveopt64 [rdi]
+  jmp __saveContextEnd1
+__noXSaveopt1:
+  xsave64 [rdi]
+
+__saveContextEnd1:
+  call SchedulerSchedule
+
+__saveContextReturn:
   ret
 
 ;-------------------------------------------------------------------------------
@@ -210,111 +239,41 @@ CPURestoreContext:
   mov rsi, [rcx + VCPU_OFF_FXD]
   xrstor64 [rsi]
 
-  mov rax, rcx
+  ; Restore the stack pointer
+  mov rsp, [rcx + VCPU_OFF_CTX]
+
+  ; Restore the saved context link
+  pop rax
+  mov [rcx + VCPU_OFF_CTX], rax
 
   ; Restore registers
-  mov es, [rax + VCPU_OFF_ES]
-  mov ds, [rax + VCPU_OFF_DS]
-  mov fs, [rax + VCPU_OFF_FS]
-  mov gs, [rax + VCPU_OFF_GS]
+  add rsp, 8 ; Skip RSP in CPU state, it is the same as context
+  pop rbp
 
-  mov r8,  [rax + VCPU_OFF_R8]
-  mov r9,  [rax + VCPU_OFF_R9]
-  mov r10, [rax + VCPU_OFF_R10]
-  mov r11, [rax + VCPU_OFF_R11]
-  mov r12, [rax + VCPU_OFF_R12]
-  mov r13, [rax + VCPU_OFF_R13]
-  mov r14, [rax + VCPU_OFF_R14]
-  mov r15, [rax + VCPU_OFF_R15]
+  pop gs
+  pop fs
 
-  mov rbp, [rax + VCPU_OFF_RBP]
-  mov rdi, [rax + VCPU_OFF_RDI]
-  mov rsi, [rax + VCPU_OFF_RSI]
-  mov rdx, [rax + VCPU_OFF_RDX]
-  mov rcx, [rax + VCPU_OFF_RCX]
+  pop r8
+  pop r9
+  pop r10
+  pop r11
+  pop r12
+  pop r13
+  pop r14
+  pop r15
 
-  ; Prepare the return
-  mov rsp, [rax + VCPU_OFF_RSP]
-  sub rsp, 8
+  pop rdi
+  pop rsi
+  pop rdx
+  pop rcx
+  pop rbx
+  pop rax
 
-  ; Restore the interrupt context
-  mov  rbx, [rax + VCPU_OFF_SS]  ; SS
-  push rbx
-  mov  rbx, [rax + VCPU_OFF_RSP] ; RSP
-  push rbx
-  mov  rbx, [rax + VCPU_OFF_FLG] ; RFLAGS
-  push rbx
-  mov  rbx, [rax + VCPU_OFF_CS]  ; CS
-  push rbx
-  mov  rbx, [rax + VCPU_OFF_RIP] ; RIP
-  push rbx
-
-  ; Restore RBX and RAX
-  mov rbx, [rax + VCPU_OFF_RBX]
-  mov rax, [rax + VCPU_OFF_RAX]
+  ; Discard the interrupt context
+  add rsp, 16
 
   ; Return from interrupt
   iretq
-
-;-------------------------------------------------------------------------------
-; Save the CPU context of a thread and call the scheduler
-;
-; Param:
-;     RDI - The VCPU of the current thread
-CPUSaveContextAndSchedule:
-  ; Save RAX
-  mov [rdi + VCPU_OFF_RBP], rbp
-  mov [rdi + VCPU_OFF_RDI], rdi
-  mov [rdi + VCPU_OFF_RSI], rsi
-  mov [rdi + VCPU_OFF_RDX], rdx
-  mov [rdi + VCPU_OFF_RCX], rcx
-  mov [rdi + VCPU_OFF_RBX], rbx
-  mov [rdi + VCPU_OFF_RAX], rax
-
-  mov [rdi + VCPU_OFF_R8],  r8
-  mov [rdi + VCPU_OFF_R9],  r9
-  mov [rdi + VCPU_OFF_R10], r10
-  mov [rdi + VCPU_OFF_R11], r11
-  mov [rdi + VCPU_OFF_R12], r12
-  mov [rdi + VCPU_OFF_R13], r13
-  mov [rdi + VCPU_OFF_R14], r14
-  mov [rdi + VCPU_OFF_R15], r15
-
-  mov [rdi + VCPU_OFF_GS], gs
-  mov [rdi + VCPU_OFF_FS], fs
-  mov [rdi + VCPU_OFF_ES], es
-  mov [rdi + VCPU_OFF_DS], ds
-
-  ; Save the interrupt context
-  mov rax, [rsp]                   ; RIP
-  mov [rdi + VCPU_OFF_RIP], rax
-  mov rax, cs                       ; CS
-  mov [rdi + VCPU_OFF_CS], rax
-  pushfq
-  pop rax                           ; RFLAGS
-  mov [rdi + VCPU_OFF_FLG], rax
-  mov rax, rsp                      ; RSP
-  add rax, 8
-  mov [rdi + VCPU_OFF_RSP], rax
-  mov rax, ss                       ; SS
-  mov [rdi + VCPU_OFF_SS], rax
-
-  ; Save the FxData
-  mov rax, 0xFFFFFFFFFFFFFFFF
-  mov rdx, 0xFFFFFFFFFFFFFFFF
-  mov rdi, [rdi + VCPU_OFF_FXD]
-
-  mov rbx, [_xSaveoptSupported]
-  cmp rbx, 0
-  je __noXSaveopt1
-  xsaveopt64 [rdi]
-  jmp __saveContextEnd1
-__noXSaveopt1:
-  xsave64 [rdi]
-
-__saveContextEnd1:
-  call SchedulerSchedule
-  ret
 
 ;-------------------------------------------------------------------------------
 ; DATA

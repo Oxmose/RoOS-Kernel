@@ -624,18 +624,20 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
           CPU_MASK_SET(cpuMask, i);
         }
 
-        retCode = CreateThread(&sVGADriverCtrl.pDisplayThread,
-                                true,
-                                0,
-                                threadName,
-                                0x1000,
-                                cpuMask,
-                                _DisplayRoutine,
-                                NULL);
 
-        if (retCode == NO_ERROR)
+
+
+        if (sVGADriverCtrl.frameRate > 0)
         {
-          if (sVGADriverCtrl.frameRate > 0)
+          retCode = CreateThread(&sVGADriverCtrl.pDisplayThread,
+                              true,
+                              0,
+                              threadName,
+                              0x1000,
+                              cpuMask,
+                              _DisplayRoutine,
+                              NULL);
+          if (retCode == NO_ERROR)
           {
             /* Create the internal buffer */
             sVGADriverCtrl.pInternalBuffer = MemoryKernelAllocate(

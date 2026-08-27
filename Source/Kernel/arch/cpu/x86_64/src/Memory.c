@@ -766,13 +766,18 @@ static bool _PageFaultHandler(void)
   bool                     staleEntry;
   S_KernelThread*          pCurrentThread;
   S_ProcessMemoryMetadata* pProcData;
+  S_InterruptContext*      pIntContext;
 
   pCurrentThread = SchedulerGetCurrentThread();
   pProcData = (S_ProcessMemoryMetadata*)pCurrentThread->pProcess->pMemoryData;
 
   /* Get the fault address and error code */
   __asm__ __volatile__ ("mov %%cr2, %0" : "=r"(faultAddress));
-  errorCode = ((S_VirtualCPU*)pCurrentThread->pVCpu)->intContext.errorCode;
+
+  pIntContext = (void*)((uintptr_t)
+                        (((S_VirtualCPU*)pCurrentThread->pVCpu)->context) +
+                        sizeof(S_CPUState));
+  errorCode = pIntContext->errorCode;
 
   /* Check if the fault occured because we hit a stale TLB entry */
   physAddr   = _GetPhysAddr(faultAddress, pProcData->PDPhysAddress, &flags);
