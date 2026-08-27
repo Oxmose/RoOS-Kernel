@@ -362,6 +362,35 @@ void CPUSaveContextAndSchedule(void* pVCPU);
  */
 bool CPUValidateCPUMask(const S_CPUMask* kpMask);
 
+/**
+ * @brief Creates the local thread storage for the thread provided in
+ * parameters.
+ *
+ * @details Creates the local thread storage for the thread provided in
+ * parameters. The memory and other resources are allocated and the master
+ * TLS is copied. This function also allocates the user thread data but does not
+ * initialize it.
+ *
+ * @param[in] pThread The thread for which the thread local storage shall be
+ * created.
+ *
+ * @return The function returns the error or success status.
+ */
+E_Return CPUCreateTLS(S_KernelThread* pThread);
+
+/**
+ * @brief Destroys the local thread storage for the thread provided in
+ * parameters.
+ *
+ * @details Destroys the local thread storage for the thread provided in
+ * parameters. The memory and other resources are released and the master
+ * TLS is copied.
+ *
+ * @param[in] pThread The thread for which the thread local storage shall be
+ * destroyed.
+ */
+void CPUDestroyTLS(S_KernelThread* pThread);
+
 #endif /* #ifndef __CPU_CPU_H_ */
 
 /************************************ EOF *************************************/
