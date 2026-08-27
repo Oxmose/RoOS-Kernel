@@ -1014,7 +1014,6 @@ static int32_t _VFSReadDir(void*             pDriverData,
                       pDirEntry->pName[filePathSize - pathSize] = 0;
 
                       ++pFileDesc->offset;
-                      ++foundCount;
                       break;
                     }
                     else
@@ -1075,7 +1074,6 @@ static int32_t _VFSReadDir(void*             pDriverData,
                         pDirEntry->pName[filePathSize - pathSize] = 0;
 
                         ++pFileDesc->offset;
-                        ++foundCount;
                         break;
                       }
                       else
