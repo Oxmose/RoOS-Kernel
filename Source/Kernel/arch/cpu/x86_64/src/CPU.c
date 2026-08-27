@@ -1441,12 +1441,14 @@ void CPUInvalidateTLBEntry(const uintptr_t kVirtAddress)
 
 void* CPUCreateVirtualCPU(S_KernelThread* pThread)
 {
-  S_VirtualCPU* pVCpu;
-  uintptr_t     stack;
-  uint64_t      csVal;
-  uint64_t      dsVal;
-  uint64_t      rflagsVal;
-  size_t        fxDataSize;
+  S_VirtualCPU*       pVCpu;
+  uintptr_t           stack;
+  uint64_t            csVal;
+  uint64_t            ssVal;
+  uint64_t            rflagsVal;
+  size_t              fxDataSize;
+  S_InterruptContext* pIntContext;
+  S_CPUState*         pCPUState;
 
   /* Allocate the new VCPU */
   pVCpu = KMallocUser(sizeof(S_VirtualCPU), pThread->pProcess->pHeap);
@@ -1461,54 +1463,63 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
     {
       pVCpu->fxDataRegion = ALIGN_UP(pVCpu->fxDataRegionNonAligned,
                                      ALIGN_64_BYTES);
+
       if (pThread->type == THREAD_TYPE_KERNEL)
       {
         csVal     = KERNEL_CS_64;
-        dsVal     = KERNEL_DS_64;
+        ssVal     = KERNEL_DS_64;
         rflagsVal = KERNEL_THREAD_INIT_RFLAGS;
         stack     = pThread->kernelStackEnd;
       }
       else
       {
         csVal     = USER_CS_64 | 0x3;
-        dsVal     = USER_DS_64 | 0x3;
+        ssVal     = USER_DS_64 | 0x3;
         rflagsVal = USER_THREAD_INIT_RFLAGS;
         stack     = pThread->stackEnd;
       }
 
+      /* Setup the context */
+      stack = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
+      pIntContext    = (S_InterruptContext*)(stack - sizeof(S_InterruptContext));
+      pCPUState      = (S_CPUState*)((uintptr_t)pIntContext - sizeof(S_CPUState));
+      pVCpu->context = (uintptr_t)pCPUState;
+
       /* Setup the interrupt context */
-      pVCpu->intContext.intId     = 0;
-      pVCpu->intContext.errorCode = 0;
-      pVCpu->intContext.cs        = csVal;
-      pVCpu->intContext.rflags    = rflagsVal;
+      pIntContext->intId     = 0;
+      pIntContext->errorCode = 0;
+      pIntContext->cs        = csVal;
+      pIntContext->ss        = ssVal;
+      pIntContext->rflags    = rflagsVal;
+      pIntContext->rsp       = stack;
 
       /* Set the entry point */
-      pVCpu->intContext.rip = (uintptr_t)pThread->pEntryPoint;
-      pVCpu->cpuState.rdi   = (uintptr_t)pThread->pArgs;
+      pIntContext->rip = (uintptr_t)pThread->pEntryPoint;
+      pCPUState->rdi   = (uintptr_t)pThread->pArgs;
 
       /* Setup stack pointers */
-      pVCpu->cpuState.rsp   = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
-      pVCpu->cpuState.rbp   = pVCpu->cpuState.rsp;
+      pCPUState->rsp = pVCpu->context;
+      pCPUState->rbp = stack;
 
       /* Setup the CPU state */
-      pVCpu->cpuState.rsi = 0;
-      pVCpu->cpuState.rdx = 0;
-      pVCpu->cpuState.rcx = 0;
-      pVCpu->cpuState.rbx = 0;
-      pVCpu->cpuState.rax = 0;
-      pVCpu->cpuState.r8  = 0;
-      pVCpu->cpuState.r9  = 0;
-      pVCpu->cpuState.r10 = 0;
-      pVCpu->cpuState.r11 = 0;
-      pVCpu->cpuState.r12 = 0;
-      pVCpu->cpuState.r13 = 0;
-      pVCpu->cpuState.r14 = 0;
-      pVCpu->cpuState.r15 = 0;
-      pVCpu->cpuState.ss  = dsVal;
-      pVCpu->cpuState.gs  = dsVal;
-      pVCpu->cpuState.fs  = dsVal;
-      pVCpu->cpuState.es  = dsVal;
-      pVCpu->cpuState.ds  = dsVal;
+      pCPUState->rax = 0;
+      pCPUState->rbx = 1;
+      pCPUState->rcx = 2;
+      pCPUState->rdx = 3;
+      pCPUState->rsi = 4;
+      pCPUState->r8  = 5;
+      pCPUState->r9  = 6;
+      pCPUState->r10 = 7;
+      pCPUState->r11 = 8;
+      pCPUState->r12 = 9;
+      pCPUState->r13 = 10;
+      pCPUState->r14 = 11;
+      pCPUState->r15 = 12;
+      pCPUState->gs  = 0;
+      pCPUState->fs  = 0;
+
+      /* Initial chaining */
+      pCPUState->savedContext = 0xFFFFFFFFFFFFFFFFULL;
     }
     else
     {
@@ -1523,7 +1534,7 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
 
 void CPUDestroyVirtualCPU(S_KernelThread* pThread)
 {
-  S_VirtualCPU* pVCpu;
+  S_VirtualCPU*       pVCpu;
 
   pVCpu = pThread->pVCpu;
 
@@ -1534,19 +1545,25 @@ void CPUDestroyVirtualCPU(S_KernelThread* pThread)
 uint32_t CPUGetContextInterruptNumber(const S_KernelThread* kpThread)
 {
   const S_VirtualCPU* pVCpu;
+  S_InterruptContext* pIntContext;
 
   pVCpu = kpThread->pVCpu;
 
-  return pVCpu->intContext.intId;
+  pIntContext = (S_InterruptContext*)(pVCpu->context + sizeof(S_CPUState));
+
+  return pIntContext->intId;
 }
 
 uintptr_t CPUGetContextIP(const S_KernelThread* kpThread)
 {
   const S_VirtualCPU* pVCpu;
+  S_InterruptContext* pIntContext;
 
   pVCpu = kpThread->pVCpu;
 
-  return pVCpu->intContext.rip;
+  pIntContext = (S_InterruptContext*)(pVCpu->context + sizeof(S_CPUState));
+
+  return pIntContext->rip;
 }
 
 const S_CPUInterruptConfiguration* CPUGetInterruptConfig(void)

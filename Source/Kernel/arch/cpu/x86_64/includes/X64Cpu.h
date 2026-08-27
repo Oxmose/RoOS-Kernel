@@ -105,22 +105,19 @@
 /** @brief Holds the CPU register values */
 typedef struct
 {
+  /** @brief CPU's previous context link. */
+  uintptr_t savedContext;
+
   /** @brief CPU's rsp register. */
   uint64_t rsp;
   /** @brief CPU's rbp register. */
   uint64_t rbp;
-  /** @brief CPU's rdi register. */
-  uint64_t rdi;
-  /** @brief CPU's rsi register. */
-  uint64_t rsi;
-  /** @brief CPU's rdx register. */
-  uint64_t rdx;
-  /** @brief CPU's rcx register. */
-  uint64_t rcx;
-  /** @brief CPU's rbx register. */
-  uint64_t rbx;
-  /** @brief CPU's rax register. */
-  uint64_t rax;
+
+  /** @brief CPU's gs register. */
+  uint64_t gs;
+  /** @brief CPU's fs register. */
+  uint64_t fs;
+
   /** @brief CPU's r8 register. */
   uint64_t r8;
   /** @brief CPU's r9 register. */
@@ -137,16 +134,19 @@ typedef struct
   uint64_t r14;
   /** @brief CPU's r15 register. */
   uint64_t r15;
-  /** @brief CPU's ss register. */
-  uint64_t ss;
-  /** @brief CPU's gs register. */
-  uint64_t gs;
-  /** @brief CPU's fs register. */
-  uint64_t fs;
-  /** @brief CPU's es register. */
-  uint64_t es;
-  /** @brief CPU's ds register. */
-  uint64_t ds;
+
+  /** @brief CPU's rdi register. */
+  uint64_t rdi;
+  /** @brief CPU's rsi register. */
+  uint64_t rsi;
+  /** @brief CPU's rdx register. */
+  uint64_t rdx;
+  /** @brief CPU's rcx register. */
+  uint64_t rcx;
+  /** @brief CPU's rbx register. */
+  uint64_t rbx;
+  /** @brief CPU's rax register. */
+  uint64_t rax;
 } __attribute__((packed)) S_CPUState;
 
 /** @brief Holds the interrupt context */
@@ -162,15 +162,17 @@ typedef struct
   uint64_t cs;
   /** @brief RFLAGS before the interrupt. */
   uint64_t rflags;
+  /** @brief The stack pointer before the interrupt. */
+  uint64_t rsp;
+  /** @brief SS before the interrupt. */
+  uint64_t ss;
 } __attribute__((packed)) S_InterruptContext;
 
 /** @brief Virtual CPU structure */
 typedef struct
 {
-  /** @brief Stores the current CPU interrupt context */
-  S_InterruptContext intContext;
-  /** @brief Stores the current CPU state */
-  S_CPUState cpuState;
+  /** @brief Address to the current context on the stack */
+  uintptr_t context;
   /** @brief FXSAVE / FXRSTOR data region */
   uintptr_t fxDataRegion;
   /** @brief FXSAVE / FXRSTOR data region (non-aligned) */

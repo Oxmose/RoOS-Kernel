@@ -500,6 +500,14 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
   pIdle->stackEnd           = (uintptr_t)NULL;
   pIdle->kernelStackSize    = CPUGetStackSize();
   pIdle->kernelStackEnd     = CPUGetStackEnd(kCPUId);
+  pIdle->kernelStackSize    = CPUGetStackSize();
+  pIdle->kernelStackEnd     = MemoryMapStack(pIdle->kernelStackSize,
+                                             true,
+                                             pMainProcess);
+  SCHED_ASSERT(pIdle->kernelStackEnd != (uintptr_t)NULL,
+               "Failed to allocate idle thread stack.",
+               ERR_NO_MEMORY,
+               false);
   pIdle->priority           = KERNEL_LOWEST_PRIORITY;
   pIdle->currentState       = THREAD_STATE_RUNNING;
   pIdle->previousState      = THREAD_STATE_READY;
