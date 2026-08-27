@@ -363,7 +363,7 @@ static void* _ProcFSGenericOpen(void*       pExtraData,
   S_ProcessFileHandle* pHandle;
 
   (void)mode;
-  if(flags == O_RDONLY && *kpPath == 0)
+  if (flags == O_RDONLY && *kpPath == 0)
   {
     pHandle = KMallocUser(sizeof(S_ProcessFileHandle), NULL);
     if (pHandle != NULL)
@@ -390,7 +390,7 @@ static int32_t _ProcFSGenericClose(void* pExtraData, void* pFileHandle)
 
   (void)pExtraData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     KFreeUser(pFileHandle, NULL);
     retCode = 0;
@@ -742,7 +742,7 @@ static void* _ProcFSThreadGenericOpen(void*       pExtraData,
   S_ThreadFileHandle* pHandle;
 
   (void)mode;
-  if(flags == O_RDONLY && *kpPath == 0)
+  if (flags == O_RDONLY && *kpPath == 0)
   {
     pHandle = KMallocUser(sizeof(S_ThreadFileHandle), NULL);
     if (pHandle != NULL)
@@ -769,7 +769,7 @@ static int32_t _ProcFSThreadGenericClose(void* pExtraData, void* pFileHandle)
 
   (void)pExtraData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     KFreeUser(pFileHandle, NULL);
     retCode = 0;

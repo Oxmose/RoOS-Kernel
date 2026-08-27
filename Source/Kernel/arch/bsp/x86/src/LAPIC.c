@@ -9,9 +9,9 @@
  *
  * @version 2.0
  *
- * @brief Local APIC (Advanced programmable interrupt controler) driver.
+ * @brief Local APIC (Advanced programmable interrupt controller) driver.
  *
- * @details Local APIC (Advanced programmable interrupt controler) driver.
+ * @details Local APIC (Advanced programmable interrupt controller) driver.
  * Manages x86 IRQs from the IO-APIC. IPI (inter processor interrupt) are also
  * possible thanks to the driver.
  * Manages  the X86 LAPIC timer using the LAPIC driver. The LAPIC timer can be
@@ -225,7 +225,7 @@
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/** @brief x86 LAPIC driver controler. */
+/** @brief x86 LAPIC driver controller. */
 typedef struct S_LAPICControler
 {
   /** @brief LAPIC base physical address */
@@ -238,7 +238,7 @@ typedef struct S_LAPICControler
   const S_LAPICNode* pLAPICList;
 } S_LAPICControler;
 
-/** @brief x86 LAPIC Timer driver controler. */
+/** @brief x86 LAPIC Timer driver controller. */
 typedef struct
 {
   /** @brief LAPIC Timer interrupt number. */
@@ -298,7 +298,7 @@ typedef struct
  */
 #define LAPIC_STARTUP_ADDR(ADDR) ((((uintptr_t)(ADDR)) >> 12) & 0xFF)
 
-/** @brief Cast a pointer to a LAPIC timer driver controler */
+/** @brief Cast a pointer to a LAPIC timer driver controller */
 #define GET_CONTROLER(PTR) ((S_LAPICTimerControler*)PTR)
 
 /*******************************************************************************
@@ -451,7 +451,7 @@ static bool _TimerDummyHandler(void);
  *
  * @details Enables LAPIC Timer ticks by clearing the LAPIC Timer's IRQ mask.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  */
 static void _TimerEnable(void* pDrvCtrl);
@@ -461,7 +461,7 @@ static void _TimerEnable(void* pDrvCtrl);
  *
  * @details Disables LAPIC Timer ticks by setting the LAPIC Timer's IRQ mask.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  */
 static void _TimerDisable(void* pDrvCtrl);
@@ -484,7 +484,7 @@ static void _TimerSetFrequency(const uint64_t kFreq, const uint8_t kCpuId);
  *
  * @details Returns the LAPIC Timer tick frequency in Hz.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  *
  * @return The LAPIC Timer tick frequency in Hz.
@@ -497,7 +497,7 @@ static uint64_t _TimerGetFrequency(void* pDrvCtrl);
  * @details Sets the LAPIC Timer tick handler. This function will be called at
  * each LAPIC Timer tick received.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  * @param[in] handler The handler of the LAPIC Timer interrupt.
  *
@@ -510,7 +510,7 @@ static E_Return _TimerSetHandler(void* pDrvCtrl, T_InterruptHandler handler);
  *
  * @details Removes the LAPIC Timer tick handler.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  *
  * @return The success state or the error code.
@@ -522,7 +522,7 @@ static E_Return _TimerRemoveHandler(void* pDrvCtrl);
  *
  * @details Acknowledge interrupt.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  */
 static void _TimerAckInterrupt(void* pDrvCtrl);
@@ -730,7 +730,7 @@ static S_LAPICDriver sLAPICAPIDriver =
   .pInitApCPU      = _InitApCPU
 };
 
-/** @brief LAPIC driver controler instance. There will be only on for all
+/** @brief LAPIC driver controller instance. There will be only on for all
  * lapics, no need for dynamic allocation
  */
 static S_LAPICControler sDrvCtrl =
@@ -1367,7 +1367,7 @@ static void* _ProcFSOpen(void*       pDriverData,
   (void)pDriverData;
   (void)mode;
 
-  if(flags == O_RDONLY && *kpPath == 0)
+  if (flags == O_RDONLY && *kpPath == 0)
   {
     pEntryOffset = KMallocUser(sizeof(size_t), NULL);
     if (pEntryOffset == NULL)
@@ -1393,7 +1393,7 @@ static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     KFreeUser(pFileHandle, NULL);
     retCode = 0;
@@ -1416,7 +1416,7 @@ static ssize_t _ProcFSRead(void*  pDriverData,
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     pEntryOffset = (size_t*)pFileHandle;
 
@@ -1488,7 +1488,7 @@ static void* _ProcFSTimerOpen(void*       pDriverData,
 
   (void)pDriverData;
   (void)mode;
-  if(flags == O_RDONLY &&
+  if (flags == O_RDONLY &&
      *kpPath != 0 &&
      strncmp(kpPath, PROCFS_TIMER_DIR_PATH, 6) == 0 &&
      strlen(kpPath) > 6 &&
@@ -1561,7 +1561,7 @@ static int32_t _ProcFSTimerClose(void* pDriverData, void* pFileHandle)
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     KFreeUser(pFileHandle, NULL);
     retCode = 0;
@@ -1592,7 +1592,7 @@ static ssize_t _ProcFSTimerRead(void*  pDriverData,
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     retCode = 0;
     pHandle = (S_LAPICTimerProcFSHandle*)pFileHandle;
@@ -1762,7 +1762,7 @@ static int32_t _ProcFSTimerReadDir(void*             pDriverData,
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     pHandle = (S_LAPICTimerProcFSHandle*)pFileHandle;
 

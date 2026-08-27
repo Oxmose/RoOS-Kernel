@@ -127,7 +127,7 @@ typedef struct
   S_HPETComparator comparator[];
 } __attribute__((packed)) S_HPETRegisters;
 
-/** @brief x86 HPET Timer driver controler. */
+/** @brief x86 HPET Timer driver controller. */
 typedef struct
 {
   /** @brief HPET Timer interrupt number. */
@@ -168,7 +168,7 @@ typedef struct
   }                                                       \
 }
 
-/** @brief Cast a pointer to a LAPIC driver controler */
+/** @brief Cast a pointer to a LAPIC driver controller */
 #define GET_CONTROLER(PTR) ((S_HPETControler*)PTR)
 
 /*******************************************************************************
@@ -208,7 +208,7 @@ static E_Return _Init(S_HPETControler* pCtrl, const S_FDTNode* pkFdtNode);
  * @details Returns the time elasped since the last timer's reset in ns. The
  * timer can be set with the pSetTimeNs function.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  *
  * @return The time in nanosecond since the last timer reset is returned.
@@ -503,7 +503,7 @@ static void* _ProcFSOpen(void*       pDriverData,
   (void)pDriverData;
   (void)mode;
 
-  if(flags == O_RDONLY && *kpPath == 0)
+  if (flags == O_RDONLY && *kpPath == 0)
   {
     pEntryOffset = KMallocUser(sizeof(size_t), NULL);
     if (pEntryOffset != NULL)
@@ -529,7 +529,7 @@ static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     KFreeUser(pFileHandle, NULL);
     retCode = 0;
@@ -552,7 +552,7 @@ static ssize_t _ProcFSRead(void*  pDriverData,
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     pEntryOffset = (size_t*)pFileHandle;
 

@@ -158,7 +158,7 @@
 /** @brief Defines the port that is used to print debug data. */
 #define SERIAL_DEBUG_PORT 0x3F8
 
-/** @brief Cast a pointer to a UART driver controler */
+/** @brief Cast a pointer to a UART driver controller */
 #define GET_CONTROLER(PTR) ((S_UARTControler*)PTR)
 
 /** @brief Defines the maximal size of the UART input buffer */
@@ -210,7 +210,7 @@ typedef enum
   BAUDRATE_115200 = 1,
 } E_UARTBaudrate;
 
-/** @brief x86 UART driver controler. */
+/** @brief x86 UART driver controller. */
 typedef struct
 {
   /** @brief CPU command port. */
@@ -301,7 +301,7 @@ static inline void _UartSetBaudrate(const E_UARTBaudrate kRate,
  *
  * @details The function will output the data given as parameter on the selected
  * port. This call is blocking until the data has been sent to the uart port
- * controler.
+ * controller.
  *
  * @param[in] kPort The desired port to write the data to.
  * @param[in] kData The byte to write to the uart port.
@@ -536,15 +536,10 @@ static void* _VFSOpen(void*       pDrvCtrl,
 {
   (void)pDrvCtrl;
   (void)mode;
+  (void)flags;
 
   /* The path must be empty */
   if (*kpPath != 0)
-  {
-    return (void*)-1;
-  }
-
-  /* The flags must be O_RDWR */
-  if (flags != O_RDWR)
   {
     return (void*)-1;
   }

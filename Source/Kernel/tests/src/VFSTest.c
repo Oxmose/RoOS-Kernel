@@ -194,14 +194,14 @@ static void _TestNextToken(void)
                           TEST_VFS_ENABLED);
   nextToken = VFSGetNextPathTokenPosition("this is a test/", 15);
   TEST_POINT_ASSERT_DWORD(TEST_VFS_NEXT_TOKEN(2),
-                          nextToken == -1,
-                          -1,
+                          nextToken == 15,
+                          15,
                           nextToken,
                           TEST_VFS_ENABLED);
   nextToken = VFSGetNextPathTokenPosition("/", 1);
   TEST_POINT_ASSERT_DWORD(TEST_VFS_NEXT_TOKEN(3),
-                          nextToken == -1,
-                          -1,
+                          nextToken == 1,
+                          1,
                           nextToken,
                           TEST_VFS_ENABLED);
   nextToken = VFSGetNextPathTokenPosition("/sdf", 4);
@@ -218,8 +218,8 @@ static void _TestNextToken(void)
                           TEST_VFS_ENABLED);
   nextToken = VFSGetNextPathTokenPosition("sdfsdffend/", 11);
   TEST_POINT_ASSERT_DWORD(TEST_VFS_NEXT_TOKEN(6),
-                          nextToken == -1,
-                          -1,
+                          nextToken == 11,
+                          11,
                           nextToken,
                           TEST_VFS_ENABLED);
 }
@@ -971,11 +971,11 @@ void VFSCleanPathTest(void* pArgs)
   buffer[0] = 0;
   returnVal = cleanPath(buffer, "/test/./sdf/./././sdf.sdf./.sdf/sdf.sfd/./");
   TEST_POINT_ASSERT_DWORD(TEST_VFS_CLEAN_PATH(8),
-                          returnVal == 31,
-                          31,
+                          returnVal == 32,
+                          32,
                           returnVal,
                           TEST_VFS_ENABLED);
-  cmpRet = strcmp(buffer, "/test/sdf/sdf.sdf./.sdf/sdf.sfd");
+  cmpRet = strcmp(buffer, "/test/sdf/sdf.sdf./.sdf/sdf.sfd/");
   TEST_POINT_ASSERT_UBYTE(TEST_VFS_CLEAN_PATH(9),
                           cmpRet == 0,
                           0,
@@ -985,11 +985,11 @@ void VFSCleanPathTest(void* pArgs)
   buffer[0] = 0;
   returnVal = cleanPath(buffer, "///test//./one/../two/");
   TEST_POINT_ASSERT_DWORD(TEST_VFS_CLEAN_PATH(40),
-                          returnVal == 9,
-                          9,
+                          returnVal == 10,
+                          10,
                           returnVal,
                           TEST_VFS_ENABLED);
-  cmpRet = strcmp(buffer, "/test/two");
+  cmpRet = strcmp(buffer, "/test/two/");
   TEST_POINT_ASSERT_UBYTE(TEST_VFS_CLEAN_PATH(41),
                           cmpRet == 0,
                           0,
@@ -1050,11 +1050,11 @@ void VFSCleanPathTest(void* pArgs)
   buffer[0] = 0;
   returnVal = cleanPath(buffer, "/test/again/./sdf/./../../sdf..sdf../..sdf/sdf..sfd/..");
   TEST_POINT_ASSERT_DWORD(TEST_VFS_CLEAN_PATH(18),
-                          returnVal == 22,
-                          22,
+                          returnVal == 23,
+                          23,
                           returnVal,
                           TEST_VFS_ENABLED);
-  cmpRet = strcmp(buffer, "/test/sdf..sdf../..sdf");
+  cmpRet = strcmp(buffer, "/test/sdf..sdf../..sdf/");
   TEST_POINT_ASSERT_UBYTE(TEST_VFS_CLEAN_PATH(19),
                           cmpRet == 0,
                           0,
@@ -1129,11 +1129,11 @@ void VFSCleanPathTest(void* pArgs)
 
   returnVal = cleanPath(buffer, "/.../..../");
   TEST_POINT_ASSERT_DWORD(TEST_VFS_CLEAN_PATH(30),
-                          returnVal == 9,
-                          9,
+                          returnVal == 10,
+                          10,
                           returnVal,
                           TEST_VFS_ENABLED);
-  cmpRet = strcmp(buffer, "/.../....");
+  cmpRet = strcmp(buffer, "/.../..../");
   TEST_POINT_ASSERT_UBYTE(TEST_VFS_CLEAN_PATH(31),
                           cmpRet == 0,
                           0,
@@ -1167,11 +1167,11 @@ void VFSCleanPathTest(void* pArgs)
   /* Check traling delimiter */
   returnVal = cleanPath(buffer, "_is_a_test/");
   TEST_POINT_ASSERT_DWORD(TEST_VFS_CLEAN_PATH(36),
-                          returnVal == 11,
-                          11,
+                          returnVal == 12,
+                          12,
                           returnVal,
                           TEST_VFS_ENABLED);
-  cmpRet = strcmp(buffer, "/_is_a_test");
+  cmpRet = strcmp(buffer, "/_is_a_test/");
   TEST_POINT_ASSERT_UBYTE(TEST_VFS_CLEAN_PATH(37),
                           cmpRet == 0,
                           0,

@@ -167,7 +167,7 @@ static void* _TestFIFOMutexRoutine(void* args)
   pThread = SchedulerGetCurrentThread();
 
   error0 = KernelMutexLock(pMutex);
-  if(sLastTid == pThread->tid + 1)
+  if (sLastTid == pThread->tid + 1)
   {
       ++sOrderedTid;
   }
@@ -209,7 +209,7 @@ static void* _TestTrylockMutexRoutine(void* args)
 
   error0 = KernelMutexLock(&pMutexes[1]);
   errorTry = KernelMutexTryLock(&pMutexes[0], &level);
-  if(tid > initBase)
+  if (tid > initBase)
   {
       KernelMutexUnlock(&pMutexes[0]);
   }
@@ -226,7 +226,7 @@ static void* _TestTrylockMutexRoutine(void* args)
                           error1,
                           TEST_OS_KMUTEX_ENABLED);
 
-  if(tid < initBase)
+  if (tid < initBase)
   {
     TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_TRYLOCK_TEST(tid * 10 + 2),
                             errorTry == ERR_UNAUTHORIZED_ACTION,
@@ -269,7 +269,7 @@ static void* _TestElevationMutexRoutine(void* args)
   prio = pCurThread->priority;
 
 
-  if(prio == 10)
+  if (prio == 10)
   {
     error = KernelMutexLock(pElevationMutex);
     TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ELEVATION_PRIO(0),
@@ -278,7 +278,7 @@ static void* _TestElevationMutexRoutine(void* args)
                             error,
                             TEST_OS_KMUTEX_ENABLED);
 
-    while(pElevationMutex->pWaitingList->size == 0){
+    while (pElevationMutex->pWaitingList->size == 0){
 
     }
     SleepNs(1000000);
@@ -291,7 +291,7 @@ static void* _TestElevationMutexRoutine(void* args)
                             pCurThread->priority,
                             TEST_OS_KMUTEX_ENABLED);
 
-    while(pElevationMutex->pWaitingList->size == 1){
+    while (pElevationMutex->pWaitingList->size == 1){
 
     }
     SleepNs(1000000);
@@ -304,7 +304,7 @@ static void* _TestElevationMutexRoutine(void* args)
                             pCurThread->priority,
                             TEST_OS_KMUTEX_ENABLED);
 
-    while(pElevationMutex->pWaitingList->size == 2){
+    while (pElevationMutex->pWaitingList->size == 2){
 
     }
     SleepNs(1000000);
@@ -333,7 +333,7 @@ static void* _TestElevationMutexRoutine(void* args)
                             pCurThread->priority,
                             TEST_OS_KMUTEX_ENABLED);
   }
-  else if(prio == 12)
+  else if (prio == 12)
   {
     SleepNs(200000000);
 
@@ -367,7 +367,7 @@ static void* _TestElevationMutexRoutine(void* args)
                             pCurThread->priority,
                             TEST_OS_KMUTEX_ENABLED);
   }
-  else if(prio == 9)
+  else if (prio == 9)
   {
     SleepNs(6000000000);
 
@@ -401,7 +401,7 @@ static void* _TestElevationMutexRoutine(void* args)
                             pCurThread->priority,
                             TEST_OS_KMUTEX_ENABLED);
   }
-  else if(prio == 7)
+  else if (prio == 7)
   {
     SleepNs(4000000000);
 
@@ -649,7 +649,7 @@ static void _TestPrioMutex(void)
                           error,
                           TEST_OS_KMUTEX_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
     CPU_MASK_RESET(cpuMask);
     CPU_MASK_SET(cpuMask, i % CPUGetCount());
@@ -680,7 +680,7 @@ static void _TestPrioMutex(void)
                           error,
                           TEST_OS_KMUTEX_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
       error = JoinThread(pThreads[i], &retVal);
       TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ORDER_TEST(101 + i),
@@ -715,7 +715,7 @@ static void _TestFIFOMutex(void)
                           error,
                           TEST_OS_KMUTEX_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
     CPU_MASK_RESET(cpuMask);
     CPU_MASK_SET(cpuMask, i % CPUGetCount());
@@ -747,7 +747,7 @@ static void _TestFIFOMutex(void)
                           error,
                           TEST_OS_KMUTEX_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
       error = JoinThread(pThreads[i], &retVal);
       TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_FIFO_TEST(101 + i),
@@ -796,7 +796,7 @@ static void _TestTrylockMutex(void)
                           error,
                           TEST_OS_KMUTEX_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
     CPU_MASK_RESET(cpuMask);
     CPU_MASK_SET(cpuMask, i % CPUGetCount());
@@ -826,7 +826,7 @@ static void _TestTrylockMutex(void)
                           error,
                           TEST_OS_KMUTEX_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
       error = JoinThread(pThreads[i], &retVal);
       TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_TRYLOCK_TEST(101 + i),
@@ -924,7 +924,7 @@ static void _TestElevationMutex(void)
                           error,
                           TEST_OS_KMUTEX_ENABLED);
 
-  for(i = 0; i < 4; ++i)
+  for (i = 0; i < 4; ++i)
   {
     error = JoinThread(pThreads[i], &retVal);
 

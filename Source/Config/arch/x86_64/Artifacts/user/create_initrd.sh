@@ -14,13 +14,13 @@ filesize=$(wc -c < "../$2/initrd.tar")
 echo -e "\nInitrd size: $filesize"
 
 cd ../$2
-rm -f utk.initrd
-cat initrd.tar >> utk.initrd
+rm -f roos.initrd
+cat initrd.tar >> roos.initrd
 rm initrd.tar
 
 echo "section .roos_ramdisk" >> ramdisk.s
-echo "incbin \"utk.initrd\"" >> ramdisk.s
+echo "incbin \"roos.initrd\"" >> ramdisk.s
 
 nasm -g -f elf64 -w+gnu-elf-extensions -F dwarf ramdisk.s -o ramdisk.o -I .
 ar r libramdisk.a ramdisk.o
-rm ramdisk.o ramdisk.s utk.initrd
+rm ramdisk.o ramdisk.s roos.initrd

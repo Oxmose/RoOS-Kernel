@@ -10,7 +10,7 @@
 ################################################################################
 
 QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 256M \
-           -smp 4 -serial stdio -drive format=raw,file=../Peripherals/hdd_primary_master.img
+           -smp 1 -serial stdio -drive format=raw,file=../Peripherals/hdd_primary_master.img
 
 QEMUOPTSTEST = -cpu EPYC -rtc base=localtime -m 256M \
            -smp 4 -serial stdio -drive format=raw,file=../Peripherals/hdd_primary_master.img

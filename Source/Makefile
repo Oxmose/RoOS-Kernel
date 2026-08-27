@@ -67,11 +67,35 @@ endif
 # Build Kernel and integrated initrd
 ####################################
 
-build_kernel: build_modules
+build_user_modules:
+	@echo "\e[1m\e[34m\n#-------------------------------------------------------------------------------\e[22m\e[39m"
+	@echo "\e[1m\e[34m| Building user modules for target $(target)\e[22m\e[39m"
+	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\n\e[22m\e[39m"
+
+	@make -C $(USER_SRC_DIR)/libs target_cpu=$(target)
+
+	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\e[22m\e[39m"
+	@echo "\e[1m\e[34m| Generated user modules for target $(target)\e[22m\e[39m"
+	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\n\e[22m\e[39m"
+
+
+build_initrd: build_user_modules
+	@echo "\e[1m\e[34m\n#-------------------------------------------------------------------------------\e[22m\e[39m"
+	@echo "\e[1m\e[34m| Building kernel integrated initrd for target $(target)\e[22m\e[39m"
+	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\n\e[22m\e[39m"
+
+	@make -C $(USER_SRC_DIR)/initrd target_cpu=$(target)
+
+	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\e[22m\e[39m"
+	@echo "\e[1m\e[34m| Generated kernel integrated initrd for target $(target)\e[22m\e[39m"
+	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\n\e[22m\e[39m"
+
+build_kernel: build_initrd build_modules
 	@echo "\e[1m\e[34m\n#-------------------------------------------------------------------------------\e[22m\e[39m"
 	@echo "\e[1m\e[34m| Building kernel for target $(target)\e[22m\e[39m"
 	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\n\e[22m\e[39m"
 
+	@cp -r $(USER_SRC_DIR)/ARTIFACTS/initrd/* $(KERNEL_SRC_DIR)/ARTIFACTS
 	@make -C $(KERNEL_SRC_DIR)/ARTIFACTS KERNEL_NAME=$(KERNEL) BUILD_DIR=$(KERNEL_BUILD_DIR)
 
 	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\e[22m\e[39m"
@@ -85,16 +109,18 @@ build_kernel: build_modules
 clean:
 
 # Dummy settings
-	@mkdir -p Kernel/ARTIFACTS
-	@touch Kernel/ARTIFACTS/settings.mk
+	@mkdir -p $(KERNEL_SRC_DIR)/ARTIFACTS
+	@touch $(KERNEL_SRC_DIR)/ARTIFACTS/settings.mk
+	@mkdir -p $(USER_SRC_DIR)/ARTIFACTS
+	@touch $(USER_SRC_DIR)/ARTIFACTS/settings.mk
 
 # Clean modules
 ifeq ($(target), x86_64)
 	@make -C $(KERNEL_SRC_DIR)/arch target_board=x86 target_cpu=x86_64 clean
-	@make -C $(KERNEL_SRC_DIR)/tests target=$(x86_64) clean
+	@make -C $(KERNEL_SRC_DIR)/tests target=x86_64 clean
 else
 	@make -C $(KERNEL_SRC_DIR)/arch target_board=x86 target_cpu=x86_64 clean
-	@make -C $(KERNEL_SRC_DIR)/tests target=$(x86_64) clean
+	@make -C $(KERNEL_SRC_DIR)/tests target=x86_64 clean
 endif
 
 	@make -C $(KERNEL_SRC_DIR)/libs clean
@@ -103,11 +129,15 @@ endif
 	@make -C $(KERNEL_SRC_DIR)/io clean
 	@make -C $(KERNEL_SRC_DIR)/fs clean
 
+	@make -C $(USER_SRC_DIR)/initrd clean
+	@make -C $(USER_SRC_DIR)/libs clean
+
+	@rm -rf Kernel/ARTIFACTS
+	@rm -rf User/ARTIFACTS
+
 	@echo "\e[1m\e[34m\n#-------------------------------------------------------------------------------\e[22m\e[39m"
 	@echo "\e[1m\e[34m| Cleaned kernel \e[22m\e[39m"
 	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\n\e[22m\e[39m"
-
-	@rm -rf Kernel/ARTIFACTS
 
 run:
 	@make run -f $(CONFIG_DIR)/arch/$(target)/makerun.mk KERNEL_BUILD_DIR=$(KERNEL_ARTIFACTS_DIR)/$(KERNEL_BUILD_DIR) KERNEL=$(KERNEL)

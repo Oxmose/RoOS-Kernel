@@ -1,5 +1,13 @@
 [
   {
+    "name": "Kernel RAMDISK",
+    "testname": "RAMDISK"
+  },
+  {
+    "name": "Kernel USTAR Driver",
+    "testname": "USTARFS"
+  },
+  {
     "name": "Kernel CPUID",
     "testname": "CPUID"
   },
