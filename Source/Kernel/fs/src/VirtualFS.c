@@ -452,13 +452,7 @@ static ssize_t _CleanPath(char* pCleanPath, const char* kpOriginalPath)
 
   size    = strnlen(kpOriginalPath, VFS_PATH_MAX_LENGTH * 10);
   newSize = 0;
-  i = 0;
-
-  /* Remove trailing delimiter */
-  while (size > 0 && kpOriginalPath[size - 1] == VFS_PATH_DELIMITER)
-  {
-    --size;
-  }
+  i       = 0;
 
   /* Add leading slash */
   if (size > 0 && kpOriginalPath[0] == VFS_PATH_DELIMITER)
@@ -553,10 +547,6 @@ static ssize_t _CleanPath(char* pCleanPath, const char* kpOriginalPath)
 
   if (newSize >= 0)
   {
-    if (newSize > 1 && pCleanPath[newSize - 1] == '/')
-    {
-      --newSize;
-    }
     pCleanPath[newSize] = 0;
   }
   else
@@ -678,7 +668,7 @@ static void _AddDriverNode(S_VFSNode*  pRoot,
     pNode->mountPointLength = token - 1;
 
     /* Add the driver */
-    if (nextToken != -1)
+    if (nextToken != -1 && nextToken != (ssize_t)pathLen)
     {
       pNode->pDriver = NULL;
     }
@@ -1820,7 +1810,7 @@ ssize_t VFSGetNextPathTokenPosition(const char* kpStr, const size_t kStrSize)
     }
   }
 
-  if ((size_t)nextToken == kStrSize)
+  if ((size_t)nextToken == kStrSize && kpStr[nextToken - 1] != VFS_PATH_DELIMITER)
   {
     nextToken = -1;
   }

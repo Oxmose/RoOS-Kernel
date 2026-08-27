@@ -73,13 +73,13 @@
 /** @brief FDT property for refresh rate */
 #define VGA_FDT_REFRESH_PROP "refresh-rate"
 
-/** @brief Cast a pointer to a VGA driver controler */
+/** @brief Cast a pointer to a VGA driver controller */
 #define GET_CONTROLER(PTR) ((S_VGAControler*)PTR)
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/** @brief x86 VGA driver controler. */
+/** @brief x86 VGA driver controller. */
 typedef struct
 {
   /** @brief Screen line resolution. */
@@ -229,7 +229,7 @@ static inline void _PrintChar(const uint32_t kLine,
 /**
  * @brief Processes the character in parameters.
  *
- * @param[in, out] pDriverCtrl The VGA driver controler to use.
+ * @param[in, out] pDriverCtrl The VGA driver controller to use.
  * @details Check the character nature and code. Corresponding to the
  * character's code, an action is taken. A regular character will be printed
  * whereas \\n will create a line feed.
@@ -451,10 +451,10 @@ static S_Driver sX86VGADriver =
   .pDriverAttach = _Attach
 };
 
-/** @brief VGA driver controler. */
+/** @brief VGA driver controller. */
 static S_VGAControler sVGADriverCtrl;
 
-/** @brief VGA VFS driver controler. */
+/** @brief VGA VFS driver controller. */
 static T_VFSDriver sVFSDriver;
 
 /*******************************************************************************

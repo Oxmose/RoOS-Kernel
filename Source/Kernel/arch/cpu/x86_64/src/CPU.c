@@ -1708,7 +1708,7 @@ static void* _ProcFSOpen(void*       pDriverData,
 
   (void)pDriverData;
   (void)mode;
-  if(flags == O_RDONLY && *kpPath == 0)
+  if (flags == O_RDONLY && *kpPath == 0)
   {
     pHandle = KMallocUser(sizeof(size_t), NULL);
     if (pHandle != NULL)
@@ -1734,7 +1734,7 @@ static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     KFreeUser(pFileHandle, NULL);
     retCode = 0;
@@ -1767,10 +1767,10 @@ static ssize_t _ProcFSRead(void*  pDriverData,
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     pInfoBuffer = KMallocUser(CPUINFO_BUFFER_SIZE, NULL);
-    if(pInfoBuffer != NULL)
+    if (pInfoBuffer != NULL)
     {
       pOffset = (size_t*)pFileHandle;
       /* Generate CPUID data for each processor */
@@ -1786,7 +1786,7 @@ static ssize_t _ProcFSRead(void*  pDriverData,
         _GenerateCPUInfoString(kpInfo, pInfoBuffer, &infoSize);
 
         /* Skip if we already read that part */
-        if(*pOffset > currentOffset + infoSize)
+        if (*pOffset > currentOffset + infoSize)
         {
           currentOffset += infoSize;
           continue;
@@ -1855,7 +1855,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
   offset = snprintf(pInfoBuffer, maxSize, "processor: %d\n", kpInfo->id);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -1865,7 +1865,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->pVendor);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -1875,7 +1875,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->family);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -1885,7 +1885,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->model);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -1895,7 +1895,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->pName);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -1905,7 +1905,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->stepping);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -1915,7 +1915,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->microcode);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -1925,13 +1925,13 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->frequencyHz);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
 
   pCacheInfo = kpInfo->pCaches;
-  while(pCacheInfo != NULL)
+  while (pCacheInfo != NULL)
   {
     switch(pCacheInfo->type)
     {
@@ -1963,7 +1963,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     );
     pInfoBuffer += offset;
     maxSize -= offset;
-    if(maxSize == 0)
+    if (maxSize == 0)
     {
       return;
     }
@@ -1971,7 +1971,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
   }
 
   pTlbInfo = kpInfo->pTLBs;
-  while(pTlbInfo != NULL)
+  while (pTlbInfo != NULL)
   {
     switch(pTlbInfo->type)
     {
@@ -2016,7 +2016,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     );
     pInfoBuffer += offset;
     maxSize -= offset;
-    if(maxSize == 0)
+    if (maxSize == 0)
     {
       return;
     }
@@ -2029,7 +2029,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->physicalId);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2039,7 +2039,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->siblings);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2049,7 +2049,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->coreId);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2059,7 +2059,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->cpuCores);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2069,7 +2069,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->apicId);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2079,7 +2079,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->initialApicId);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2089,7 +2089,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->fpu ? "yes": "no");
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2099,7 +2099,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->cpuIdLevel);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2109,7 +2109,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->wp ? "yes": "no");
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2118,14 +2118,14 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     "flags: ");
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
   offset = CPUIDGetFlagsString(pInfoBuffer, maxSize, &kpInfo->flags);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2134,7 +2134,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     "\n");
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2144,7 +2144,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->bogoMips);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2154,7 +2154,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->clFlushSize);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
     return;
   }
@@ -2164,7 +2164,7 @@ static void _GenerateCPUInfoString(const S_CPUInformation* kpInfo,
                     kpInfo->physAddressWidth, kpInfo->virtAddressWidth);
   pInfoBuffer += offset;
   maxSize -= offset;
-  if(maxSize == 0)
+  if (maxSize == 0)
   {
       return;
 }

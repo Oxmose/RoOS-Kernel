@@ -43,6 +43,8 @@
 #define TEST_VFS_ENABLED                          0
 #define TEST_PROCFS_ENABLED                       0
 #define TEST_OS_VECTOR_ENABLED                    0
+#define TEST_RAMDISK_ENABLED                      0
+#define TEST_USTARFS_ENABLED                      0
 #define TEST_OS_KQUEUE_ENABLED                    0
 #define TEST_OS_FAST_QUEUES_ENABLED               0
 #define TEST_CPUID_ENABLED                        0
@@ -126,6 +128,12 @@
 #define TEST_PROCFS_READDIR(X)       (600 + X)
 #define TEST_PROCFS_IOCTL(X)         (700 + X)
 #define TEST_PROCFS_ERRORS(X)        (800 + X)
+
+/** @brief RAMDisk test */
+#define TEST_RAMDISK(X)              (0 + X)
+
+/** @brief USTAR filesystem test */
+#define TEST_USTARFS(X)              (0 + X)
 
 /** @brief Interrupt test */
 #define TEST_INTERRUPT(X) (X)
@@ -461,6 +469,10 @@ void VFSGenericTest(void* pArgs);
 void VirtualFSTest(void);
 /** @brief ProcFS test function */
 void ProcFSTest(void);
+/** @brief RAMDisk test function */
+void RAMDiskTest(void);
+/** @brief USTAR filesystem test function */
+void USTARFSTest(void);
 
 
 #endif /* #ifdef _TESTING_FRAMEWORK_ENABLED */

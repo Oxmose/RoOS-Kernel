@@ -9,9 +9,9 @@
  *
  * @version 2.0
  *
- * @brief PIC (programmable interrupt controler) driver.
+ * @brief PIC (programmable interrupt controller) driver.
  *
- * @details PIC (programmable interrupt controler) driver. Allows to remmap
+ * @details PIC (programmable interrupt controller) driver. Allows to remmap
  * the PIC IRQ, set the IRQs mask and manage EoI for the X86 PIC.
  *
  * @copyright Alexy Torres Aurora Dugo
@@ -109,7 +109,7 @@
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/** @brief x86 PIC driver controler. */
+/** @brief x86 PIC driver controller. */
 typedef struct
 {
   /** @brief CPU command port. */
@@ -124,7 +124,7 @@ typedef struct
   bool hasSlave;
   /** @brief PIC IRQ interrupt offset */
   uint8_t intOffset;
-  /** @brief Controler lock for concurrent accesses */
+  /** @brief Controller lock for concurrent accesses */
   S_KernelSpinlock lock;
 } S_PICControler;
 
@@ -229,7 +229,7 @@ static uint32_t _GetInterruptLine(const uint32_t kIRQNumber);
 static S_Driver sX86PICDriver =
 {
   .pName         = "X86 PIC Driver",
-  .pDescription  = "X86 Programable Interrupt Controler Driver for roOs",
+  .pDescription  = "X86 Programable Interrupt Controller Driver for roOs",
   .pCompatible   = "x86,x86-pic",
   .pVersion      = "2.0",
   .pDriverAttach = _Attach
@@ -244,7 +244,7 @@ static S_InterruptDriver sPicDriver =
   .pGetIRQInterruptLine = _GetInterruptLine
 };
 
-/** @brief PIC driver controler instance */
+/** @brief PIC driver controller instance */
 static S_PICControler sDrvCtrl =
 {
   .cpuMasterCommPort = 0,
@@ -331,7 +331,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   /* Register if needed */
   if (FDTGetProp(pkFdtNode, PIC_FDT_IS_INT_DRIVER_PROP, &propLen) != NULL)
   {
-    /* Register as interrupt controler */
+    /* Register as interrupt controller */
     retCode = InterruptSetDriver(&sPicDriver);
     PIC_ASSERT(retCode == NO_ERROR,
                "Could not register PIC in interrupt manager",

@@ -54,7 +54,7 @@
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/** @brief x86 TSC driver controler. */
+/** @brief x86 TSC driver controller. */
 typedef struct
 {
   /** @brief Counter frequency. */
@@ -83,7 +83,7 @@ typedef struct
   }                                                       \
 }
 
-/** @brief Cast a pointer to a TSC driver controler */
+/** @brief Cast a pointer to a TSC driver controller */
 #define GET_CONTROLER(PTR) ((S_TSCControler*)PTR)
 
 /*******************************************************************************
@@ -125,7 +125,7 @@ static void _Disable(void* pDrvCtrl);
  *
  * @details Returns the TSC count frequency in Hz.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  *
  * @return The TSC count frequency in Hz.
@@ -161,7 +161,7 @@ static E_Return _RemoveHandler(void* pDrvCtrl);
  * @details Returns the time elasped since the last timer's reset in ns. The
  * timer can be set with the pSetTimeNs function.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  *
  * @return The time in nanosecond since the last timer reset is returned.

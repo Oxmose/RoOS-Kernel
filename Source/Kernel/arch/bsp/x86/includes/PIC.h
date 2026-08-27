@@ -9,9 +9,9 @@
  *
  * @version 2.0
  *
- * @brief PIC (programmable interrupt controler) driver.
+ * @brief PIC (programmable interrupt controller) driver.
  *
- * @details PIC (programmable interrupt controler) driver. Allows to remmap
+ * @details PIC (programmable interrupt controller) driver. Allows to remmap
  * the PIC IRQ, set the IRQs mask and manage EoI for the X86 PIC.
  *
  * @copyright Alexy Torres Aurora Dugo

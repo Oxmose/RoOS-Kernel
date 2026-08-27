@@ -100,7 +100,7 @@
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/** @brief x86 RTC driver controler. */
+/** @brief x86 RTC driver controller. */
 typedef struct
 {
   /** @brief CPU command port. */
@@ -143,7 +143,7 @@ typedef struct
   }                                                       \
 }
 
-/** @brief Cast a pointer to a RTC driver controler */
+/** @brief Cast a pointer to a RTC driver controller */
 #define GET_CONTROLER(PTR) ((S_RTCControler*)PTR)
 
 /*******************************************************************************
@@ -178,7 +178,7 @@ static bool _DummyHandler(void);
  *
  * @details Enables RTC ticks by clearing the RTC's IRQ mask.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  */
 static void _Enable(void* pDrvCtrl);
@@ -188,7 +188,7 @@ static void _Enable(void* pDrvCtrl);
  *
  * @details Disables RTC ticks by setting the RTC's IRQ mask.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  */
 static void _Disable(void* pDrvCtrl);
@@ -199,7 +199,7 @@ static void _Disable(void* pDrvCtrl);
  * @details Sets the RTC's tick frequency. The value must be between 2Hz and
  * 8192Hz.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  * @param[in] kFrequency The new frequency to be set to the RTC.
  *
@@ -214,7 +214,7 @@ static void _SetFrequency(void* pDrvCtrl, const uint64_t kFrequency);
  *
  * @details Returns the RTC tick frequency in Hz.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  *
  * @return The RTC tick frequency in Hz.
@@ -227,7 +227,7 @@ static uint64_t _GetFrequency(void* pDrvCtrl);
  * @details Sets the RTC tick handler. This function will be called at each RTC
  * tick received.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  * @param[in] handler The handler of the RTC interrupt.
  *
@@ -240,7 +240,7 @@ static E_Return _SetHandler(void* pDrvCtrl, T_InterruptHandler handler);
  *
  * @details Removes the RTC tick handler.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  *
  * @return The success state or the error code.
@@ -252,7 +252,7 @@ static E_Return _RemoveHandler(void* pDrvCtrl);
  *
  * @details Returns the current date in RTC date format.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  *
  * @return The current date in in RTC date format
@@ -264,7 +264,7 @@ static S_Date _GetDate(void* pDrvCtrl);
  *
  * @details Returns the current daytime in seconds.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  *
  * @return The current daytime in seconds.
@@ -278,7 +278,7 @@ static S_DayTime _GetDaytime(void* pDrvCtrl);
  * CMOS registers. By doing that, the RTC registers are cleaned and the RTC able
  * to interrupt the CPU again.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  * @param[out] pDate The date to update.
  * @param[out] pTime The time to update.
@@ -294,7 +294,7 @@ static void _UpdateTime(void* pDrvCtrl, S_Date* pDate, S_DayTime* pTime);
  * @details Sends EOI to RTC itself. The RTC requires to acknoledge its
  * interrupts otherwise, no further interrupt is generated.
  *
- * @param[in, out] pDrvCtrl The driver controler used by the registered
+ * @param[in, out] pDrvCtrl The driver controller used by the registered
  * console driver.
  */
 static void _AckowledgeInt(void* pDrvCtrl);
@@ -822,7 +822,7 @@ static void* _ProcFSOpen(void*       pDriverData,
 
   (void)pDriverData;
   (void)mode;
-  if(flags == O_RDONLY && *kpPath == 0)
+  if (flags == O_RDONLY && *kpPath == 0)
   {
     pHandle = KMallocUser(sizeof(size_t), NULL);
     if (pHandle != NULL)
@@ -848,7 +848,7 @@ static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     KFreeUser(pFileHandle, NULL);
     retCode = 0;
@@ -879,7 +879,7 @@ static ssize_t _ProcFSRead(void*  pDriverData,
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     retCode = 0;
     pBufferOffset = (size_t*)pFileHandle;

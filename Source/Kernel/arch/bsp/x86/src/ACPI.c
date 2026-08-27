@@ -428,7 +428,7 @@ typedef struct
   uint16_t flags;
 } __attribute__((__packed__)) S_APICInterruptOverride;
 
-/** @brief x86 ACPI driver controler. */
+/** @brief x86 ACPI driver controller. */
 typedef struct
 {
   /** @brief Detected CPU count. */
@@ -772,7 +772,7 @@ static S_Driver sX86ACPIDriver =
   .pDriverAttach = _Attach
 };
 
-/** @brief ACPI driver controler instance */
+/** @brief ACPI driver controller instance */
 static S_ACPIControler sDrvCtrl =
 {
   .detectedCPUCount         = 0,
@@ -1487,7 +1487,7 @@ static void* _ProcFSOpen(void*       pDriverData,
   (void)pDriverData;
   (void)mode;
 
-  if(flags == O_RDONLY && *kpPath == 0)
+  if (flags == O_RDONLY && *kpPath == 0)
   {
     pEntryOffset = KMallocUser(sizeof(size_t), NULL);
     if (pEntryOffset == NULL)
@@ -1513,7 +1513,7 @@ static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     KFreeUser(pFileHandle, NULL);
     retCode = 0;
@@ -1536,7 +1536,7 @@ static ssize_t _ProcFSRead(void*  pDriverData,
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     pEntryOffset = (size_t*)pFileHandle;
 

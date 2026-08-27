@@ -58,7 +58,7 @@
 /** @brief FDT property for device path */
 #define KBD_FDT_DEVICE_PROP "device"
 
-/** @brief Cast a pointer to a keyboard driver controler */
+/** @brief Cast a pointer to a keyboard driver controller */
 #define GET_CONTROLER(PTR) ((kbd_controler_t*)PTR)
 
 /** @brief Defines the maximal size of the keyboard input buffer */
@@ -92,7 +92,7 @@ typedef struct
 } S_KeyMapper;
 
 
-/** @brief x86 Keyboard driver controler. */
+/** @brief x86 Keyboard driver controller. */
 typedef struct
 {
   /** @brief CPU command port. */

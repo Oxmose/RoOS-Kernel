@@ -190,7 +190,7 @@ void DriverManagerInit(const bool kPreInit)
                  "%s -> %s - %s",
                  kPreInit ? "Pre Init:" : "Init:",
                  pDriver->pName,
-                 pDriver->pDescription)
+                 pDriver->pDescription);
     driverTableCursor += sizeof(uintptr_t);
     pDriver           = *(S_Driver**)driverTableCursor;
   }

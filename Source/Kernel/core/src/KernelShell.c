@@ -162,6 +162,11 @@ static void _ShellPanic(const char* args)
 static void _ShellTest(const char* args)
 {
   (void)args;
+
+  _ShellMount("/dev/storage/ramdisk0 /initrd ustar");
+  _ShellList("/initrd");
+
+
   KPrintf("Kernel Shell Test Command Executed\n");
 }
 
@@ -172,9 +177,9 @@ static void _ShellCat(const char* args)
   char    buffer[100];
 
   fd = VFSOpen(args, O_RDONLY, 0);
-  if(fd >= 0)
+  if (fd >= 0)
   {
-    while((ret = VFSRead(fd, buffer, 99)) > 0)
+    while ((ret = VFSRead(fd, buffer, 99)) > 0)
     {
       buffer[ret] = 0;
       KPrintf("%s", buffer);
@@ -212,16 +217,16 @@ static void _ShellMount(const char* args)
   lastCpy   = 0;
   copyIndex = 0;
   length    = strnlen(args, SHELL_INPUT_BUFFER_SIZE);
-  for(i = 0; i < length; ++i)
+  for (i = 0; i < length; ++i)
   {
-    if(args[i] == ' ')
+    if (args[i] == ' ')
     {
       memcpy(argsVal[copyIndex], args + lastCpy, i - lastCpy);
       argsVal[copyIndex][i - lastCpy] = 0;
       ++copyIndex;
       lastCpy = i + 1;
     }
-    else if(i == length - 1)
+    else if (i == length - 1)
     {
       memcpy(argsVal[copyIndex], args + lastCpy, i - lastCpy + 1);
       argsVal[copyIndex][i - lastCpy + 1] = 0;
@@ -230,7 +235,7 @@ static void _ShellMount(const char* args)
     }
   }
 
-  if(copyIndex != 3)
+  if (copyIndex != 3)
   {
     KPrintf("Error: mount <dev_path> <dir_path> <fs_name>\n");
     return;
@@ -239,7 +244,7 @@ static void _ShellMount(const char* args)
   KPrintf("Mouting %s to %s (fs: %s)\n", argsVal[0], argsVal[1], argsVal[2]);
 
   retVal = VFSMount(argsVal[1], argsVal[0], argsVal[2]);
-  if(retVal != NO_ERROR)
+  if (retVal != NO_ERROR)
   {
     KPrintf("Failed to mount: %d\n", retVal);
   }
@@ -252,13 +257,13 @@ static void _ShellList(const char* args)
   int32_t          ret;
 
   fd = VFSOpen(args, O_RDONLY, 0);
-  if(fd < 0)
+  if (fd < 0)
   {
     KPrintf("Failed to open %s\n", args);
     return;
   }
 
-  while(VFSReaddir(fd, &dirEnt) >= 0)
+  while (VFSReaddir(fd, &dirEnt) >= 0)
   {
     KPrintf("%s\n", dirEnt.pName);
   }
@@ -275,7 +280,7 @@ static void _ShellHelp(const char* args)
   (void)args;
   size_t i;
 
-  for(i = 0; sCommands[i].pCommandName != NULL; ++i)
+  for (i = 0; sCommands[i].pCommandName != NULL; ++i)
   {
     KPrintf("%s - %s\n", sCommands[i].pCommandName, sCommands[i].pDescription);
   }
@@ -293,7 +298,7 @@ static void _ShellTimeTest(const char* args)
   uint64_t ns;
   uint64_t oldTime = TimeGetUptime();
   uint64_t tmp;
-  for(i = 0; i < 1000; ++i)
+  for (i = 0; i < 1000; ++i)
   {
     tmp = TimeGetUptime();
     time = tmp - oldTime;
@@ -321,7 +326,7 @@ static void _ShellDisplayThreads(const char* args)
   pThreadTable = KMalloc(sizeof(int32_t) * threadCount,
                          KMALLOC_FREE_POOL,
                          ALIGN_4_BYTES);
-  if(pThreadTable == NULL)
+  if (pThreadTable == NULL)
   {
     KPrintf("Unable to allocate thread table memory.\n");
     return;
@@ -331,15 +336,15 @@ static void _ShellDisplayThreads(const char* args)
   KPrintf("#---------------------------------------------------------------------------------------------------------#\n");
   KPrintf("|  PID  |  TID  | NAME                           | TYPE   | PRIO | STATE    | CPU | STACKS                |\n");
   KPrintf("#---------------------------------------------------------------------------------------------------------#\n");
-  for(prio = KERNEL_HIGHEST_PRIORITY; prio <= KERNEL_LOWEST_PRIORITY; ++prio)
+  for (prio = KERNEL_HIGHEST_PRIORITY; prio <= KERNEL_LOWEST_PRIORITY; ++prio)
   {
-    for(i = 0; i < threadCount; ++i)
+    for (i = 0; i < threadCount; ++i)
     {
-      if(SchedulerGetThreadInfo(&threadInfo, pThreadTable[i]) != NO_ERROR)
+      if (SchedulerGetThreadInfo(&threadInfo, pThreadTable[i]) != NO_ERROR)
       {
         continue;
       }
-      if(threadInfo.priority != prio)
+      if (threadInfo.priority != prio)
       {
         continue;
       }
@@ -347,7 +352,7 @@ static void _ShellDisplayThreads(const char* args)
               threadInfo.pid,
               threadInfo.tid,
               threadInfo.pName);
-      for(j = 0; j < THREAD_NAME_MAX_LENGTH - strnlen(threadInfo.pName, THREAD_NAME_MAX_LENGTH) - 1; ++j)
+      for (j = 0; j < THREAD_NAME_MAX_LENGTH - strnlen(threadInfo.pName, THREAD_NAME_MAX_LENGTH) - 1; ++j)
       {
         KPrintf(" ");
       }
@@ -388,7 +393,7 @@ static void _ShellDisplayThreads(const char* args)
           KPrintf(" UNKNOWN  |");
           break;
       }
-      if(threadInfo.currentState == THREAD_STATE_RUNNING)
+      if (threadInfo.currentState == THREAD_STATE_RUNNING)
       {
         KPrintf(" % 3d |", threadInfo.schedCpu);
       }
@@ -397,7 +402,7 @@ static void _ShellDisplayThreads(const char* args)
         KPrintf("   * |", threadInfo.schedCpu);
       }
       KPrintf(" K: 0x%P |\n", threadInfo.kStack);
-      if(threadInfo.uStack != (uintptr_t)NULL)
+      if (threadInfo.uStack != (uintptr_t)NULL)
       {
         KPrintf("|       |       |                                |        |      |          |     | U: 0x%P |\n", threadInfo.uStack);
       }
@@ -429,7 +434,7 @@ static void _ShellGetMapping(const char* args)
 
   tid = strtol(args, NULL, 10);
   pThread = SchedulerGetThread(tid);
-  if(pThread == NULL)
+  if (pThread == NULL)
   {
     KPrintf("Cannot find thread with ID %d.\n", tid);
     return;
@@ -443,7 +448,7 @@ static void _ShellGetMapping(const char* args)
   KPrintf("|      Physical      |      Virtual       |       Flags        |\n");
   KPrintf("#--------------------------------------------------------------#\n");
 
-  for(i = 0; i < infoSize; ++i)
+  for (i = 0; i < infoSize; ++i)
   {
       KPrintf("| 0x%p | 0x%p | 0x%p |\n",
               infos[i].physAddress,
@@ -464,14 +469,14 @@ static void _ShellExecuteCommand(void)
   char   command[SHELL_INPUT_BUFFER_SIZE + 1];
   char*  args;
 
-  if(sInputBufferCursor == 0)
+  if (sInputBufferCursor == 0)
   {
     return;
   }
 
-  for(cursor = 0; cursor < sInputBufferCursor; ++cursor)
+  for (cursor = 0; cursor < sInputBufferCursor; ++cursor)
   {
-    if(sInputBuffer[cursor] == ' ')
+    if (sInputBuffer[cursor] == ' ')
     {
       break;
     }
@@ -482,7 +487,7 @@ static void _ShellExecuteCommand(void)
   }
 
   command[cursor] = 0;
-  if(cursor == sInputBufferCursor)
+  if (cursor == sInputBufferCursor)
   {
     args = "\0";
   }
@@ -491,16 +496,16 @@ static void _ShellExecuteCommand(void)
     args = &sInputBuffer[cursor + 1];
   }
 
-  for(i = 0; sCommands[i].pCommandName != NULL; ++i)
+  for (i = 0; sCommands[i].pCommandName != NULL; ++i)
   {
-    if(strcmp(command, sCommands[i].pCommandName) == 0)
+    if (strcmp(command, sCommands[i].pCommandName) == 0)
     {
       sCommands[i].pFunc(args);
       break;
     }
   }
 
-  if(sCommands[i].pCommandName == NULL)
+  if (sCommands[i].pCommandName == NULL)
   {
     KPrintf("Unknown command: %s\n", command);
   }
@@ -523,26 +528,26 @@ static void _ShellGetCommand(void)
   ConsoleSetColorScheme(&saveScheme);
   KPrintf(" ");
   KPrintfFlush();
-  while(true)
+  while (true)
   {
     readCount = ConsoleRead(&readChar, 1);
-    if(readCount > 0)
+    if (readCount > 0)
     {
-      if(readChar == 0xD || readChar == 0xA)
+      if (readChar == 0xD || readChar == 0xA)
       {
         KPrintf("\n");
         break;
       }
-      else if(readChar == 0x7F || readChar == '\b')
+      else if (readChar == 0x7F || readChar == '\b')
       {
-        if(sInputBufferCursor > 0)
+        if (sInputBufferCursor > 0)
         {
           --sInputBufferCursor;
           KPrintf("\b \b");
           KPrintfFlush();
         }
       }
-      else if(sInputBufferCursor < SHELL_INPUT_BUFFER_SIZE)
+      else if (sInputBufferCursor < SHELL_INPUT_BUFFER_SIZE)
       {
         sInputBuffer[sInputBufferCursor] = readChar;
         ++sInputBufferCursor;
@@ -563,7 +568,7 @@ static void* _ShellEntry(void* args)
 
   KPrintf("\n==== ROOS Kernel Shell ==== Version %s\n", SHELL_VERSION);
 
-  while(true)
+  while (true)
   {
     _ShellGetCommand();
     _ShellExecuteCommand();
@@ -599,7 +604,7 @@ void KernelShellInit(void)
                        cpuMask,
                        _ShellEntry,
                        NULL);
-  if(error != NO_ERROR)
+  if (error != NO_ERROR)
   {
     KERNEL_ERROR("Failed to create kernel shell thread. Error: %d\n", error);
   }

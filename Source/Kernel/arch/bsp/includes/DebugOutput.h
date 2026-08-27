@@ -74,9 +74,9 @@ void DebugOutputInit(void);
  *
  * @details The function will output the data given as parameter on the debug
  * port. This call is blocking until the data has been sent to the uart port
- * controler.
+ * controller.
  *
- * @param[in, out] pDrvCtrl The UART driver controler to use.
+ * @param[in, out] pDrvCtrl The UART driver controller to use.
  * @param[in] kpString The string to write to the uart port.
  *
  * @warning string must be NULL terminated.
@@ -88,9 +88,9 @@ void DebugOutputPutString(const char* kpString);
  *
  * @details The function will output the character given as parameter on the
  * debug port. This call is blocking until the data has been sent to the uart
- * port controler.
+ * port controller.
  *
- * @param[in, out] pDrvCtrl The UART driver controler to use.
+ * @param[in, out] pDrvCtrl The UART driver controller to use.
  * @param[in] kCharacter The character to write to the uart port.
  */
 void DebugOutputPutChar(const char kCharacter);

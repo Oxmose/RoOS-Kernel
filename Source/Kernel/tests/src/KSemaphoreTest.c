@@ -165,7 +165,7 @@ static void* _TestFIFOSemaphoreRoutine(void* args)
   pThread = SchedulerGetCurrentThread();
 
   error0 = KernelSemaphoreWait(pSemaphore);
-  if(sLastTid == pThread->tid + 1)
+  if (sLastTid == pThread->tid + 1)
   {
       ++sOrderedTid;
   }
@@ -207,7 +207,7 @@ static void* _TestTryWaitSemaphoreRoutine(void* args)
 
   error0 = KernelSemaphoreWait(&pSemaphorees[1]);
   errorTry = KernelSemaphoreTryWait(&pSemaphorees[0], &level);
-  if(tid > initBase)
+  if (tid > initBase)
   {
       KernelSemaphorePost(&pSemaphorees[0]);
   }
@@ -224,7 +224,7 @@ static void* _TestTryWaitSemaphoreRoutine(void* args)
                           error1,
                           TEST_OS_KSEMAPHORE_ENABLED);
 
-  if(tid < initBase)
+  if (tid < initBase)
   {
     TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_TRYWAIT_TEST(tid * 10 + 2),
                             errorTry == ERR_UNAUTHORIZED_ACTION,
@@ -350,7 +350,7 @@ static void _TestPrioSemaphore(void)
                           error,
                           TEST_OS_KSEMAPHORE_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
     CPU_MASK_RESET(cpuMask);
     CPU_MASK_SET(cpuMask, i % CPUGetCount());
@@ -381,7 +381,7 @@ static void _TestPrioSemaphore(void)
                           error,
                           TEST_OS_KSEMAPHORE_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
       error = JoinThread(pThreads[i], &retVal);
       TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_ORDER_TEST(101 + i),
@@ -416,7 +416,7 @@ static void _TestFIFOSemaphore(void)
                           error,
                           TEST_OS_KSEMAPHORE_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
     CPU_MASK_RESET(cpuMask);
     CPU_MASK_SET(cpuMask, i % CPUGetCount());
@@ -448,7 +448,7 @@ static void _TestFIFOSemaphore(void)
                           error,
                           TEST_OS_KSEMAPHORE_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
       error = JoinThread(pThreads[i], &retVal);
       TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_FIFO_TEST(101 + i),
@@ -497,7 +497,7 @@ static void _TestTryWaitSemaphore(void)
                           error,
                           TEST_OS_KSEMAPHORE_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
     CPU_MASK_RESET(cpuMask);
     CPU_MASK_SET(cpuMask, i % CPUGetCount());
@@ -527,7 +527,7 @@ static void _TestTryWaitSemaphore(void)
                           error,
                           TEST_OS_KSEMAPHORE_ENABLED);
 
-  for(i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
+  for (i = 0; i < KERNEL_LOWEST_PRIORITY + 1; ++i)
   {
       error = JoinThread(pThreads[i], &retVal);
       TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_TRYWAIT_TEST(101 + i),
@@ -551,7 +551,7 @@ static void _TestMultiplePostSemaphore(void)
                           error,
                           TEST_OS_KSEMAPHORE_ENABLED);
 
-  for(i = 0; i < 100; ++i)
+  for (i = 0; i < 100; ++i)
   {
     error = KernelSemaphorePost(&semMultiple);
     TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_MULTIPLE_TEST(1 + i),
@@ -561,7 +561,7 @@ static void _TestMultiplePostSemaphore(void)
                             TEST_OS_KSEMAPHORE_ENABLED);
   }
 
-  for(i = 0; i < 100; ++i)
+  for (i = 0; i < 100; ++i)
   {
     error = KernelSemaphoreWait(&semMultiple);
     TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_MULTIPLE_TEST(101 + i),

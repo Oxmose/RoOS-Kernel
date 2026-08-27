@@ -9,9 +9,9 @@
  *
  * @version 2.0
  *
- * @brief IO-APIC (IO advanced programmable interrupt controler) driver.
+ * @brief IO-APIC (IO advanced programmable interrupt controller) driver.
  *
- * @details IO-APIC (IO advanced programmable interrupt controler) driver.
+ * @details IO-APIC (IO advanced programmable interrupt controller) driver.
  * Allows to remap the IO-APIC IRQ, set the IRQs mask and manage EoI for the
  * X86 IO-APIC.
  *
@@ -107,7 +107,7 @@
  * STRUCTURES AND TYPES
  ******************************************************************************/
 
-/** @brief x86 IO-APIC driver controler. */
+/** @brief x86 IO-APIC driver controller. */
 typedef struct S_IOAPICControler
 {
   /** @brief IO-APIC base physical address */
@@ -122,7 +122,7 @@ typedef struct S_IOAPICControler
   uint32_t gsib;
   /** @brief Last IRQ handled by the current IO-APIC. */
   uint8_t gsil;
-  /** @brief The controler lock to avoid concurrent accesses */
+  /** @brief The controller lock to avoid concurrent accesses */
   S_KernelSpinlock lock;
   /** @brief On system with multiple IO-APICs link to the next */
   struct S_IOAPICControler* pNext;
@@ -350,7 +350,7 @@ static S_InterruptDriver sIOAPICDriver =
   .pGetIRQInterruptLine = _GetInterruptLine
 };
 
-/** @brief IO-APIC driver controler instance */
+/** @brief IO-APIC driver controller instance */
 static S_IOAPICControler* spDrvCtrl = NULL;
 
 /** @brief IOAPIC ACPI driver handle */
@@ -494,7 +494,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   /* Register if needed */
   if (FDTGetProp(pkFdtNode, IOAPIC_FDT_INT_DRIVER_PROP, &propLen) != NULL)
   {
-    /* Register as interrupt controler */
+    /* Register as interrupt controller */
     retCode = InterruptSetDriver(&sIOAPICDriver);
     IOAPIC_ASSERT(retCode == NO_ERROR,
                   "Failed to register IO-APIC in interrupt manager",
@@ -633,7 +633,7 @@ static void* _ProcFSOpen(void*       pDriverData,
   (void)pDriverData;
   (void)mode;
 
-  if(flags == O_RDONLY && *kpPath == 0)
+  if (flags == O_RDONLY && *kpPath == 0)
   {
     pEntryOffset = KMallocUser(sizeof(size_t), NULL);
     if (pEntryOffset != NULL)
@@ -659,7 +659,7 @@ static int32_t _ProcFSClose(void* pDriverData, void* pFileHandle)
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     KFreeUser(pFileHandle, NULL);
     retCode = 0;
@@ -682,7 +682,7 @@ static ssize_t _ProcFSRead(void*  pDriverData,
 
   (void)pDriverData;
 
-  if(pFileHandle != (void*)-1 && pFileHandle != NULL)
+  if (pFileHandle != (void*)-1 && pFileHandle != NULL)
   {
     pEntryOffset = (size_t*)pFileHandle;
 

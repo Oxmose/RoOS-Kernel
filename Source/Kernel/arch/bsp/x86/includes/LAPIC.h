@@ -9,9 +9,9 @@
  *
  * @version 2.0
  *
- * @brief Local APIC (Advanced programmable interrupt controler) driver.
+ * @brief Local APIC (Advanced programmable interrupt controller) driver.
  *
- * @details Local APIC (Advanced programmable interrupt controler) driver.
+ * @details Local APIC (Advanced programmable interrupt controller) driver.
  * Manages x86 IRQs from the IO-APIC. IPI (inter processor interrupt) are also
  * possible thanks to the driver.
  *

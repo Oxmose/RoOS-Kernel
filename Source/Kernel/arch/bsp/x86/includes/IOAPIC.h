@@ -9,9 +9,9 @@
  *
  * @version 2.0
  *
- * @brief IO-APIC (IO advanced programmable interrupt controler) driver.
+ * @brief IO-APIC (IO advanced programmable interrupt controller) driver.
  *
- * @details IO-APIC (IO advanced programmable interrupt controler) driver.
+ * @details IO-APIC (IO advanced programmable interrupt controller) driver.
  * Allows to remap the IO-APIC IRQ, set the IRQs mask and manage EoI for the
  * X86 IO-APIC.
  *
