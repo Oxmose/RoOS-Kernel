@@ -499,8 +499,6 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
   pIdle->stackSize          = 0;
   pIdle->stackEnd           = (uintptr_t)NULL;
   pIdle->kernelStackSize    = CPUGetStackSize();
-  pIdle->kernelStackEnd     = CPUGetStackEnd(kCPUId);
-  pIdle->kernelStackSize    = CPUGetStackSize();
   pIdle->kernelStackEnd     = MemoryMapStack(pIdle->kernelStackSize,
                                              true,
                                              pMainProcess);
