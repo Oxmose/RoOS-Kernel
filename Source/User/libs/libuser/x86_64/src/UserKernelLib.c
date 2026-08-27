@@ -72,7 +72,7 @@ void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
 #ifdef _STACK_PROT
 __attribute__((noreturn)) void __stack_chk_fail(void)
 {
-    while(1){}
+    while (1){}
 }
 #endif
 

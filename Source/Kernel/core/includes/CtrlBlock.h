@@ -100,7 +100,6 @@ typedef struct S_KernelProcess
    *************************************/
   /** @brief Process' identifier. */
   int32_t pid;
-
   /** @brief Process' name. */
   char pName[PROCESS_NAME_MAX_LENGTH];
 
@@ -109,13 +108,10 @@ typedef struct S_KernelProcess
    *************************************/
   /** @brief Process' parent process */
   S_KernelProcess* pParent;
-
   /** @brief List of children processes */
   S_KernelQueue* pChildren;
-
   /** @brief Process' main thread */
   S_KernelThread* pMainThread;
-
   /** @brief Table of the thread list. */
   S_KernelQueue* pThreads;
 
@@ -124,15 +120,26 @@ typedef struct S_KernelProcess
    *************************************/
   /** @brief The process' structure lock */
   S_KernelSpinlock lock;
-
   /** @brie Stores the file descriptors used by the process. */
   void* pFileDescriptorTable;
-
   /** @brief Stores the memory management data for the process */
   void* pMemoryData;
-
   /** @brief Stores the information for the process heap. */
   S_ProcessHeap* pHeap;
+
+  /**************************************
+   * Thread Local Storage management
+   *************************************/
+  /** @brief Stores the main TLS size */
+  size_t mainTlsSize;
+  /** @brief Stores the main TLS initialized data size */
+  size_t mainTlsInitDataSize;
+  /** @brief Stores the main TLS data */
+  void* pMainTlsData;
+  /** @brief Stores the main TLS alignement */
+  size_t mainTlsAlign;
+  /** @brief Stores the TLS mapping flags */
+  uint64_t mainTlsMappingFlags;
 
   /**************************************
    * ProcFS management
@@ -153,6 +160,24 @@ typedef struct S_KernelProcess
   S_KernelSpinlock procFSLock;
 } S_Process;
 
+/**
+ * @brief Stores the thread user data, used for fast access to thread
+ * properties in the user space.
+ */
+typedef struct S_UserThread
+{
+  /** @brief The thread's self pointer. */
+  struct S_UserThread* pSelfPointer;
+  /** @brief Thread's process identifier. */
+  int32_t pid;
+  /** @brief Thread's identifier. */
+  int32_t tid;
+  /** @brief The thread's priority */
+  uint8_t priority;
+  /** @brief The thread local storage size */
+  ssize_t tlsSize;
+} S_UserThread;
+
 /** @brief This is the representation of the thread for the kernel. */
 typedef struct S_KernelThread
 {
@@ -167,10 +192,8 @@ typedef struct S_KernelThread
    *************************************/
   /** @brief Thread's identifier. */
   int32_t tid;
-
   /** @brief Thread's name. */
   char pName[THREAD_NAME_MAX_LENGTH];
-
   /** @brief Thread's type. */
   E_ThreadType type;
 
@@ -179,13 +202,10 @@ typedef struct S_KernelThread
    *************************************/
   /** @brief Thread's start arguments. */
   void* pArgs;
-
   /** @brief Thread's entry point. */
   void* pEntryPoint;
-
   /** @brief Thread's routine. */
   void* (*pRoutine)(void*);
-
   /** @brief Thread's return value. */
   void* returnValue;
 
@@ -194,13 +214,10 @@ typedef struct S_KernelThread
    *************************************/
   /** @brief Thread's stack. */
   uintptr_t stackEnd;
-
   /** @brief Thread's stack size. */
   size_t stackSize;
-
   /** @brief Thread's interrupt stack. */
   uintptr_t kernelStackEnd;
-
   /** @brief Thread's interrupt stack size. */
   size_t kernelStackSize;
 
@@ -209,19 +226,14 @@ typedef struct S_KernelThread
    *************************************/
   /** @brief Wake up time limit for the sleeping thread. */
   uint64_t wakeupTime;
-
   /** @brief Thread's start time. */
   uint64_t startTime;
-
   /** @brief Thread's end time. */
   uint64_t endTime;
-
   /** @brief Thread's execution time. */
   uint64_t currentKernelTime;
-
   /** @brief Thread's user execution time. */
   uint64_t execTimeUser;
-
   /** @brief Thread's kernel execution time. */
   uint64_t execTimeKernel;
 
@@ -230,25 +242,18 @@ typedef struct S_KernelThread
    *************************************/
   /** @brief Thread's current priority. */
   uint32_t priority;
-
   /** @brief Thread's current state. */
   E_ThreadState currentState;
-
   /** @brief Thread's previous state. */
   E_ThreadState previousState;
-
   /** @brief Associated queue node in the scheduler */
   S_KernelQueueNode* pThreadNode;
-
   /** @brief Thread's CPU affinity */
   S_CPUMask affinity;
-
   /** @brief Thread's currently mapped CPU */
   uint32_t mappedCPU;
-
   /** @brief Process */
   struct S_KernelProcess* pProcess;
-
   /** @brief Stores the thread that is currently joining this thread */
   struct S_KernelThread* pJoiningThread;
 
@@ -259,9 +264,10 @@ typedef struct S_KernelThread
   S_KernelSpinlock lock;
   /** @brief Flags that tells if the thread can safelly be scheduled */
   volatile uint32_t isScheduled;
-
   /** @brief Thread's error table */
   S_ErrorTable errorTable;
+  /** @brief The thread local storage region pointer. */
+  S_UserThread* pUserThreadData;
 
   /**************************************
    * ProcFS management

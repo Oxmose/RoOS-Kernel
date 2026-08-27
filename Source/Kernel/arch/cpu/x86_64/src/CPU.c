@@ -1482,7 +1482,8 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
       /* Setup the context */
       stack = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
       pIntContext    = (S_InterruptContext*)(stack - sizeof(S_InterruptContext));
-      pCPUState      = (S_CPUState*)((uintptr_t)pIntContext - sizeof(S_CPUState));
+      pCPUState      = (S_CPUState*)((uintptr_t)pIntContext -
+                                     sizeof(S_CPUState));
       pVCpu->context = (uintptr_t)pCPUState;
 
       /* Setup the interrupt context */
@@ -1597,12 +1598,17 @@ void CPUUpdateMemoryConfig(const S_KernelThread* kpThread)
   {
     /* Update the TSS */
     spCPUConfiguration[cpuId]->tss.rsp0 = ALIGN_DOWN(kpThread->kernelStackEnd -
-                                                     ALIGN_16_BYTES,
-                                                     ALIGN_16_BYTES);
+                                                     ALIGN_8_BYTES,
+                                                     ALIGN_8_BYTES);
   }
 
   /* Update the thread local storage */
-  /* TODO */
+  __asm__ __volatile__("wrmsr\n\t"
+                       :
+                       :"a"(kpThread->pUserThreadData),
+                        "d"((uintptr_t)kpThread->pUserThreadData >> 32),
+                        "c"(0xC0000100)
+                       :);
 }
 
 void CPUSendIPI(const uint32_t kFlags, const S_IPIParameters* kpParams)
@@ -2211,6 +2217,144 @@ void CPUGetMaskString(const S_CPUMask* kpMask, S_CPUMaskString maskString)
     offset += 16;
   }
   *((char*)(pBuffer + offset)) = '\0';
+}
+
+E_Return CPUCreateTLS(S_KernelThread* pThread)
+{
+  size_t    align;
+  size_t    size;
+  E_Return  error;
+  E_Return  intError;
+  uintptr_t tlsPhys;
+  size_t    userDataAlign;
+  void*     pTmpData;
+
+  if(pThread->type != THREAD_TYPE_KERNEL)
+  {
+    /* Compute the memory size with alignement */
+    align = MAX(pThread->pProcess->mainTlsAlign, __alignof__(S_UserThread));
+    /* We do not support more than a page alignement */
+    if(align <= KERNEL_PAGE_SIZE)
+    {
+
+      userDataAlign = ALIGN_UP(pThread->pProcess->mainTlsSize, align);
+
+      size = ALIGN_UP(userDataAlign + sizeof(S_UserThread), KERNEL_PAGE_SIZE);
+
+      pThread->pUserThreadData = MemoryUserAllocate(size,
+                                         pThread->pProcess->mainTlsMappingFlags,
+                                         pThread->pProcess,
+                                         &error);
+      if(error == NO_ERROR)
+      {
+        tlsPhys = MemoryMgrGetPhysAddr((uintptr_t)pThread->pUserThreadData,
+                                       pThread->pProcess,
+                                       NULL);
+        CPU_ASSERT(tlsPhys != MEMMGR_PHYS_ADDR_ERROR,
+                   "Failed to get mapped physical address",
+                   ERR_INVALID_VALUE);
+
+        pTmpData = MemoryKernelMap((void*)tlsPhys,
+                                   size,
+                                   MEMMGR_MAP_KERNEL | MEMMGR_MAP_RW,
+                                   &error);
+        if(error == NO_ERROR)
+        {
+          /*
+           * Copy the main TLS, the User linker defines that the data for the TLS
+           * comes before the bss for the TLS.
+           */
+          memcpy((uint8_t*)pTmpData + userDataAlign -
+                           pThread->pProcess->mainTlsSize,
+                pThread->pProcess->pMainTlsData,
+                pThread->pProcess->mainTlsInitDataSize);
+          /* Zeroize the TLS */
+          memset((uint8_t*)pTmpData +
+                userDataAlign -
+                pThread->pProcess->mainTlsSize +
+                pThread->pProcess->mainTlsInitDataSize,
+                0,
+                userDataAlign - pThread->pProcess->mainTlsInitDataSize);
+
+
+          intError = MemoryKernelUnmap(pTmpData, size);
+          CPU_ASSERT(intError == NO_ERROR,
+                     "Failed to unmap mapped memory",
+                     intError);
+
+          /* Setup the user data pointer */
+          pThread->pUserThreadData = (void*)((uintptr_t)pThread->pUserThreadData +
+                                    userDataAlign);
+        }
+        else
+        {
+          intError = MemoryUserFree(pThread->pUserThreadData,
+                                    size,
+                                    pThread->pProcess);
+          CPU_ASSERT(intError == NO_ERROR,
+                      "Failed to free allocated memory",
+                      intError);
+        }
+      }
+    }
+    else
+    {
+      error = ERR_NOT_SUPPORTED;
+    }
+  }
+  else
+  {
+    /* Kernel thread do not have thread local storage */
+    pThread->pUserThreadData = KMallocUser(sizeof(S_UserThread),
+                                           pThread->pProcess->pHeap);
+    if(pThread->pUserThreadData == NULL)
+    {
+      error = ERR_NO_MEMORY;
+    }
+    else
+    {
+      error = NO_ERROR;
+    }
+  }
+
+  return error;
+}
+
+void CPUDestroyTLS(S_KernelThread* pThread)
+{
+  size_t    align;
+  size_t    size;
+  uintptr_t tls;
+  E_Return  error;
+
+  if(pThread->type != THREAD_TYPE_KERNEL)
+  {
+    /* Compute the memory size with alignement */
+    align = MAX(pThread->pProcess->mainTlsAlign, __alignof__(S_UserThread));
+    /* We do not support more than a page alignement */
+    CPU_ASSERT(align <= KERNEL_PAGE_SIZE,
+               "Invalid TLS alignement",
+               ERR_NOT_SUPPORTED);
+
+    size = ALIGN_UP(pThread->pProcess->mainTlsSize, align) +
+                    sizeof(S_UserThread);
+    /* Align to page size */
+    size = ALIGN_UP(size, KERNEL_PAGE_SIZE);
+
+    /* Get the TLS */
+    tls = (uintptr_t)pThread->pUserThreadData -
+          ALIGN_UP(pThread->pProcess->mainTlsSize, align);
+
+    error = MemoryUserFree((void*)tls, size, pThread->pProcess);
+    CPU_ASSERT(error == NO_ERROR,
+               "Failed to release thread local storage.",
+               error);
+  }
+  else
+  {
+    /* Kernel thread do not have thread local storage */
+    KFreeUser(pThread->pUserThreadData, pThread->pProcess->pHeap);
+  }
 }
 
 /* Stack protection support */

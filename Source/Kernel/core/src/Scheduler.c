@@ -544,7 +544,13 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
   }
   KQueuePush(pNode, pMainProcess->pThreads);
 
-  AtomicDecrement32(&sCurrentThreadsCount);
+  AtomicIncrement32(&sCurrentThreadsCount);
+
+  retCode = CPUCreateTLS(pIdle);
+  SCHED_ASSERT(retCode == NO_ERROR,
+               "Failed to create IDLE thread TLS.",
+               retCode,
+               false);
 
   retCode = CoreProcessFSCreateThreadEntry(pIdle);
   SCHED_ASSERT(retCode == NO_ERROR,
@@ -1212,40 +1218,57 @@ E_Return CreateThread(S_KernelThread**      ppThread,
 
             KERNEL_SPINLOCK_INIT(pThread->lock);
 
-            /* Link to main process */
-            pNode = KQueueCreateNode(pThread, pCurrentProcess->pHeap);
-            if (pNode != NULL)
+            error = CPUCreateTLS(pThread);
+            if (error == NO_ERROR)
             {
-              error = CoreProcessFSCreateThreadEntry(pThread);
-              if (error == NO_ERROR)
+              /* Link to main process */
+              pNode = KQueueCreateNode(pThread, pCurrentProcess->pHeap);
+              if (pNode != NULL)
               {
-                KERNEL_LOCK(pCurrentProcess->lock);
-                if (pCurrentProcess->pMainThread == NULL)
+                error = CoreProcessFSCreateThreadEntry(pThread);
+                if (error == NO_ERROR)
                 {
-                  pCurrentProcess->pMainThread = pThread;
+                  KERNEL_LOCK(pCurrentProcess->lock);
+                  if (pCurrentProcess->pMainThread == NULL)
+                  {
+                    pCurrentProcess->pMainThread = pThread;
+                  }
+                  KQueuePush(pNode, pCurrentProcess->pThreads);
+                  KERNEL_UNLOCK(pCurrentProcess->lock);
+
+                  /* Put the thread in the scheduler context */
+                  pContext = _SelectNextContext(pThread);
+                  _SetThreadToReady(pContext, pThread);
+
+                  AtomicIncrement32(&sCurrentThreadsCount);
+
+                  /* Set return values */
+                  *ppThread = pThread;
                 }
-                KQueuePush(pNode, pCurrentProcess->pThreads);
-                KERNEL_UNLOCK(pCurrentProcess->lock);
-
-                /* Put the thread in the scheduler context */
-                pContext = _SelectNextContext(pThread);
-                _SetThreadToReady(pContext, pThread);
-
-                AtomicIncrement32(&sCurrentThreadsCount);
-
-                /* Set return values */
-                *ppThread = pThread;
+                else
+                {
+                  KQueueDestroyNode(&pNode);
+                  CPUDestroyTLS(pThread);
+                  CPUDestroyVirtualCPU(pThread);
+                  MemoryUnmapStack(pThread->kernelStackEnd,
+                                  pThread->kernelStackSize,
+                                  true,
+                                  pCurrentProcess);
+                  KQueueDestroyNode(&pThread->pThreadNode);
+                  KFreeUser(pThread, NULL);
+                }
               }
               else
               {
-                KQueueDestroyNode(&pNode);
+                CPUDestroyTLS(pThread);
                 CPUDestroyVirtualCPU(pThread);
                 MemoryUnmapStack(pThread->kernelStackEnd,
-                                 pThread->kernelStackSize,
-                                 true,
-                                 pCurrentProcess);
+                                pThread->kernelStackSize,
+                                true,
+                                pCurrentProcess);
                 KQueueDestroyNode(&pThread->pThreadNode);
                 KFreeUser(pThread, NULL);
+                error = ERR_NO_MEMORY;
               }
             }
             else
@@ -1257,7 +1280,6 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                                pCurrentProcess);
               KQueueDestroyNode(&pThread->pThreadNode);
               KFreeUser(pThread, NULL);
-              error = ERR_NO_MEMORY;
             }
           }
           else
