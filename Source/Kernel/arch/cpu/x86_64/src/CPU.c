@@ -1461,6 +1461,7 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
 
     if (pVCpu->fxDataRegionNonAligned != (uintptr_t)NULL)
     {
+      memset((void*)pVCpu->fxDataRegionNonAligned, 0, fxDataSize);
       pVCpu->fxDataRegion = ALIGN_UP(pVCpu->fxDataRegionNonAligned,
                                      ALIGN_64_BYTES);
 

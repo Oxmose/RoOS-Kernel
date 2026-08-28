@@ -325,7 +325,7 @@ typedef struct
  *
 */
 #define ELFMGR_ASSERT(COND, MSG, ERROR) {                 \
-  if ((COND) == false)                                     \
+  if ((COND) == false)                                    \
   {                                                       \
     PANIC(ERROR, MODULE_NAME, MSG, false, false);         \
   }                                                       \
@@ -926,14 +926,6 @@ E_Return ELFManagerLoadElf(const char* kpElfPath, uintptr_t* pEntryPoint)
           /* Set the entry point */
           *pEntryPoint = header.eEntry;
         }
-        else
-        {
-          error = error;
-        }
-      }
-      else
-      {
-        error = error;
       }
     }
     else

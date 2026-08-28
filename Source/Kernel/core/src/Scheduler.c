@@ -733,6 +733,7 @@ static void _CleanThread(S_KernelThread* pThread)
   S_KernelQueueNode* pNode;
 
   /* Free the memory used by the structures */
+  CPUDestroyTLS(pThread); // TODO Why removing that line causes a kernel panic?
   KQueueDestroyNode(&pThread->pThreadNode);
   MemoryUnmapStack(pThread->kernelStackEnd,
                    pThread->kernelStackSize,
