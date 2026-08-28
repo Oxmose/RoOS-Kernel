@@ -603,6 +603,7 @@ void KernelShellInit(void)
                        0x1000,
                        cpuMask,
                        _ShellEntry,
+                       NULL,
                        NULL);
   if (error != NO_ERROR)
   {

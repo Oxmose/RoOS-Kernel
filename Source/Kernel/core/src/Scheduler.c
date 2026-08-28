@@ -53,6 +53,8 @@
 
 /** @brief Main process name */
 #define MAIN_PROCESS_NAME "ROOS_KERNEL\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+/** @brief Init process name */
+#define INIT_PROCESS_NAME "init\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
 /** @brief Idle threads name */
 #define IDLE_THREAD_NAME "ROOS_IDLE\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
 
@@ -375,21 +377,36 @@ static void* _IdleRoutine(void* pArgs)
 
 static void _SchedulerThreadEntry(void)
 {
-  S_KernelThread* pCurrThread;
+  S_KernelThread* pThread;
 
-  pCurrThread = SchedulerGetCurrentThread();
+  pThread = SchedulerGetCurrentThread();
 
   /* Set start time */
-  pCurrThread->startTime         = TimeGetUptime();
-  pCurrThread->currentKernelTime = 0;
-  pCurrThread->execTimeUser      = 0;
-  pCurrThread->execTimeKernel    = 0;
+  pThread->startTime         = TimeGetUptime();
+  pThread->currentKernelTime = 0;
+  pThread->execTimeUser      = 0;
+  pThread->execTimeKernel    = 0;
 
-  /* Call the thread routine */
-  pCurrThread->returnValue = pCurrThread->pRoutine(pCurrThread->pArgs);
+  /* Switch to user space if needed */
+  if (pThread->type == THREAD_TYPE_KERNEL)
+  {
+    /* Call the thread routine */
+    pThread->returnValue = pThread->pRoutine(pThread->pArgs);
 
-  /* Call the exit function */
-  _SchedulerThreadExit(pCurrThread);
+    /* Call the exit function */
+    _SchedulerThreadExit(pThread);
+  }
+  else
+  {
+    CPUEnterUserSpace((void*)pThread->stackEnd,
+                      pThread->pRoutine,
+                      pThread->pArgs);
+    SCHED_ASSERT(false,
+                 "Thread returned from user space",
+                 ERR_UNAUTHORIZED_ACTION,
+                 false);
+  }
+
 }
 
 static void _SchedulerThreadExit(S_KernelThread* pThread)
@@ -1140,7 +1157,8 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                       const size_t          kStackSize,
                       const S_CPUMask       kMappedCPUs,
                       const T_ThreadRoutine kRoutine,
-                      void*                 args)
+                      void*                 args,
+                      S_KernelProcess*      pProcess)
 {
   S_KernelThread*    pThread;
   S_KernelQueueNode* pNode;
@@ -1159,10 +1177,17 @@ E_Return CreateThread(S_KernelThread**      ppThread,
       kStackSize != 0 &&
       kRoutine != NULL)
   {
-    pCurrentProcess = SchedulerGetCurrentProcess();
+    if (pProcess == NULL)
+    {
+      pCurrentProcess = SchedulerGetCurrentProcess();
+    }
+    else
+    {
+      pCurrentProcess = pProcess;
+    }
 
     /* Create the thread */
-    pThread = KMallocUser(sizeof(S_KernelThread), NULL);
+    pThread = KMallocUser(sizeof(S_KernelThread), pCurrentProcess->pHeap);
     if (pThread != NULL)
     {
       pThread->pThreadNode = KQueueCreateNode(pThread, pCurrentProcess->pHeap);
@@ -1176,9 +1201,7 @@ E_Return CreateThread(S_KernelThread**      ppThread,
         {
           if (kIsKernel != true)
           {
-            pThread->type        = THREAD_TYPE_USER;
-            pThread->pEntryPoint = kRoutine; // TODO: Ensure the entry point in user space does the same as _SchedulerThreadEntry, i.e. call the routine and then exit the thread.
-
+            pThread->type      = THREAD_TYPE_USER;
             pThread->stackSize = kStackSize;
             pThread->stackEnd  = MemoryMapStack(kStackSize,
                                                 false,
@@ -1187,7 +1210,6 @@ E_Return CreateThread(S_KernelThread**      ppThread,
           else
           {
             pThread->type        = THREAD_TYPE_KERNEL;
-            pThread->pEntryPoint = _SchedulerThreadEntry;
           }
 
           if (pThread->type == THREAD_TYPE_KERNEL ||
@@ -1195,9 +1217,8 @@ E_Return CreateThread(S_KernelThread**      ppThread,
           {
             pThread->tid             = AtomicIncrement32(&sLastTID);
             pThread->pArgs           = args;
+            pThread->pEntryPoint     = _SchedulerThreadEntry;
             pThread->pRoutine        = kRoutine;
-            pThread->stackSize       = 0;
-            pThread->stackEnd        = (uintptr_t)NULL;
             pThread->priority        = kPriority;
             pThread->currentState    = THREAD_STATE_READY;
             pThread->previousState   = THREAD_STATE_READY;
@@ -1234,6 +1255,10 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                       pCurrentProcess->pMainThread = pThread;
                     }
                     KQueuePush(pNode, pCurrentProcess->pThreads);
+                    if (pCurrentProcess->pMainThread == NULL)
+                    {
+                      pCurrentProcess->pMainThread = pThread;
+                    }
                     KERNEL_UNLOCK(pCurrentProcess->lock);
 
                     /* Put the thread in the scheduler context */
@@ -1253,16 +1278,16 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                     if (pThread->type == THREAD_TYPE_USER)
                     {
                       MemoryUnmapStack(pThread->stackEnd,
-                                      pThread->stackSize,
-                                      false,
-                                      pCurrentProcess);
+                                       pThread->stackSize,
+                                       false,
+                                       pCurrentProcess);
                     }
                     MemoryUnmapStack(pThread->kernelStackEnd,
                                      pThread->kernelStackSize,
                                      true,
                                      pCurrentProcess);
                     KQueueDestroyNode(&pThread->pThreadNode);
-                    KFreeUser(pThread, NULL);
+                    KFreeUser(pThread, pCurrentProcess->pHeap);
                   }
                 }
                 else
@@ -1272,16 +1297,16 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                   if (pThread->type == THREAD_TYPE_USER)
                   {
                     MemoryUnmapStack(pThread->stackEnd,
-                                    pThread->stackSize,
-                                    false,
-                                    pCurrentProcess);
+                                     pThread->stackSize,
+                                     false,
+                                     pCurrentProcess);
                   }
                   MemoryUnmapStack(pThread->kernelStackEnd,
                                    pThread->kernelStackSize,
                                    true,
                                    pCurrentProcess);
                   KQueueDestroyNode(&pThread->pThreadNode);
-                  KFreeUser(pThread, NULL);
+                  KFreeUser(pThread, pCurrentProcess->pHeap);
                   error = ERR_NO_MEMORY;
                 }
               }
@@ -1291,16 +1316,16 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                 if (pThread->type == THREAD_TYPE_USER)
                 {
                   MemoryUnmapStack(pThread->stackEnd,
-                                  pThread->stackSize,
-                                  false,
-                                  pCurrentProcess);
+                                   pThread->stackSize,
+                                   false,
+                                   pCurrentProcess);
                 }
                 MemoryUnmapStack(pThread->kernelStackEnd,
-                                pThread->kernelStackSize,
-                                true,
-                                pCurrentProcess);
+                                 pThread->kernelStackSize,
+                                 true,
+                                 pCurrentProcess);
                 KQueueDestroyNode(&pThread->pThreadNode);
-                KFreeUser(pThread, NULL);
+                KFreeUser(pThread, pCurrentProcess->pHeap);
                 error = ERR_NO_MEMORY;
               }
             }
@@ -1309,16 +1334,16 @@ E_Return CreateThread(S_KernelThread**      ppThread,
               if (pThread->type == THREAD_TYPE_USER)
               {
                 MemoryUnmapStack(pThread->stackEnd,
-                               pThread->stackSize,
-                               false,
-                               pCurrentProcess);
+                                 pThread->stackSize,
+                                 false,
+                                 pCurrentProcess);
               }
               MemoryUnmapStack(pThread->kernelStackEnd,
-                              pThread->kernelStackSize,
-                              true,
-                              pCurrentProcess);
+                               pThread->kernelStackSize,
+                               true,
+                               pCurrentProcess);
               KQueueDestroyNode(&pThread->pThreadNode);
-              KFreeUser(pThread, NULL);
+              KFreeUser(pThread, pCurrentProcess->pHeap);
             }
           }
           else
@@ -1328,20 +1353,20 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                              true,
                              pCurrentProcess);
             KQueueDestroyNode(&pThread->pThreadNode);
-            KFreeUser(pThread, NULL);
+            KFreeUser(pThread, pCurrentProcess->pHeap);
             error = ERR_NO_MEMORY;
           }
         }
         else
         {
           KQueueDestroyNode(&pThread->pThreadNode);
-          KFreeUser(pThread, NULL);
+          KFreeUser(pThread, pCurrentProcess->pHeap);
           error = ERR_NO_MEMORY;
         }
       }
       else
       {
-        KFreeUser(pThread, NULL);
+        KFreeUser(pThread, pCurrentProcess->pHeap);
         error = ERR_NO_MEMORY;
       }
     }
@@ -1488,4 +1513,78 @@ const char* SchedulerGetThreadStateString(const E_ThreadState kState)
 
   return pStateStr;
 }
+
+E_Return CreateInitProcess(S_KernelProcess** ppProcess)
+{
+  S_KernelProcess*   pProcess;
+  S_KernelQueueNode* pNode;
+  E_Return           retCode;
+
+  /* Allocate the process structure */
+  pProcess = KMalloc(sizeof(S_KernelProcess), KMALLOC_FREE_POOL);
+  if (pProcess != NULL)
+  {
+    pProcess->pid         = AtomicIncrement32(&sLastPID);
+    pProcess->pParent     = SchedulerGetCurrentProcess();
+    pProcess->pMainThread = NULL;
+    memcpy(pProcess->pName, INIT_PROCESS_NAME, PROCESS_NAME_MAX_LENGTH);
+    KERNEL_SPINLOCK_INIT(pProcess->lock);
+
+    /* Initialize the heap */
+    retCode = MemoryCreateProcessDataAndHeap(pProcess);
+    if (retCode == NO_ERROR)
+    {
+      retCode = CoreProcessFSCreateEntry(pProcess);
+      if (retCode == NO_ERROR)
+      {
+        retCode = CreateProcessFDTable(pProcess);
+        if (retCode == NO_ERROR)
+        {
+          pProcess->pThreads  = KQueueCreate(pProcess->pHeap);
+          if (pProcess->pThreads != NULL)
+          {
+            pProcess->pChildren = KQueueCreate(pProcess->pHeap);
+            if (pProcess->pChildren != NULL)
+            {
+              pNode = KQueueCreateNode(pProcess, pProcess->pHeap);
+              if (pNode != NULL)
+              {
+                /* Add to parent's children */
+                KERNEL_LOCK(pProcess->pParent->lock);
+                KQueuePush(pNode, pProcess->pParent->pChildren);
+                KERNEL_UNLOCK(pProcess->pParent->lock);
+
+                *ppProcess = pProcess;
+              }
+              else
+              {
+                retCode = ERR_NO_MEMORY;
+              }
+            }
+            else
+            {
+              retCode = ERR_NO_MEMORY;
+            }
+          }
+          else
+          {
+            retCode = ERR_NO_MEMORY;
+          }
+        }
+      }
+    }
+
+    if (retCode != NO_ERROR)
+    {
+      AtomicDecrement32(&sLastPID);
+    }
+  }
+  else
+  {
+    retCode = ERR_NO_MEMORY;
+  }
+
+  return retCode;
+}
+
 /************************************ EOF *************************************/

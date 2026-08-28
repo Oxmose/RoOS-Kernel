@@ -24,6 +24,7 @@
  * INCLUDES
  ******************************************************************************/
 #include <stdint.h>
+#include <CtrlBlock.h>
 #include <KernelError.h>
 
 /*******************************************************************************
@@ -67,10 +68,13 @@
  *
  * @param[in] kpELFPath The path to the ELF file to load.
  * @param[out] pEntryPoint The buffer that receives the ELF program entry point.
+ * @param[in] pProcess The process in which to load the ELF file.
  *
  * @return The function returns the success or error status.
  */
-E_Return ELFManagerLoadElf(const char* kpELFPath, uintptr_t* pEntryPoint);
+E_Return ELFManagerLoadElf(const char*      kpELFPath,
+                           uintptr_t*       pEntryPoint,
+                           S_KernelProcess* pProcess);
 
 #endif /* #ifndef __LIB_ELFMANAGER_H_ */
 

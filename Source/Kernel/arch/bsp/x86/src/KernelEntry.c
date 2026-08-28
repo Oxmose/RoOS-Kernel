@@ -29,6 +29,7 @@
 #include <ProcFS.h>
 #include <Memory.h>
 #include <Console.h>
+#include <UserInit.h>
 #include <Scheduler.h>
 #include <VirtualFS.h>
 #include <KernelHeap.h>
@@ -193,6 +194,9 @@ void X64KernelEntry(void)
   TEST_POINT_FUNCTION(CPUIDTest, TEST_CPUID_ENABLED);
   TEST_POINT_FUNCTION(KernelMutexTest, TEST_OS_KMUTEX_ENABLED);
   TEST_POINT_FUNCTION(KernelSemaphoreTest, TEST_OS_KSEMAPHORE_ENABLED);
+
+  /* Initialize the user space */
+  UserInit();
 
   /* Initialize the kernel shell */
   KernelShellInit();

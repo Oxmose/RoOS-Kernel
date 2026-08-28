@@ -317,7 +317,8 @@ static void* FastQueuesTestRoutine(void* args)
                          0x1000,
                          cpuMask,
                          FastQueueProducerRoutine,
-                         &context);
+                         &context,
+                         NULL);
     TEST_POINT_ASSERT_RCODE(TEST_FASTQUEUE_CONCURRENCY_ID(1),
                             error == NO_ERROR,
                             NO_ERROR,
@@ -333,7 +334,8 @@ static void* FastQueuesTestRoutine(void* args)
                          0x1000,
                          cpuMask,
                          FastQueueConsumerRoutine,
-                         &context);
+                         &context,
+                         NULL);
     TEST_POINT_ASSERT_RCODE(TEST_FASTQUEUE_CONCURRENCY_ID(2),
                             error == NO_ERROR,
                             NO_ERROR,
@@ -399,6 +401,7 @@ void FastQueuesTest(void)
                          0x1000,
                          cpuMask,
                          FastQueuesTestRoutine,
+                         NULL,
                          NULL);
   TEST_POINT_ASSERT_RCODE(TEST_FASTQUEUE_INIT,
                           error == NO_ERROR,

@@ -351,6 +351,22 @@ uint8_t CPUGetVirtualAddressWidth(void);
 void CPUSaveContextAndSchedule(void* pVCPU);
 
 /**
+ * @brief Enters the user space for the thread provided in parameters.
+ *
+ * @details Enters the user space for the thread provided in parameters. This
+ * function will setup the user stack and registers and switch to user mode.
+ * The function never returns, the thread will be restored at the next
+ * instruction after this call.
+ *
+ * @param[in] kpThread The thread for which the user space should be entered.
+ * @param[in] kpEntryPoint The entry point of the user space code to execute.
+ * @param[in] kpArgs The arguments to pass to the routine in user space code.
+ */
+void CPUEnterUserSpace(const S_KernelThread* kpThread,
+                       const void*           kpEntryPoint,
+                       const void*           kpArgs);
+
+/**
  * @brief Validates a CPU mask.
  *
  * @details Validates a CPU mask. Checks that at least one CPU is selected and

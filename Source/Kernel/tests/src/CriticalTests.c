@@ -216,7 +216,8 @@ static void _TestLocal(void)
                          0x1000,
                          cpuMask,
                          _CriticalLocalRoutine,
-                         (void*)(uintptr_t)i);
+                         (void*)(uintptr_t)i,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_CRITICAL_CREATE_THREADS_LOCAL(i),
                             error == NO_ERROR,
@@ -275,7 +276,8 @@ static void _TestGlobal(void)
                          0x1000,
                          cpuMask,
                          _CriticalGlobalRoutine0,
-                         (void*)(uintptr_t)i);
+                         (void*)(uintptr_t)i,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_CRITICAL_CREATE_THREADS_GLOBAL0(i),
                             error == NO_ERROR,
@@ -334,7 +336,8 @@ static void _TestGlobalSecond(void)
                          0x1000,
                          cpuMask,
                          _CriticalGlobalRoutine1,
-                         (void*)(uintptr_t)i);
+                         (void*)(uintptr_t)i,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_CRITICAL_CREATE_THREADS_GLOBAL1(i),
                             error == NO_ERROR,
@@ -389,7 +392,8 @@ static void _TestSpinlock(void)
                          0x1000,
                          cpuMask,
                          _SpinlockTestRoutine,
-                         (void*)(uintptr_t)i);
+                         (void*)(uintptr_t)i,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_CRITICAL_CREATE_THREADS_SPINLOCK(i),
                             error == NO_ERROR,
@@ -439,7 +443,8 @@ static void _TestIncrement(void)
                          0x1000,
                          cpuMask,
                          _AtomicIncRoutine,
-                         (void*)(uintptr_t)i);
+                         (void*)(uintptr_t)i,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_CRITICAL_CREATE_THREADS_INCREMENT(i),
                             error == NO_ERROR,
@@ -489,7 +494,8 @@ static void _TestDecrement(void)
                          0x1000,
                          cpuMask,
                          _AtomicDecRoutine,
-                         (void*)(uintptr_t)i);
+                         (void*)(uintptr_t)i,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_CRITICAL_CREATE_THREADS_DECREMENT(i),
                             error == NO_ERROR,
@@ -551,6 +557,7 @@ void CriticalTest(void)
                             0x1000,
                             cpuMask,
                             _TestRoutine,
+                            NULL,
                             NULL);
 
   /* We should never reach this point */

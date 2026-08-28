@@ -209,6 +209,8 @@ const S_ScheduleContextStatistics* SchedulerGetStatistics(const uint32_t kCPU);
  * @param[in] kMappedCPUs The CPU affinity set for this thread.
  * @param[in] kRoutine The thread routine to be executed.
  * @param[in] args The arguments to be used by the thread.
+ * @param[in] pProcess The process to which the thread belongs. If NULL, the
+ * thread will be associated with the current process.
  *
  * @return The function returns NO_ERROR if the thread was created successfully,
  * or an error code otherwise.
@@ -220,7 +222,8 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                       const size_t          kStackSize,
                       const S_CPUMask       kMappedCPUs,
                       const T_ThreadRoutine kRoutine,
-                      void*                 args);
+                      void*                 args,
+                      S_KernelProcess*      pProcess);
 
 /**
  * @brief Joins a thread and retrieves its return value.
@@ -270,6 +273,21 @@ E_Return SleepNs(const uint64_t kTimeNs);
  * "UNKNOWN".
  */
 const char* SchedulerGetThreadStateString(const E_ThreadState kState);
+
+/**
+ * @brief Creates the Init process.
+ *
+ * @details Creates the Init process. The Init process is the first user-space
+ * process and is created without any thread. The main thread must be created by
+ * the user after the process is created. The Init process is essential for
+ * starting user-space applications and services.
+ *
+ * @param[out] ppProcess The pointer to the process structure. This is the
+ * handle of the process for the user.
+ *
+ * @return  The function returns the success or error status.
+ */
+E_Return CreateInitProcess(S_KernelProcess** ppProcess);
 
 #endif /* #ifndef __CORE_SCHEDULER_H_ */
 

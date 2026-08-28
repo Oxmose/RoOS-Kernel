@@ -203,7 +203,8 @@ static void TestCreateInvalid(void)
                        0x1000,
                        cpuMask,
                        NULL,
-                       (void*)0xDEADC0DEBEEF0000ULL);
+                       (void*)0xDEADC0DEBEEF0000ULL,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_CREATE_TEST_THREAD_ID(2),
                           error == ERR_INVALID_PARAMETER,
                           ERR_INVALID_PARAMETER,
@@ -223,7 +224,8 @@ static void TestCreateInvalid(void)
                        0,
                        cpuMask,
                        TestRoutineFail,
-                       (void*)0xDEADC0DEBEEF0000ULL);
+                       (void*)0xDEADC0DEBEEF0000ULL,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_CREATE_TEST_THREAD_ID(4),
                           error == ERR_INVALID_PARAMETER,
                           ERR_INVALID_PARAMETER,
@@ -244,7 +246,8 @@ static void TestCreateInvalid(void)
                        0x1000,
                        cpuMask,
                        TestRoutineFail,
-                       (void*)0xDEADC0DEBEEF0000ULL);
+                       (void*)0xDEADC0DEBEEF0000ULL,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_CREATE_TEST_THREAD_ID(6),
                           error == ERR_INVALID_PARAMETER,
                           ERR_INVALID_PARAMETER,
@@ -265,7 +268,8 @@ static void TestCreateInvalid(void)
                        0x1000,
                        cpuMask,
                        TestRoutineFail,
-                       (void*)0xDEADC0DEBEEF0000ULL);
+                       (void*)0xDEADC0DEBEEF0000ULL,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_CREATE_TEST_THREAD_ID(8),
                           error == ERR_INVALID_PARAMETER,
                           ERR_INVALID_PARAMETER,
@@ -286,7 +290,8 @@ static void TestCreateInvalid(void)
                        0x1000,
                        cpuMask,
                        TestRoutineFail,
-                       (void*)0xDEADC0DEBEEF0000ULL);
+                       (void*)0xDEADC0DEBEEF0000ULL,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_CREATE_TEST_THREAD_ID(10),
                           error == ERR_INVALID_PARAMETER,
                           ERR_INVALID_PARAMETER,
@@ -303,7 +308,8 @@ static void TestCreateInvalid(void)
                        0x1000,
                        cpuMask,
                        TestRoutineFail,
-                       (void*)0xDEADC0DEBEEF0000ULL);
+                       (void*)0xDEADC0DEBEEF0000ULL,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_CREATE_TEST_THREAD_ID(12),
                           error == ERR_INVALID_PARAMETER,
                           ERR_INVALID_PARAMETER,
@@ -324,7 +330,8 @@ static void TestCreateInvalid(void)
                        0x1000,
                        cpuMask,
                        TestRoutineFail,
-                       (void*)0xDEADC0DEBEEF0000ULL);
+                       (void*)0xDEADC0DEBEEF0000ULL,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_CREATE_TEST_THREAD_ID(14),
                           error == ERR_INVALID_PARAMETER,
                           ERR_INVALID_PARAMETER,
@@ -434,7 +441,8 @@ static void TestJoin(void)
                        0x1000,
                        cpuMask,
                        TestJoinRoutine,
-                       (void*)0);
+                       (void*)0,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_JOIN_THREAD_ID(0),
                           error == NO_ERROR,
                           NO_ERROR,
@@ -461,7 +469,8 @@ static void TestJoin(void)
                        0x1000,
                        cpuMask,
                        TestJoinRoutine,
-                       (void*)1000000000);
+                       (void*)1000000000,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_JOIN_THREAD_ID(3),
                           error == NO_ERROR,
                           NO_ERROR,
@@ -504,7 +513,8 @@ static void TestJoin(void)
                        0x1000,
                        cpuMask,
                        TestJoinRoutine,
-                       (void*)1000000000);
+                       (void*)1000000000,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_JOIN_THREAD_ID(8),
                           error == NO_ERROR,
                           NO_ERROR,
@@ -557,7 +567,8 @@ static void TestErrored(void)
                        0x1000,
                        cpuMask,
                        TestErroredRoutine,
-                       (void*)0);
+                       (void*)0,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_ERROR_THREAD_ID(0),
                           error == NO_ERROR,
                           NO_ERROR,
@@ -622,7 +633,8 @@ static void TestPriority(void)
                          0x1000,
                          cpuMask,
                          TestPriorityRoutine,
-                         (void*)(uintptr_t)(63 - i));
+                         (void*)(uintptr_t)(63 - i),
+                         NULL);
    TEST_POINT_ASSERT_RCODE(SCHED_TEST_PRIORITY_THREAD_CREATE_ID(i),
                            error == NO_ERROR,
                            NO_ERROR,
@@ -670,7 +682,8 @@ static void TestMappedCore(void)
                          0x1000,
                          cpuMask,
                          TestMappingRoutine,
-                         (void*)(uintptr_t)(i));
+                         (void*)(uintptr_t)(i),
+                         NULL);
    TEST_POINT_ASSERT_RCODE(SCHED_TEST_MAPPING_THREAD_CREATE_ID(i),
                            error == NO_ERROR,
                            NO_ERROR,
@@ -709,7 +722,8 @@ static void TestCreateValid(void)
                        0x1000,
                        cpuMask,
                        TestRoutine,
-                       (void*)0xDEADC0DEBEEF0000ULL);
+                       (void*)0xDEADC0DEBEEF0000ULL,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_CREATE_TEST_THREAD_ID(0),
                           error == NO_ERROR,
                           NO_ERROR,

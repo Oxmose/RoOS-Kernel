@@ -630,13 +630,14 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
         if (sVGADriverCtrl.frameRate > 0)
         {
           retCode = CreateThread(&sVGADriverCtrl.pDisplayThread,
-                              true,
-                              0,
-                              threadName,
-                              0x1000,
-                              cpuMask,
-                              _DisplayRoutine,
-                              NULL);
+                                 true,
+                                 0,
+                                 threadName,
+                                 0x1000,
+                                 cpuMask,
+                                 _DisplayRoutine,
+                                 NULL,
+                                 NULL);
           if (retCode == NO_ERROR)
           {
             /* Create the internal buffer */
