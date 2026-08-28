@@ -882,7 +882,7 @@ static void _UpdateContextStatistics(S_ScheduleContext* pContext)
   if (pContext->pCurrentThread->type == THREAD_TYPE_USER)
   {
     pContext->pCurrentThread->execTimeUser +=
-      elapsedTime - pContext->pCurrentThread->currentKernelTime;
+      elapsedTime - pContext->pCurrentThread->currentKernelTime; // TODO: Register the current kernel time.
     pContext->pCurrentThread->execTimeKernel +=
       pContext->pCurrentThread->currentKernelTime;
 
@@ -1145,7 +1145,6 @@ E_Return CreateThread(S_KernelThread**      ppThread,
   S_KernelThread*    pThread;
   S_KernelQueueNode* pNode;
   S_KernelProcess*   pCurrentProcess;
-  E_ThreadType       type;
   S_ScheduleContext* pContext;
   E_Return           error;
   bool               validCPUSet;
@@ -1160,22 +1159,6 @@ E_Return CreateThread(S_KernelThread**      ppThread,
       kStackSize != 0 &&
       kRoutine != NULL)
   {
-
-    if (kIsKernel == true)
-    {
-      type = THREAD_TYPE_KERNEL;
-    }
-    else
-    {
-      (void)kStackSize;
-      type = THREAD_TYPE_USER;
-      PANIC(ERR_NOT_SUPPORTED,
-            MODULE_NAME,
-            "User threads are not supported currently.",
-            false,
-            false);
-    }
-
     pCurrentProcess = SchedulerGetCurrentProcess();
 
     /* Create the thread */
@@ -1187,82 +1170,131 @@ E_Return CreateThread(S_KernelThread**      ppThread,
       {
         pThread->kernelStackSize = CPUGetStackSize();
         pThread->kernelStackEnd  = MemoryMapStack(pThread->kernelStackSize,
-                                                  kIsKernel,
+                                                  true,
                                                   pCurrentProcess);
         if (pThread->kernelStackEnd != (uintptr_t)NULL)
         {
-          pThread->tid             = AtomicIncrement32(&sLastTID);
-          pThread->type            = type;
-          pThread->pArgs           = args;
-          pThread->pEntryPoint     = _SchedulerThreadEntry;
-          pThread->pRoutine        = kRoutine;
-          pThread->stackSize       = 0;
-          pThread->stackEnd        = (uintptr_t)NULL;
-
-          pThread->priority        = kPriority;
-          pThread->currentState    = THREAD_STATE_READY;
-          pThread->previousState   = THREAD_STATE_READY;
-          pThread->mappedCPU       = 0xFFFFFFFF;
-          pThread->pProcess        = pCurrentProcess;
-          pThread->isScheduled     = false;
-          pThread->pJoiningThread  = NULL;
-
-          /* Create the VCPU after initializing the attributes */
-          pThread->pVCpu = CPUCreateVirtualCPU(pThread);
-          if (pThread->pVCpu != NULL)
+          if (kIsKernel != true)
           {
-            CPU_MASK_RESET(pThread->affinity);
-            CPU_MASK_COPY(pThread->affinity, kMappedCPUs);
+            pThread->type        = THREAD_TYPE_USER;
+            pThread->pEntryPoint = kRoutine; // TODO: Ensure the entry point in user space does the same as _SchedulerThreadEntry, i.e. call the routine and then exit the thread.
 
-            memcpy(pThread->pName, kName, THREAD_NAME_MAX_LENGTH);
-            pThread->pName[THREAD_NAME_MAX_LENGTH - 1] = 0;
+            pThread->stackSize = kStackSize;
+            pThread->stackEnd  = MemoryMapStack(kStackSize,
+                                                false,
+                                                pCurrentProcess);
+          }
+          else
+          {
+            pThread->type        = THREAD_TYPE_KERNEL;
+            pThread->pEntryPoint = _SchedulerThreadEntry;
+          }
 
-            KERNEL_SPINLOCK_INIT(pThread->lock);
+          if (pThread->type == THREAD_TYPE_KERNEL ||
+              pThread->stackEnd != (uintptr_t)NULL)
+          {
+            pThread->tid             = AtomicIncrement32(&sLastTID);
+            pThread->pArgs           = args;
+            pThread->pRoutine        = kRoutine;
+            pThread->stackSize       = 0;
+            pThread->stackEnd        = (uintptr_t)NULL;
+            pThread->priority        = kPriority;
+            pThread->currentState    = THREAD_STATE_READY;
+            pThread->previousState   = THREAD_STATE_READY;
+            pThread->mappedCPU       = 0xFFFFFFFF;
+            pThread->pProcess        = pCurrentProcess;
+            pThread->isScheduled     = false;
+            pThread->pJoiningThread  = NULL;
 
             error = CPUCreateTLS(pThread);
             if (error == NO_ERROR)
             {
-              /* Link to main process */
-              pNode = KQueueCreateNode(pThread, pCurrentProcess->pHeap);
-              if (pNode != NULL)
+              /* Create the VCPU after initializing the attributes */
+              pThread->pVCpu = CPUCreateVirtualCPU(pThread);
+              if (pThread->pVCpu != NULL)
               {
-                error = CoreProcessFSCreateThreadEntry(pThread);
-                if (error == NO_ERROR)
+                CPU_MASK_RESET(pThread->affinity);
+                CPU_MASK_COPY(pThread->affinity, kMappedCPUs);
+
+                memcpy(pThread->pName, kName, THREAD_NAME_MAX_LENGTH);
+                pThread->pName[THREAD_NAME_MAX_LENGTH - 1] = 0;
+
+                KERNEL_SPINLOCK_INIT(pThread->lock);
+
+                /* Link to main process */
+                pNode = KQueueCreateNode(pThread, pCurrentProcess->pHeap);
+                if (pNode != NULL)
                 {
-                  KERNEL_LOCK(pCurrentProcess->lock);
-                  if (pCurrentProcess->pMainThread == NULL)
+                  error = CoreProcessFSCreateThreadEntry(pThread);
+                  if (error == NO_ERROR)
                   {
-                    pCurrentProcess->pMainThread = pThread;
+                    KERNEL_LOCK(pCurrentProcess->lock);
+                    if (pCurrentProcess->pMainThread == NULL)
+                    {
+                      pCurrentProcess->pMainThread = pThread;
+                    }
+                    KQueuePush(pNode, pCurrentProcess->pThreads);
+                    KERNEL_UNLOCK(pCurrentProcess->lock);
+
+                    /* Put the thread in the scheduler context */
+                    pContext = _SelectNextContext(pThread);
+                    _SetThreadToReady(pContext, pThread);
+
+                    AtomicIncrement32(&sCurrentThreadsCount);
+
+                    /* Set return values */
+                    *ppThread = pThread;
                   }
-                  KQueuePush(pNode, pCurrentProcess->pThreads);
-                  KERNEL_UNLOCK(pCurrentProcess->lock);
-
-                  /* Put the thread in the scheduler context */
-                  pContext = _SelectNextContext(pThread);
-                  _SetThreadToReady(pContext, pThread);
-
-                  AtomicIncrement32(&sCurrentThreadsCount);
-
-                  /* Set return values */
-                  *ppThread = pThread;
+                  else
+                  {
+                    KQueueDestroyNode(&pNode);
+                    CPUDestroyVirtualCPU(pThread);
+                    CPUDestroyTLS(pThread);
+                    if (pThread->type == THREAD_TYPE_USER)
+                    {
+                      MemoryUnmapStack(pThread->stackEnd,
+                                      pThread->stackSize,
+                                      false,
+                                      pCurrentProcess);
+                    }
+                    MemoryUnmapStack(pThread->kernelStackEnd,
+                                     pThread->kernelStackSize,
+                                     true,
+                                     pCurrentProcess);
+                    KQueueDestroyNode(&pThread->pThreadNode);
+                    KFreeUser(pThread, NULL);
+                  }
                 }
                 else
                 {
-                  KQueueDestroyNode(&pNode);
-                  CPUDestroyTLS(pThread);
                   CPUDestroyVirtualCPU(pThread);
+                  CPUDestroyTLS(pThread);
+                  if (pThread->type == THREAD_TYPE_USER)
+                  {
+                    MemoryUnmapStack(pThread->stackEnd,
+                                    pThread->stackSize,
+                                    false,
+                                    pCurrentProcess);
+                  }
                   MemoryUnmapStack(pThread->kernelStackEnd,
-                                  pThread->kernelStackSize,
-                                  true,
-                                  pCurrentProcess);
+                                   pThread->kernelStackSize,
+                                   true,
+                                   pCurrentProcess);
                   KQueueDestroyNode(&pThread->pThreadNode);
                   KFreeUser(pThread, NULL);
+                  error = ERR_NO_MEMORY;
                 }
               }
               else
               {
                 CPUDestroyTLS(pThread);
-                CPUDestroyVirtualCPU(pThread);
+                if (pThread->type == THREAD_TYPE_USER)
+                {
+                  MemoryUnmapStack(pThread->stackEnd,
+                                  pThread->stackSize,
+                                  false,
+                                  pCurrentProcess);
+                }
                 MemoryUnmapStack(pThread->kernelStackEnd,
                                 pThread->kernelStackSize,
                                 true,
@@ -1274,11 +1306,17 @@ E_Return CreateThread(S_KernelThread**      ppThread,
             }
             else
             {
-              CPUDestroyVirtualCPU(pThread);
-              MemoryUnmapStack(pThread->kernelStackEnd,
-                               pThread->kernelStackSize,
-                               true,
+              if (pThread->type == THREAD_TYPE_USER)
+              {
+                MemoryUnmapStack(pThread->stackEnd,
+                               pThread->stackSize,
+                               false,
                                pCurrentProcess);
+              }
+              MemoryUnmapStack(pThread->kernelStackEnd,
+                              pThread->kernelStackSize,
+                              true,
+                              pCurrentProcess);
               KQueueDestroyNode(&pThread->pThreadNode);
               KFreeUser(pThread, NULL);
             }
