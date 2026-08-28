@@ -52,6 +52,8 @@
 #define INIT_CONFIG_PATH "/initrd/.roos_init"
 /** @brief Defines the init ELF path configuration variable */
 #define CONF_INIT_PATH_VAR_NAME "INIT="
+/** @brief Defines the init ELF path configuration variable length */
+#define CONF_INIT_PATH_VAR_NAME_LEN 5
 /** @brief Setup the INIT process priority */
 #define INIT_MAIN_THREAD_PRIO 20
 
@@ -180,9 +182,9 @@ static E_Return _CreateInit(void)
         /* Try to get the init configuration */
         if(strncmp(pBuffer,
                    CONF_INIT_PATH_VAR_NAME,
-                   strlen(CONF_INIT_PATH_VAR_NAME)) == 0)
+                   CONF_INIT_PATH_VAR_NAME_LEN) == 0)
         {
-            pInitPath = pBuffer + strlen(CONF_INIT_PATH_VAR_NAME);
+            pInitPath = pBuffer + CONF_INIT_PATH_VAR_NAME_LEN;
             break;
         }
       }
