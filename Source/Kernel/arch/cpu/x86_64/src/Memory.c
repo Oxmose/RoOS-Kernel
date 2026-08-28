@@ -1534,7 +1534,6 @@ static E_Return _MemoryMap(const uintptr_t kVirtualAddress,
                   PAGE_FLAG_USER_ACCESS   |
                   PAGE_FLAG_READ_WRITE    |
                   PAGE_FLAG_CACHE_WB      |
-                  PAGE_FLAG_XD            |
                   PAGE_FLAG_PRESENT;
 
   /* Apply the mapping */
@@ -2131,7 +2130,6 @@ static uintptr_t _MapTranslationTable(void)
                                                   PAGE_FLAG_SUPER_ACCESS  |
                                                   PAGE_FLAG_CACHE_WB      |
                                                   PAGE_FLAG_READ_WRITE    |
-                                                  PAGE_FLAG_XD            |
                                                   PAGE_FLAG_PRESENT;
   _physicalMapTranslationPage[0] = frameTable              |
                                    PAGE_FLAG_PAGE_SIZE_2MB |
@@ -2139,7 +2137,6 @@ static uintptr_t _MapTranslationTable(void)
                                    PAGE_FLAG_CACHE_WB      |
                                    PAGE_FLAG_READ_WRITE    |
                                    PAGE_FLAG_GLOBAL        |
-                                   PAGE_FLAG_XD            |
                                    PAGE_FLAG_PRESENT;
   physFrameTable = KERNEL_MEM_PML4_ENTRY * 512ULL * KERNEL_MEM_1GB +
                     511ULL * KERNEL_MEM_2MB;
@@ -2206,7 +2203,6 @@ static void _CreateFlatMap(void)
                                         PAGE_FLAG_SUPER_ACCESS |
                                         PAGE_FLAG_CACHE_WB     |
                                         PAGE_FLAG_READ_WRITE   |
-                                        PAGE_FLAG_XD           |
                                         PAGE_FLAG_PRESENT;
         }
         /* Get the virtual address of the table to update */
@@ -2226,7 +2222,6 @@ static void _CreateFlatMap(void)
                               PAGE_FLAG_CACHE_WB              |
                               PAGE_FLAG_READ_WRITE            |
                               PAGE_FLAG_GLOBAL                |
-                              PAGE_FLAG_XD                    |
                               PAGE_FLAG_PRESENT;
 
         size += KERNEL_MEM_2MB;
@@ -2267,7 +2262,6 @@ static void _CreateFlatMap(void)
                                         PAGE_FLAG_CACHE_WB            |
                                         PAGE_FLAG_READ_WRITE          |
                                         PAGE_FLAG_GLOBAL              |
-                                        PAGE_FLAG_XD                  |
                                         PAGE_FLAG_PRESENT;
         }
         size += KERNEL_MEM_1GB;
@@ -2732,7 +2726,6 @@ static E_Return _MemoryMapUser(uintptr_t*     pTableLevel,
                                     PAGE_FLAG_USER_ACCESS   |
                                     PAGE_FLAG_READ_WRITE    |
                                     PAGE_FLAG_CACHE_WB      |
-                                    PAGE_FLAG_XD            |
                                     PAGE_FLAG_PRESENT;
 
 
@@ -3568,9 +3561,9 @@ E_Return MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess)
 {
   S_ProcessMemoryMetadata* pMemProcInfo;
   E_Return                 error;
+  uintptr_t*               pMappedPGDir;
 
   pMemProcInfo = NULL;
-
 
   error = CreateProcessHeap(&pProcess->pHeap);
   if (error == NO_ERROR)
@@ -3583,22 +3576,64 @@ E_Return MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess)
       /* Create the page directory */
       if (SchedulerIsInitialized() == true)
       {
-        /* Allocate a frame for the page directory TODO */
-        pMemProcInfo->PDPhysAddress = (uintptr_t)NULL;
-
-        /* Create the free page table */
-        pMemProcInfo->freePageTable.pQueue     = KQueueCreate(pProcess->pHeap);
-        if (pMemProcInfo->freePageTable.pQueue != NULL)
+        /* Allocate a frame for the page directory */
+        pMemProcInfo->PDPhysAddress = MemoryAllocFrames(1);
+        if (pMemProcInfo->PDPhysAddress != (uintptr_t)NULL)
         {
-          pMemProcInfo->freePageTable.pAllocPool = pProcess->pHeap;
-          KERNEL_SPINLOCK_INIT(pMemProcInfo->freePageTable.lock);
+          /* Create the free page table */
+          pMemProcInfo->freePageTable.pQueue = KQueueCreate(pProcess->pHeap);
+          if (pMemProcInfo->freePageTable.pQueue != NULL)
+          {
+            /* Map the kernel in the new page directory */
+            pMappedPGDir = MemoryKernelMap((void*)pMemProcInfo->PDPhysAddress,
+                                           KERNEL_PAGE_SIZE,
+                                           MEMMGR_MAP_KERNEL |
+                                           MEMMGR_MAP_RW,
+                                           &error);
+            if (error == NO_ERROR)
+            {
+              /* Reset page dir */
+              memset(pMappedPGDir, 0, KERNEL_PAGE_SIZE);
 
-          /* Add free pages */
-          _AddBlock(&pMemProcInfo->freePageTable,
-                    USER_MEMORY_START,
-                    USER_MEMORY_END - USER_MEMORY_START);
+              /* Map the user memory kernel part */
+              pMappedPGDir[KERNEL_MEM_PML4_ENTRY] =
+                spKernelPageDir[KERNEL_MEM_PML4_ENTRY];
+              pMappedPGDir[KERNEL_PML4_KERNEL_ENTRY] =
+                spKernelPageDir[KERNEL_PML4_KERNEL_ENTRY];
 
-          KERNEL_SPINLOCK_INIT(pMemProcInfo->lock);
+              /* Unmap */
+              error = MemoryKernelUnmap(pMappedPGDir, KERNEL_PAGE_SIZE);
+              MEM_ASSERT(error == NO_ERROR,
+                         "Failed to unmap the page directory",
+                         error,
+                         false);
+
+              /* Finish initialization */
+              pMemProcInfo->freePageTable.pAllocPool = pProcess->pHeap;
+              KERNEL_SPINLOCK_INIT(pMemProcInfo->freePageTable.lock);
+
+              /* Add free pages */
+              _AddBlock(&pMemProcInfo->freePageTable,
+                        USER_MEMORY_START,
+                        USER_MEMORY_END - USER_MEMORY_START);
+
+              KERNEL_SPINLOCK_INIT(pMemProcInfo->lock);
+            }
+            else
+            {
+              KQueueDestroy(&pMemProcInfo->freePageTable.pQueue);
+              MemoryReleaseFrame(pMemProcInfo->PDPhysAddress, 1);
+              KFreeUser(pMemProcInfo, pProcess->pHeap);
+              DestroyProcessHeap(pProcess->pHeap);
+            }
+          }
+          else
+          {
+            MemoryReleaseFrame(pMemProcInfo->PDPhysAddress, 1);
+            KFreeUser(pMemProcInfo, pProcess->pHeap);
+            DestroyProcessHeap(pProcess->pHeap);
+            error = ERR_NO_MEMORY;
+          }
         }
         else
         {
@@ -3606,7 +3641,6 @@ E_Return MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess)
           DestroyProcessHeap(pProcess->pHeap);
           error = ERR_NO_MEMORY;
         }
-
       }
       else
       {

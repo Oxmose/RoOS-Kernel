@@ -53,6 +53,7 @@ endif
 	@make -C $(KERNEL_SRC_DIR)/time
 	@make -C $(KERNEL_SRC_DIR)/io
 	@make -C $(KERNEL_SRC_DIR)/fs
+	@make -C $(KERNEL_SRC_DIR)/user
 
 ifeq ($(TESTS), TRUE)
 	# Build the tests module
@@ -128,6 +129,7 @@ endif
 	@make -C $(KERNEL_SRC_DIR)/time clean
 	@make -C $(KERNEL_SRC_DIR)/io clean
 	@make -C $(KERNEL_SRC_DIR)/fs clean
+	@make -C $(KERNEL_SRC_DIR)/user clean
 
 	@make -C $(USER_SRC_DIR)/initrd clean
 	@make -C $(USER_SRC_DIR)/libs clean

@@ -482,7 +482,8 @@ static void _TestMutualExclusion(void)
                           0x1000,
                           cpuMask,
                           _TestMutualExclusionRoutine,
-                          &mutex);
+                          &mutex,
+                         NULL);
     TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_EXC_ID(2 + i),
                             error == NO_ERROR,
                             NO_ERROR,
@@ -661,7 +662,8 @@ static void _TestPrioMutex(void)
                          0x1000,
                          cpuMask,
                          _TestPrioMutexRoutine,
-                          (void*)&orderMutex);
+                          (void*)&orderMutex,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ORDER_TEST(2 + i),
                             error == NO_ERROR,
@@ -727,7 +729,8 @@ static void _TestFIFOMutex(void)
                          0x1000,
                          cpuMask,
                          _TestFIFOMutexRoutine,
-                          (void*)&orderMutex);
+                          (void*)&orderMutex,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_FIFO_TEST(2 + i),
                             error == NO_ERROR,
@@ -808,7 +811,8 @@ static void _TestTrylockMutex(void)
                          0x1000,
                          cpuMask,
                          _TestTrylockMutexRoutine,
-                         (void*)mutexes);
+                         (void*)mutexes,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_TRYLOCK_TEST(3 + i),
                             error == NO_ERROR,
@@ -865,7 +869,8 @@ static void _TestElevationMutex(void)
                        0x1000,
                        cpuMask,
                        _TestElevationMutexRoutine,
-                       (void*)&mutex);
+                       (void*)&mutex,
+                         NULL);
 
   TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ELEVATION_PRIO(19),
                           error == NO_ERROR,
@@ -882,7 +887,8 @@ static void _TestElevationMutex(void)
                             0x1000,
                             cpuMask,
                             _TestElevationMutexRoutine,
-                            (void*)&mutex);
+                            (void*)&mutex,
+                         NULL);
 
   TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ELEVATION_PRIO(20),
                           error == NO_ERROR,
@@ -899,7 +905,8 @@ static void _TestElevationMutex(void)
                             0x1000,
                             cpuMask,
                             _TestElevationMutexRoutine,
-                            (void*)&mutex);
+                            (void*)&mutex,
+                         NULL);
 
   TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ELEVATION_PRIO(21),
                           error == NO_ERROR,
@@ -916,7 +923,8 @@ static void _TestElevationMutex(void)
                             0x1000,
                             cpuMask,
                             _TestElevationMutexRoutine,
-                            (void*)&mutex);
+                            (void*)&mutex,
+                         NULL);
 
   TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ELEVATION_PRIO(22),
                           error == NO_ERROR,
@@ -989,7 +997,8 @@ void KernelMutexTest(void)
                        0x1000,
                        cpuMask,
                        _TestRoutine,
-                       (void*)0xDEADC0DEBEEF0000ULL);
+                       (void*)0xDEADC0DEBEEF0000ULL,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_CREATE_TEST(0),
                           error == NO_ERROR,
                           NO_ERROR,

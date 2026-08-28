@@ -12,6 +12,7 @@ DEP_LIBS += -lapi
 DEP_LIBS += -ltime
 DEP_LIBS += -lio
 DEP_LIBS += -lfs
+DEP_LIBS += -luser
 DEP_LIBS += --whole-archive -lrawdtb
 DEP_LIBS += --whole-archive -lramdisk
 ifeq ($(TESTS), TRUE)
@@ -25,6 +26,7 @@ DEP_MODULES += -L../libs/bin
 DEP_MODULES += -L../time/bin
 DEP_MODULES += -L../io/bin
 DEP_MODULES += -L../fs/bin
+DEP_MODULES += -L../user/bin
 ifeq ($(TESTS), TRUE)
 DEP_MODULES += -L../tests/bin
 endif

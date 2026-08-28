@@ -416,11 +416,13 @@ static E_Return _LoadELFReloc(const int32_t      kFileFd,
  *
  * @param[in] kFileFd The ELF file descriptor.
  * @param[in] kpHeader The ELF header.
+ * @param[in] pProcess The process in which to load the ELF file.
  *
  * @return The function return the success or error status.
  */
 static E_Return _LoadELFExec(const int32_t      kFileFd,
-                             const S_ELFHeader* kpHeader);
+                             const S_ELFHeader* kpHeader,
+                             S_KernelProcess*   pProcess);
 
 /*******************************************************************************
  * GLOBAL VARIABLES
@@ -655,7 +657,8 @@ static E_Return _LoadProgramHeader(const int32_t        kFileFd,
 }
 
 static E_Return _LoadELFExec(const int32_t      kFileFd,
-                             const S_ELFHeader* kpHeader)
+                             const S_ELFHeader* kpHeader,
+                             S_KernelProcess*   pProcess)
 {
   uint32_t             i;
   S_ELFProgramHeader*  pProgHeader;
@@ -672,13 +675,12 @@ static E_Return _LoadELFExec(const int32_t      kFileFd,
   uintptr_t            newFrame;
   uint8_t*             tmpAddr;
   uint8_t*             pDataBuffer;
-  S_KernelProcess*     pProcess;
 
   pProgHeader = NULL;
   pDataBuffer = NULL;
 
   error = _LoadProgramHeader(kFileFd, kpHeader, &pProgHeader);
-  if (error != NO_ERROR)
+  if (error == NO_ERROR)
   {
     error = _ValidateProgramHeaders(kpHeader, pProgHeader);
     if (error == NO_ERROR)
@@ -688,7 +690,6 @@ static E_Return _LoadELFExec(const int32_t      kFileFd,
       if (pDataBuffer != NULL)
       {
         /* Load all segments */
-        pProcess = SchedulerGetCurrentProcess();
         for (i = 0; i < kpHeader->ePhNum; ++i)
         {
           if (pProgHeader[i].pType == ELF_SEG_TYPE_TLS)
@@ -826,7 +827,7 @@ static E_Return _LoadELFExec(const int32_t      kFileFd,
             break;
           }
         }
-            /* On error release memory */
+        /* On error release memory */
         if (i < kpHeader->ePhNum && i > 0)
         {
           do
@@ -888,7 +889,9 @@ static E_Return _LoadELFExec(const int32_t      kFileFd,
   return error;
 }
 
-E_Return ELFManagerLoadElf(const char* kpElfPath, uintptr_t* pEntryPoint)
+E_Return ELFManagerLoadElf(const char*      kpELFPath,
+                           uintptr_t*       pEntryPoint,
+                           S_KernelProcess* pProcess)
 {
   int32_t     fileFd;
   E_Return    error;
@@ -896,7 +899,7 @@ E_Return ELFManagerLoadElf(const char* kpElfPath, uintptr_t* pEntryPoint)
   ssize_t     readBytes;
 
   /* Open the file */
-  fileFd = VFSOpen(kpElfPath, O_RDONLY, 0);
+  fileFd = VFSOpen(kpELFPath, O_RDONLY, 0);
   if (fileFd >= 0)
   {
     /* Get the header */
@@ -914,7 +917,7 @@ E_Return ELFManagerLoadElf(const char* kpElfPath, uintptr_t* pEntryPoint)
         }
         else if (header.eType == ELF_TYPE_EXEC)
         {
-          error = _LoadELFExec(fileFd, &header);
+          error = _LoadELFExec(fileFd, &header, pProcess);
         }
         else
         {

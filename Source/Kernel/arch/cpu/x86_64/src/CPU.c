@@ -1443,9 +1443,6 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
 {
   S_VirtualCPU*       pVCpu;
   uintptr_t           stack;
-  uint64_t            csVal;
-  uint64_t            ssVal;
-  uint64_t            rflagsVal;
   size_t              fxDataSize;
   S_InterruptContext* pIntContext;
   S_CPUState*         pCPUState;
@@ -1465,34 +1462,21 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
       pVCpu->fxDataRegion = ALIGN_UP(pVCpu->fxDataRegionNonAligned,
                                      ALIGN_64_BYTES);
 
-      if (pThread->type == THREAD_TYPE_KERNEL)
-      {
-        csVal     = KERNEL_CS_64;
-        ssVal     = KERNEL_DS_64;
-        rflagsVal = KERNEL_THREAD_INIT_RFLAGS;
-        stack     = pThread->kernelStackEnd;
-      }
-      else
-      {
-        csVal     = USER_CS_64 | 0x3;
-        ssVal     = USER_DS_64 | 0x3;
-        rflagsVal = USER_THREAD_INIT_RFLAGS;
-        stack     = pThread->stackEnd;
-      }
+      stack = pThread->kernelStackEnd;
 
       /* Setup the context */
-      stack = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
+      stack          = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
       pIntContext    = (S_InterruptContext*)(stack - sizeof(S_InterruptContext));
       pCPUState      = (S_CPUState*)((uintptr_t)pIntContext -
                                      sizeof(S_CPUState));
       pVCpu->context = (uintptr_t)pCPUState;
 
-      /* Setup the interrupt context */
+      /* Setup the interrupt context, thread always start in kernel mode */
       pIntContext->intId     = 0;
       pIntContext->errorCode = 0;
-      pIntContext->cs        = csVal;
-      pIntContext->ss        = ssVal;
-      pIntContext->rflags    = rflagsVal;
+      pIntContext->cs        = KERNEL_CS_64;
+      pIntContext->ss        = KERNEL_DS_64;
+      pIntContext->rflags    = KERNEL_THREAD_INIT_RFLAGS;
       pIntContext->rsp       = stack;
 
       /* Set the entry point */

@@ -27,6 +27,9 @@
 ; The following defines shall correspond to the virtual CPU context
 %define VCPU_OFF_CTX 0x0
 %define VCPU_OFF_FXD 0x8
+%define USER_CS_64 0x18
+%define USER_DS_64 0x20
+%define USER_THREAD_INIT_RFLAGS 0x202
 
 ;-------------------------------------------------------------------------------
 ; MACRO DEFINE
@@ -50,6 +53,7 @@ global CPUGetId
 global CPUSaveContext
 global CPURestoreContext
 global CPUSaveContextAndSchedule
+global CPUEnterUserSpace
 
 ;-------------------------------------------------------------------------------
 ; EXPORTED DATA
@@ -274,6 +278,44 @@ CPURestoreContext:
 
   ; Return from interrupt
   iretq
+
+;-------------------------------------------------------------------------------
+; Enters the user space for the thread provided in parameters.
+;
+; Param:
+;     RDI - The pointer to the thread user stack
+;     RSI - The entry point of the thread
+;     RDX - The arguments of the thread
+CPUEnterUserSpace:
+  ; Open the stack
+  sub rdi, 8
+  mov rsp, rdi
+
+  ; SS
+  mov  rax, USER_DS_64
+  or   rax, 0x3
+  push rax
+
+  ; RSP
+  push rdi
+
+  ; RFLAGS
+  push USER_THREAD_INIT_RFLAGS
+
+  ; CS
+  mov  rax, USER_CS_64
+  or   rax, 0x3
+  push rax
+
+  ; RIP
+  push rsi
+
+  ; Get the arguments
+  mov rdi, rdx
+
+  ; Return to user space
+  iretq
+
 
 ;-------------------------------------------------------------------------------
 ; DATA

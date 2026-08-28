@@ -287,7 +287,8 @@ static void _TestMutualExclusion(void)
                           0x1000,
                           cpuMask,
                           _TestMutualExclusionRoutine,
-                          &semaphore);
+                          &semaphore,
+                         NULL);
     TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_EXC_ID(2 + i),
                             error == NO_ERROR,
                             NO_ERROR,
@@ -362,7 +363,8 @@ static void _TestPrioSemaphore(void)
                          0x1000,
                          cpuMask,
                          _TestPrioSemaphoreRoutine,
-                          (void*)&orderSemaphore);
+                          (void*)&orderSemaphore,
+                          NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_ORDER_TEST(2 + i),
                             error == NO_ERROR,
@@ -428,7 +430,8 @@ static void _TestFIFOSemaphore(void)
                          0x1000,
                          cpuMask,
                          _TestFIFOSemaphoreRoutine,
-                          (void*)&orderSemaphore);
+                          (void*)&orderSemaphore,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_FIFO_TEST(2 + i),
                             error == NO_ERROR,
@@ -509,7 +512,8 @@ static void _TestTryWaitSemaphore(void)
                          0x1000,
                          cpuMask,
                          _TestTryWaitSemaphoreRoutine,
-                         (void*)semaphores);
+                         (void*)semaphores,
+                         NULL);
 
     TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_TRYWAIT_TEST(3 + i),
                             error == NO_ERROR,
@@ -637,7 +641,8 @@ void KernelSemaphoreTest(void)
                        0x1000,
                        cpuMask,
                        _TestRoutine,
-                       (void*)0xDEADC0DEBEEF0000ULL);
+                       (void*)0xDEADC0DEBEEF0000ULL,
+                         NULL);
   TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_CREATE_TEST(0),
                           error == NO_ERROR,
                           NO_ERROR,

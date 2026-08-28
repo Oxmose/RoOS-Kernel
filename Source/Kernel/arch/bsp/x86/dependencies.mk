@@ -4,5 +4,6 @@ DEP_INCLUDES += -I ../../../time/includes
 DEP_INCLUDES += -I ../../../io/includes
 DEP_INCLUDES += -I ../../../tests/includes
 DEP_INCLUDES += -I ../../../fs/includes
+DEP_INCLUDES += -I ../../../user/includes
 DEP_INCLUDES += -I ../../cpu/includes
 DEP_INCLUDES += -I ../../cpu/x86_64/includes
