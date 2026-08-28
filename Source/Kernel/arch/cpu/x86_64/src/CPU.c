@@ -1530,7 +1530,6 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
     }
   }
 
-
   return pVCpu;
 }
 
