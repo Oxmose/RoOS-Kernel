@@ -1,19 +1,18 @@
 /*******************************************************************************
- * @file UserKernelLib.c
+ * @file SysCall.c
  *
- * @see UserKernelLib.c
+ * @see SysCall.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 29/08/2026
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief Kernel's user entry point.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details Kernel system call manager. Used to register and handle system call
+ * entry and exti points.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
@@ -22,17 +21,22 @@
  * INCLUDES
  ******************************************************************************/
 /* Included headers */
+#include <stdint.h>
 
+/* Configuration files */
+#include <config.h>
+
+/* Unit test header */
+#include <TestFramework.h>
 
 /* Header file */
-#include <UserKernelLib.h>
+#include <SysCall.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-#ifdef _STACK_PROT
-#define STACK_CHK_GUARD 0x595e9fbd94fda766ULL
-#endif
+/** @brief Defines the current module name */
+#define MODULE_NAME "SYSCALL"
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -57,9 +61,7 @@
 /* None */
 
 /************************* Exported global variables **************************/
-#ifdef _STACK_PROT
-void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
-#endif
+/* None */
 
 /************************** Static global variables ***************************/
 /* None */
@@ -67,12 +69,19 @@ void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void)
+void SystemCallDispatcher(const uint64_t kSyscallId,
+                          void*          pParam0,
+                          void*          pParam1,
+                          void*          pParam2,
+                          void*          pParam3,
+                          void*          pParam4)
 {
-    while (1){}
+  (void)kSyscallId;
+  (void)pParam0;
+  (void)pParam1;
+  (void)pParam2;
+  (void)pParam3;
+  (void)pParam4;
 }
-#endif
 
 /************************************ EOF *************************************/
