@@ -40,6 +40,7 @@ extern ppSchedulerContext
 ; EXTERN FUNCTIONS
 ;-------------------------------------------------------------------------------
 extern SystemCallDispatcher
+extern CPUGetId
 
 ;-------------------------------------------------------------------------------
 ; EXPORTED FUNCTIONS
@@ -108,6 +109,18 @@ CPUSyscallHandler:
   mov  rbp, rsp
 
   push rbx
+  push rcx
+  push r11
+
+  ; Move back the correct RCX value
+  mov rcx, r10
+
+  ; Get the offset in the schedule contexts
+  push rdx
+  call CPUGetId
+  mov rbx, 8
+  mul rbx
+  pop rdx
 
   ; Load the schedule context
   mov rbx, ppSchedulerContext
@@ -115,9 +128,12 @@ CPUSyscallHandler:
   add rax, rbx
   mov rax, [rax]
 
+  ; Load the thread vcpu
+  mov rax, [rax]
+  mov rax, [rax]
+
   ; Update to kernel stack
   mov  rbx, rsp
-  mov  rax, [rax]
   mov  rsp, [rax + VCPU_OFF_KERNEL_STACK]
   push rbx
 
@@ -128,6 +144,8 @@ CPUSyscallHandler:
   pop rsp
 
   ; Restore the registers
+  pop r11
+  pop rcx
   pop rbx
   pop rbp
 

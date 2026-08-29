@@ -45,7 +45,7 @@
 ;-------------------------------------------------------------------------------
 ; EXPORTED FUNCTIONS
 ;-------------------------------------------------------------------------------
-; None
+global Syscall
 
 ;-------------------------------------------------------------------------------
 ; EXPORTED DATA
@@ -69,9 +69,10 @@ align 4
 ;     R8  - The fourth parameter for the system call.
 ;     R9  - The fifth parameter for the system call.
 Syscall:
+    ; Move RCX to R10 as syscall will overwrite it
+    mov r10, rcx
     ; Perform the system call
     syscall
-
     ret
 
 ;-------------------------------------------------------------------------------
