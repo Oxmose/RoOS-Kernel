@@ -124,7 +124,6 @@ CPUSaveContext:
   mov r15, rax
 
   ; Get the offset in the schedule contexts
-  xor rax, rax
   call CPUGetId
   mov rbx, 8
   mul rbx
