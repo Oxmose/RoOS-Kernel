@@ -27,6 +27,7 @@
 ; The following defines shall correspond to the virtual CPU context
 %define VCPU_OFF_CTX 0x0
 %define VCPU_OFF_FXD 0x8
+%define VCPU_OFF_KERNEL_STACK 0x10
 %define USER_CS_64 0x18
 %define USER_DS_64 0x20
 %define USER_THREAD_INIT_RFLAGS 0x202

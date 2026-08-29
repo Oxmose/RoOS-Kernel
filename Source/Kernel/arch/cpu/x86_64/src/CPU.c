@@ -1303,6 +1303,9 @@ void CPUInit(void)
   error = _CreateProcFSEntry();
   CPU_ASSERT(error == NO_ERROR, "Failed to create ProcFS entry", error);
 
+  /* Initialize the system calls */
+  CPUSystemCallInit((uintptr_t)&CPUSyscallHandler, KERNEL_CS_64, KERNEL_DS_64);
+
   sAllCPUBooted = false;
 }
 
@@ -1379,6 +1382,9 @@ void CPUAPInit(const uint8_t kCPUId)
   {
     kspLAPICTimerDriver->pInitApCPU(kCPUId);
   }
+
+  /* Initialize the system calls */
+  CPUSystemCallInit((uintptr_t)&CPUSyscallHandler, KERNEL_CS_64, KERNEL_DS_64);
 
   KERNEL_INFO("Secondary CPU %d Started\n", _bootedCPUCount - 1);
 
@@ -1469,7 +1475,9 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
       pIntContext    = (S_InterruptContext*)(stack - sizeof(S_InterruptContext));
       pCPUState      = (S_CPUState*)((uintptr_t)pIntContext -
                                      sizeof(S_CPUState));
-      pVCpu->context = (uintptr_t)pCPUState;
+
+      pVCpu->context     = (uintptr_t)pCPUState;
+      pVCpu->kernelStack = stack;
 
       /* Setup the interrupt context, thread always start in kernel mode */
       pIntContext->intId     = 0;

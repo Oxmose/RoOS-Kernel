@@ -175,6 +175,8 @@ typedef struct
   uintptr_t context;
   /** @brief FXSAVE / FXRSTOR data region */
   uintptr_t fxDataRegion;
+  /** @brief Stores a copy of the kernel stack address */
+  uintptr_t kernelStack;
   /** @brief FXSAVE / FXRSTOR data region (non-aligned) */
   uintptr_t fxDataRegionNonAligned;
 } __attribute__((packed)) S_VirtualCPU;
@@ -323,6 +325,43 @@ bool CPUGet1GBPageSupport(void);
  * @param[in] kCPUCount The number of CPUs to set.
  */
 void CPUSetCount(const uint32_t kCPUCount);
+
+/**
+ * @brief Initializes the system calls for the calling processor.
+ *
+ * @details Initializes the system calls for the calling processor. This
+ * function setups the MSRs used when using the system call functions.
+ *
+ * @param[in] kSyscallHandlerAddr The system call main handler function address.
+ * @param[in] kKernelCodeSelector The kernel code selector to use when raising a
+ * syscall.
+ * @param[in] kKernelDataSelector The kernel data selector to use when raising a
+ * syscall.
+ */
+void CPUSystemCallInit(const uintptr_t kSyscallHandlerAddr,
+                       const uint64_t  kKernelCodeSelector,
+                       const uint64_t  kKernelDataSelector);
+
+/**
+ * @brief Handles a system call request from the user space.
+ *
+ * @details Handles a system call request from the user space. This function
+ * will execute the necessary process to handle the system call, call the
+ * associated kernel function and setup the return arguments.
+ *
+ * @param[in] kSyscallId The system call ID to handle.
+ * @param[in] pParam0 The first parameter to pass to the system call handler.
+ * @param[in] pParam1 The second parameter to pass to the system call handler.
+ * @param[in] pParam2 The third parameter to pass to the system call handler.
+ * @param[in] pParam3 The fourth parameter to pass to the system call handler.
+ * @param[in] pParam4 The fifth parameter to pass to the system call handler.
+ */
+void CPUSyscallHandler(const uint64_t kSyscallId,
+                       void*          pParam0,
+                       void*          pParam1,
+                       void*          pParam2,
+                       void*          pParam3,
+                       void*          pParam4);
 
 #endif /* #ifndef __CPU_X86_64_X64_CPU_H_ */
 

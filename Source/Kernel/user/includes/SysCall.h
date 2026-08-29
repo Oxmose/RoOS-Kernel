@@ -1,38 +1,34 @@
 /*******************************************************************************
- * @file UserKernelLib.c
+ * @file SysCall.h
  *
- * @see UserKernelLib.c
+ * @see SysCall.c
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 29/08/2026
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief Kernel's user entry point.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details Kernel system call manager. Used to register and handle system call
+ * entry and exti points.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
+#ifndef __USER_SYSCALL_H_
+#define __USER_SYSCALL_H_
+
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
-/* Included headers */
-
-
-/* Header file */
-#include <UserKernelLib.h>
+#include <stdint.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-#ifdef _STACK_PROT
-#define STACK_CHK_GUARD 0x595e9fbd94fda766ULL
-#endif
+/* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -45,11 +41,6 @@
 /* None */
 
 /*******************************************************************************
- * STATIC FUNCTIONS DECLARATIONS
- ******************************************************************************/
-/* None */
-
-/*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
 
@@ -57,9 +48,7 @@
 /* None */
 
 /************************* Exported global variables **************************/
-#ifdef _STACK_PROT
-void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
-#endif
+/* None */
 
 /************************** Static global variables ***************************/
 /* None */
@@ -68,11 +57,27 @@ void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
  * FUNCTIONS
  ******************************************************************************/
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void)
-{
-    while (1){}
-}
-#endif
+ /**
+ * @brief Handles a system call request from the user space.
+ *
+ * @details Handles a system call request from the user space. This function
+ * will execute the necessary process to handle the system call, call the
+ * associated kernel function and setup the return arguments.
+ *
+ * @param[in] kSyscallId The system call ID to handle.
+ * @param[in] pParam0 The first parameter to pass to the system call handler.
+ * @param[in] pParam1 The second parameter to pass to the system call handler.
+ * @param[in] pParam2 The third parameter to pass to the system call handler.
+ * @param[in] pParam3 The fourth parameter to pass to the system call handler.
+ * @param[in] pParam4 The fifth parameter to pass to the system call handler.
+ */
+void SystemCallDispatcher(const uint64_t kSyscallId,
+                          void*          pParam0,
+                          void*          pParam1,
+                          void*          pParam2,
+                          void*          pParam3,
+                          void*          pParam4);
+
+#endif /* #ifndef __USER_SYSCALL_H_ */
 
 /************************************ EOF *************************************/
