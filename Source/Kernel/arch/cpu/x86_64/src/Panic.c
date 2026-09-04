@@ -300,11 +300,9 @@ static void _PrintCpuState(const S_VirtualCPU* kpVCpu)
                 CR2,
                 CR3,
                 CR4);
-  _PanicPrintf("CS: 0x%04X | SS: 0x%04X | FS: 0x%04X | GS: 0x%04X\n",
+  _PanicPrintf("CS: 0x%04X | SS: 0x%04X\n",
                 kpIntState->cs & 0xFFFF,
-                kpIntState->ss & 0xFFFF,
-                kpCPUState->fs & 0xFFFF ,
-                kpCPUState->gs & 0xFFFF);
+                kpIntState->ss & 0xFFFF);
 }
 
 static void _PrintCpuFlags(const S_VirtualCPU* kpVCpu)
@@ -477,7 +475,6 @@ static void _BuildVCPU(S_VirtualCPU* pVCPU)
   __asm__ __volatile__ ("mov %%r13, %0\n\t" : "=m" (sDummyCPUState->r13));
   __asm__ __volatile__ ("mov %%r14, %0\n\t" : "=m" (sDummyCPUState->r14));
   __asm__ __volatile__ ("mov %%r15, %0\n\t" : "=m" (sDummyCPUState->r15));
-  __asm__ __volatile__ ("mov %%gs, %0\n\t"  : "=m" (sDummyCPUState->gs));
 
 
   /* Set dummy interrupt values */

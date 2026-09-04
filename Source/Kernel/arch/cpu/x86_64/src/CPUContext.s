@@ -30,6 +30,7 @@
 %define VCPU_OFF_KERNEL_STACK 0x10
 %define USER_CS_64 0x18
 %define USER_DS_64 0x20
+%define KERNEL_CS_64 0x08
 %define USER_THREAD_INIT_RFLAGS 0x202
 
 ;-------------------------------------------------------------------------------
@@ -74,13 +75,9 @@ align 4
 ;     None
 
 CPUGetId:
-  push rcx
-  push rdx
   ; Get the core id
   mov rcx, 0xC0000103
   rdmsr
-  pop rdx
-  pop rcx
   ret
 
 ;-------------------------------------------------------------------------------
@@ -114,29 +111,14 @@ CPUSaveContext:
   push r9
   push r8
 
-  push fs
-  push gs
-
   push rbp
   push rsp
 
   ; Restore the return address
   mov r15, rax
 
-  ; Get the offset in the schedule contexts
-  call CPUGetId
-  mov rbx, 8
-  mul rbx
-
-  ; Load the schedule context
-  mov rbx, ppSchedulerContext
-  mov rbx, [rbx]
-  add rax, rbx
-  mov rax, [rax]
-
   ; Load the thread vcpu
-  mov rax, [rax]
-  mov rax, [rax]
+  mov rax, gs:0
 
   ; Save the old context and update the new one
   mov  rdi, [rax + VCPU_OFF_CTX]
@@ -197,9 +179,6 @@ CPUSaveContextAndSchedule:
   push r9
   push r8
 
-  push fs
-  push gs
-
   push rbp
   push rsp
 
@@ -254,9 +233,6 @@ CPURestoreContext:
   add rsp, 8 ; Skip RSP in CPU state, it is the same as context
   pop rbp
 
-  pop gs
-  pop fs
-
   pop r8
   pop r9
   pop r10
@@ -271,6 +247,15 @@ CPURestoreContext:
   pop rdx
   pop rcx
   pop rbx
+  pop rax
+
+  ; Swap GS back if needed
+  push   rax
+  mov    rax, [rsp + 0x20]
+  cmp    rax, KERNEL_CS_64   ; check if the interrupt came from user space
+  je     __noUserSwapGS
+  swapgs
+__noUserSwapGS:
   pop rax
 
   ; Discard the interrupt context
@@ -312,6 +297,9 @@ CPUEnterUserSpace:
 
   ; Get the arguments
   mov rdi, rdx
+
+  ; Swap GS
+  swapgs
 
   ; Return to user space
   iretq

@@ -113,10 +113,8 @@ typedef struct
   /** @brief CPU's rbp register. */
   uint64_t rbp;
 
-  /** @brief CPU's gs register. */
-  uint64_t gs;
-  /** @brief CPU's fs register. */
-  uint64_t fs;
+  /** @brief CPU's user gs register. */
+  //uint64_t gsbase; // TODO: Save user GS
 
   /** @brief CPU's r8 register. */
   uint64_t r8;
@@ -177,6 +175,8 @@ typedef struct
   uintptr_t fxDataRegion;
   /** @brief Stores a copy of the kernel stack address */
   uintptr_t kernelStack;
+  /** @brief Stores a copy of the user stack address */
+  uintptr_t userStack;
   /** @brief FXSAVE / FXRSTOR data region (non-aligned) */
   uintptr_t fxDataRegionNonAligned;
 } __attribute__((packed)) S_VirtualCPU;

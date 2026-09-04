@@ -1509,8 +1509,6 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
       pCPUState->r13 = 10;
       pCPUState->r14 = 11;
       pCPUState->r15 = 12;
-      pCPUState->gs  = 0;
-      pCPUState->fs  = 0;
 
       /* Initial chaining */
       pCPUState->savedContext = 0xFFFFFFFFFFFFFFFFULL;
@@ -1601,6 +1599,34 @@ void CPUUpdateMemoryConfig(const S_KernelThread* kpThread)
                         "d"((uintptr_t)kpThread->pUserThreadData >> 32),
                         "c"(0xC0000100)
                        :);
+
+  /* Updates the kernel and user GS bases */
+  __asm__ __volatile__("wrmsr\n\t"
+                       :
+                       :"a"(&kpThread->pVCpu),
+                        "d"((uintptr_t)&kpThread->pVCpu >> 32),
+                        "c"(0xC0000101)
+                       :);
+  // When user and the thread has already started (first time in kernel mode)
+  if (kpThread->type == THREAD_TYPE_USER && kpThread->startTime != 0)
+  {
+    __asm__ __volatile__("wrmsr\n\t"
+                        :
+                        :"a"(0),
+                          "d"((uintptr_t)0 >> 32),
+                          "c"(0xC0000102)
+                        :);
+  }
+  else
+  {
+    __asm__ __volatile__("wrmsr\n\t"
+                         :
+                         :"a"(&kpThread->pVCpu),
+                          "d"((uintptr_t)&kpThread->pVCpu >> 32),
+                          "c"(0xC0000102)
+                         :);
+  }
+
 }
 
 void CPUSendIPI(const uint32_t kFlags, const S_IPIParameters* kpParams)

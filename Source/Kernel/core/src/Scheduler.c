@@ -530,6 +530,7 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
   pIdle->pProcess           = pMainProcess;
   pIdle->isScheduled        = false;
   pIdle->pJoiningThread     = NULL;
+  pIdle->startTime          = 0;
 
   /* Create the VCPU after initializing the attributes */
   pIdle->pVCpu = CPUCreateVirtualCPU(pIdle);
@@ -557,6 +558,7 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
                false);
   if (pMainProcess->pMainThread == NULL)
   {
+
     pMainProcess->pMainThread = pIdle;
   }
   KQueuePush(pNode, pMainProcess->pThreads);
@@ -1226,6 +1228,7 @@ E_Return CreateThread(S_KernelThread**      ppThread,
             pThread->pProcess        = pCurrentProcess;
             pThread->isScheduled     = false;
             pThread->pJoiningThread  = NULL;
+            pThread->startTime       = 0;
 
             error = CPUCreateTLS(pThread);
             if (error == NO_ERROR)
