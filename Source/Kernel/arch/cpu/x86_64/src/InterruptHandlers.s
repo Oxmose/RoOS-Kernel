@@ -20,7 +20,7 @@
 ;-------------------------------------------------------------------------------
 ; DEFINES
 ;-------------------------------------------------------------------------------
-; None
+%define KERNEL_CS_64 0x08
 
 ;-------------------------------------------------------------------------------
 ; MACRO DEFINE
@@ -31,6 +31,13 @@ global IntHandler%1
 IntHandler%1:
   push    0                       ; push 0 as dummy error code
   push    %1                      ; push the interrupt number
+  push   rax
+  mov    rax, [rsp + 0x20]
+  cmp    rax, KERNEL_CS_64   ; check if the interrupt came from user space
+  je     __noUser%1
+  swapgs
+__noUser%1:
+  pop rax
   jmp     __intHandlerEntry       ; jump to the common handler
 %endmacro
 
@@ -40,6 +47,13 @@ IntHandler%1:
 global IntHandler%1
 IntHandler%1:
   push    %1                      ; push the interrupt number
+  push   rax
+  mov    rax, [rsp + 0x20]
+  cmp    rax, KERNEL_CS_64   ; check if the interrupt came from user space
+  je     __noUser%1
+  swapgs
+__noUser%1:
+  pop rax
   jmp     __intHandlerEntry       ; jump to the common handler
 %endmacro
 
@@ -67,9 +81,6 @@ section .text
 __intHandlerEntry:
   ; Save the context
   call CPUSaveContext
-
-  ; Ensure stack is aligned
-  and rsp, 0xFFFFFFFFFFFFFFF0
 
   ; Call the C generic interrupt handler, we should never come back
   call InterruptMainHandler

@@ -25,6 +25,8 @@
 ; DEFINES
 ;-------------------------------------------------------------------------------
 %define VCPU_OFF_KERNEL_STACK 0x10
+%define VCPU_OFF_USER_STACK   0x18
+%define SYSCALL_RFLAGS_MASK   0x600
 
 ;-------------------------------------------------------------------------------
 ; MACRO DEFINE
@@ -34,7 +36,7 @@
 ;-------------------------------------------------------------------------------
 ; EXTERN DATA
 ;-------------------------------------------------------------------------------
-extern ppSchedulerContext
+; None
 
 ;-------------------------------------------------------------------------------
 ; EXTERN FUNCTIONS
@@ -85,8 +87,8 @@ CPUSystemCallInit:
   mov rcx, 0xC0000082
   wrmsr
 
-  ; Setup the flags
-  mov rax, 0
+  ; Setup the flags mask
+  mov rax, SYSCALL_RFLAGS_MASK
   mov rdx, 0
   mov rcx, 0xC0000084
   wrmsr
@@ -100,10 +102,16 @@ CPUSystemCallInit:
 ;     RDI - The system call ID to handle.
 ;     RSI - The first parameter for the system call.
 ;     RDX - The second parameter for the system call.
-;     RCX - The third parameter for the system call.
+;     R10 - The third parameter for the system call.
 ;     R8  - The fourth parameter for the system call.
 ;     R9  - The fifth parameter for the system call.
 CPUSyscallHandler:
+  ; Switch from user to kernel stack
+  swapgs
+  mov rax, gs:0
+  mov [rax + VCPU_OFF_USER_STACK], rsp
+  mov rsp, [rax + VCPU_OFF_KERNEL_STACK]
+
   ; Create stack frame
   push rbp
   mov  rbp, rsp
@@ -115,39 +123,25 @@ CPUSyscallHandler:
   ; Move back the correct RCX value
   mov rcx, r10
 
-  ; Get the offset in the schedule contexts
-  push rdx
-  call CPUGetId
-  mov rbx, 8
-  mul rbx
-  pop rdx
-
-  ; Load the schedule context
-  mov rbx, ppSchedulerContext
-  mov rbx, [rbx]
-  add rax, rbx
-  mov rax, [rax]
-
-  ; Load the thread vcpu
-  mov rax, [rax]
-  mov rax, [rax]
-
-  ; Update to kernel stack
-  mov  rbx, rsp
-  mov  rsp, [rax + VCPU_OFF_KERNEL_STACK]
-  push rbx
+  ; Relase the interrupts
+  ;sti
 
   ; Call the system call dispatcher to handle the request
   call SystemCallDispatcher
 
-  ; Switch back to the user stack
-  pop rsp
+  ; Ensure no interrupts are pending
+  ;cli
 
   ; Restore the registers
   pop r11
   pop rcx
   pop rbx
   pop rbp
+
+  ; Switch back to user stack
+  mov rax, gs:0
+  mov rsp, [rax + VCPU_OFF_USER_STACK]
+  swapgs
 
   ; Return to user space
   o64 sysret
