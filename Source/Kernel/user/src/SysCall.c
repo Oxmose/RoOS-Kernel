@@ -44,11 +44,11 @@
  * STRUCTURES AND TYPES
  ******************************************************************************/
 /** @brief Defines the system call handler type */
-typedef int32_t (*T_SyscallHandler)(void* pParam0,
-                                    void* pParam1,
-                                    void* pParam2,
-                                    void* pParam3,
-                                    void* pParam4);
+typedef void* (*T_SyscallHandler)(void* pParam0,
+                                  void* pParam1,
+                                  void* pParam2,
+                                  void* pParam3,
+                                  void* pParam4);
 
 /** @brief System call IDs */
 typedef enum
@@ -156,14 +156,14 @@ T_SyscallHandler spSyscallHandlerTable[SYSCALL_ID_MAX] =
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-int32_t SystemCallDispatcher(const uint64_t kSyscallId,
-                             void*          pParam0,
-                             void*          pParam1,
-                             void*          pParam2,
-                             void*          pParam3,
-                             void*          pParam4)
+void* SystemCallDispatcher(const uint64_t kSyscallId,
+                           void*          pParam0,
+                           void*          pParam1,
+                           void*          pParam2,
+                           void*          pParam3,
+                           void*          pParam4)
 {
-  int32_t returnVal;
+  void* returnVal;
 
   if (kSyscallId < SYSCALL_ID_MAX)
   {
@@ -175,7 +175,7 @@ int32_t SystemCallDispatcher(const uint64_t kSyscallId,
   }
   else
   {
-    returnVal = -1;
+    returnVal = (void*)-1;
     /* TODO: Set errno to ENOSYS */
   }
 

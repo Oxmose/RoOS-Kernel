@@ -1593,13 +1593,13 @@ E_Return CreateInitProcess(S_KernelProcess** ppProcess)
 /*******************************************************************************
  * SYSCALL HANDLERS
  ******************************************************************************/
-int32_t SyscallSleepNs(void* pParam0,
-                       void* pParam1,
-                       void* pParam2,
-                       void* pParam3,
-                       void* pParam4)
+void* SyscallSleepNs(void* pParam0,
+                     void* pParam1,
+                     void* pParam2,
+                     void* pParam3,
+                     void* pParam4)
 {
-  int32_t  retCode;
+  void*    retCode;
   E_Return retVal;
   uint64_t kTimeNs;
 
@@ -1608,19 +1608,19 @@ int32_t SyscallSleepNs(void* pParam0,
   (void)pParam3;
   (void)pParam4;
 
-  kTimeNs = (uint64_t)pParam0;
+  kTimeNs = (uint64_t)(uintptr_t)pParam0;
   retVal = SleepNs(kTimeNs);
 
   if (retVal == NO_ERROR)
   {
-    retCode = 0;
+    retCode = (void*)0;
   }
   else
   {
-    retCode = (int32_t)retVal;
+    retCode = (void*)(uintptr_t)retVal;
   }
 
-  return retCode;
+  return (void*)retCode;
 }
 
 /************************************ EOF *************************************/

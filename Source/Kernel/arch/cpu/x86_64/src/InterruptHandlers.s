@@ -82,6 +82,9 @@ __intHandlerEntry:
   ; Save the context
   call CPUSaveContext
 
+  ; Ensure stack is aligned
+  and rsp, 0xFFFFFFFFFFFFFFF0
+
   ; Call the C generic interrupt handler, we should never come back
   call InterruptMainHandler
 
