@@ -72,12 +72,12 @@
  * @param[in, out] pParam3 The fourth parameter to pass to the system call.
  * @param[in, out] pParam4 The fifth parameter to pass to the system call.
  */
-void Syscall(const unsigned long long kSyscallId,
-             void*                    pParam0,
-             void*                    pParam1,
-             void*                    pParam2,
-             void*                    pParam3,
-             void*                    pParam4);
+int Syscall(const unsigned long long kSyscallId,
+            void*                    pParam0,
+            void*                    pParam1,
+            void*                    pParam2,
+            void*                    pParam3,
+            void*                    pParam4);
 
 #ifdef _STACK_PROT
 __attribute__((noreturn)) void __stack_chk_fail(void);

@@ -1439,6 +1439,8 @@ int32_t VFSClose(int32_t fd)
       retVal = 0;
     }
 
+    KERNEL_UNLOCK(pDesc->pShared->lock);
+
     _DestroyFileDescriptor(pTable, fd);
   }
   else
@@ -1819,13 +1821,13 @@ ssize_t VFSGetNextPathTokenPosition(const char* kpStr, const size_t kStrSize)
 /*******************************************************************************
  * SYSCALL HANDLERS
  ******************************************************************************/
-int32_t SyscallVFSOpen(void* pParam0,
-                       void* pParam1,
-                       void* pParam2,
-                       void* pParam3,
-                       void* pParam4)
+void* SyscallVFSOpen(void* pParam0,
+                     void* pParam1,
+                     void* pParam2,
+                     void* pParam3,
+                     void* pParam4)
 {
-  int32_t     retCode;
+  void*       retCode;
   int32_t     flags;
   int32_t     mode;
   const char* kpPath;
@@ -1837,18 +1839,18 @@ int32_t SyscallVFSOpen(void* pParam0,
   flags  = (int32_t)(uintptr_t)pParam1;
   mode   = (int32_t)(uintptr_t)pParam2;
 
-  retCode = VFSOpen(kpPath, flags, mode);
+  retCode = (void*)(uintptr_t)VFSOpen(kpPath, flags, mode);
 
   return retCode;
 }
 
-int32_t SyscallVFSClose(void* pParam0,
-                        void* pParam1,
-                        void* pParam2,
-                        void* pParam3,
-                        void* pParam4)
+void* SyscallVFSClose(void* pParam0,
+                      void* pParam1,
+                      void* pParam2,
+                      void* pParam3,
+                      void* pParam4)
 {
-  int32_t retCode;
+  void*   retCode;
   int32_t fd;
 
   (void)pParam1;
@@ -1858,18 +1860,18 @@ int32_t SyscallVFSClose(void* pParam0,
 
   fd = (int32_t)(uintptr_t)pParam0;
 
-  retCode = VFSClose(fd);
+  retCode = (void*)(uintptr_t)VFSClose(fd);
 
   return retCode;
 }
 
-int32_t SyscallVFSRead(void* pParam0,
-                       void* pParam1,
-                       void* pParam2,
-                       void* pParam3,
-                       void* pParam4)
+void* SyscallVFSRead(void* pParam0,
+                     void* pParam1,
+                     void* pParam2,
+                     void* pParam3,
+                     void* pParam4)
 {
-  int32_t retCode;
+  void*   retCode;
   int32_t fd;
   size_t  count;
 
@@ -1879,18 +1881,18 @@ int32_t SyscallVFSRead(void* pParam0,
   fd    = (int32_t)(uintptr_t)pParam0;
   count = (size_t)(uintptr_t)pParam2;
 
-  retCode = VFSRead(fd, pParam1, count);
+  retCode = (void*)(uintptr_t)VFSRead(fd, pParam1, count);
 
   return retCode;
 }
 
-int32_t SyscallVFSReadDir(void* pParam0,
-                          void* pParam1,
-                          void* pParam2,
-                          void* pParam3,
-                          void* pParam4)
+void* SyscallVFSReadDir(void* pParam0,
+                        void* pParam1,
+                        void* pParam2,
+                        void* pParam3,
+                        void* pParam4)
 {
-  int32_t           retCode;
+  void*             retCode;
   int32_t           fd;
   S_DirectoryEntry* pDirEntry;
 
@@ -1901,18 +1903,18 @@ int32_t SyscallVFSReadDir(void* pParam0,
   fd        = (int32_t)(uintptr_t)pParam0;
   pDirEntry = (S_DirectoryEntry*)pParam1;
 
-  retCode = VFSReaddir(fd, pDirEntry);
+  retCode = (void*)(uintptr_t)VFSReaddir(fd, pDirEntry);
 
   return retCode;
 }
 
-int32_t SyscallVFSWrite(void* pParam0,
-                        void* pParam1,
-                        void* pParam2,
-                        void* pParam3,
-                        void* pParam4)
+void* SyscallVFSWrite(void* pParam0,
+                      void* pParam1,
+                      void* pParam2,
+                      void* pParam3,
+                      void* pParam4)
 {
-  int32_t retCode;
+  void*   retCode;
   int32_t fd;
   size_t  count;
 
@@ -1922,18 +1924,18 @@ int32_t SyscallVFSWrite(void* pParam0,
   fd    = (int32_t)(uintptr_t)pParam0;
   count = (size_t)(uintptr_t)pParam2;
 
-  retCode = VFSWrite(fd, pParam1, count);
+  retCode = (void*)(uintptr_t)VFSWrite(fd, pParam1, count);
 
   return retCode;
 }
 
-int32_t SyscallVFSIOCTL(void* pParam0,
-                        void* pParam1,
-                        void* pParam2,
-                        void* pParam3,
-                        void* pParam4)
+void* SyscallVFSIOCTL(void* pParam0,
+                      void* pParam1,
+                      void* pParam2,
+                      void* pParam3,
+                      void* pParam4)
 {
-  int32_t  retCode;
+  void*    retCode;
   int32_t  fd;
   uint32_t cmd;
   void*    arg;
@@ -1945,7 +1947,7 @@ int32_t SyscallVFSIOCTL(void* pParam0,
   cmd  = (uint32_t)(uintptr_t)pParam1;
   arg  = pParam2;
 
-  retCode = VFSIOCTL(fd, cmd, arg);
+  retCode = (void*)(uintptr_t)VFSIOCTL(fd, cmd, arg);
 
   return retCode;
 }

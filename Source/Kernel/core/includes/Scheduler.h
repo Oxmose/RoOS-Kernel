@@ -309,11 +309,11 @@ E_Return CreateInitProcess(S_KernelProcess** ppProcess);
  * @return The function returns 0 if the thread was put to sleep
  * successfully, or an error code otherwise.
  */
-int32_t SyscallSleepNs(void* pParam0,
-                       void* pParam1,
-                       void* pParam2,
-                       void* pParam3,
-                       void* pParam4);
+void* SyscallSleepNs(void* pParam0,
+                     void* pParam1,
+                     void* pParam2,
+                     void* pParam3,
+                     void* pParam4);
 
 #endif /* #ifndef __CORE_SCHEDULER_H_ */
 

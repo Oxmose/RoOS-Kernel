@@ -73,12 +73,12 @@
  *
  * @return The result of the system call.
  */
-int32_t SystemCallDispatcher(const uint64_t kSyscallId,
-                             void*          pParam0,
-                             void*          pParam1,
-                             void*          pParam2,
-                             void*          pParam3,
-                             void*          pParam4);
+void* SystemCallDispatcher(const uint64_t kSyscallId,
+                           void*          pParam0,
+                           void*          pParam1,
+                           void*          pParam2,
+                           void*          pParam3,
+                           void*          pParam4);
 
 #endif /* #ifndef __USER_SYSCALL_H_ */
 

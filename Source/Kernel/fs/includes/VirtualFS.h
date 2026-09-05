@@ -523,11 +523,11 @@ ssize_t VFSGetNextPathTokenPosition(const char* kpStr, const size_t kStrSize);
  *
  * @return The opened file descriptor or -1 on error.
  */
-int32_t SyscallVFSOpen(void* pParam0,
-                       void* pParam1,
-                       void* pParam2,
-                       void* pParam3,
-                       void* pParam4);
+void* SyscallVFSOpen(void* pParam0,
+                     void* pParam1,
+                     void* pParam2,
+                     void* pParam3,
+                     void* pParam4);
 
 /**
  * @brief Handles the VFS close system call.
@@ -540,11 +540,11 @@ int32_t SyscallVFSOpen(void* pParam0,
  *
  * @return 0 on success or -1 on error.
  */
-int32_t SyscallVFSClose(void* pParam0,
-                        void* pParam1,
-                        void* pParam2,
-                        void* pParam3,
-                        void* pParam4);
+void* SyscallVFSClose(void* pParam0,
+                      void* pParam1,
+                      void* pParam2,
+                      void* pParam3,
+                      void* pParam4);
 
 /**
  * @brief Handles the VFS read system call.
@@ -557,11 +557,11 @@ int32_t SyscallVFSClose(void* pParam0,
  *
  * @return The number of bytes read or -1 on error.
  */
-int32_t SyscallVFSRead(void* pParam0,
-                       void* pParam1,
-                       void* pParam2,
-                       void* pParam3,
-                       void* pParam4);
+void* SyscallVFSRead(void* pParam0,
+                     void* pParam1,
+                     void* pParam2,
+                     void* pParam3,
+                     void* pParam4);
 
 /**
  * @brief Handles the VFS directory read system call.
@@ -574,11 +574,11 @@ int32_t SyscallVFSRead(void* pParam0,
  *
  * @return 1 on success, 0 at the end of the directory, or -1 on error.
  */
-int32_t SyscallVFSReadDir(void* pParam0,
-                          void* pParam1,
-                          void* pParam2,
-                          void* pParam3,
-                          void* pParam4);
+void* SyscallVFSReadDir(void* pParam0,
+                        void* pParam1,
+                        void* pParam2,
+                        void* pParam3,
+                        void* pParam4);
 
 /**
  * @brief Handles the VFS write system call.
@@ -591,11 +591,11 @@ int32_t SyscallVFSReadDir(void* pParam0,
  *
  * @return The number of bytes written or -1 on error.
  */
-int32_t SyscallVFSWrite(void* pParam0,
-                        void* pParam1,
-                        void* pParam2,
-                        void* pParam3,
-                        void* pParam4);
+void* SyscallVFSWrite(void* pParam0,
+                      void* pParam1,
+                      void* pParam2,
+                      void* pParam3,
+                      void* pParam4);
 
 /**
  * @brief Handles the VFS IOCTL system call.
@@ -608,11 +608,11 @@ int32_t SyscallVFSWrite(void* pParam0,
  *
  * @return The value returned by the IOCTL operation.
  */
-int32_t SyscallVFSIOCTL(void* pParam0,
-                        void* pParam1,
-                        void* pParam2,
-                        void* pParam3,
-                        void* pParam4);
+void* SyscallVFSIOCTL(void* pParam0,
+                      void* pParam1,
+                      void* pParam2,
+                      void* pParam3,
+                      void* pParam4);
 
 
 #endif /* #ifndef __FS_VIRTUALFS_H_ */
