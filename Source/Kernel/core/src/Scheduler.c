@@ -1029,13 +1029,13 @@ bool SchedulerSchedule(void)
   pCurrThread = _ElectNextThread(pCPUContext);
   pCPUContext->pCurrentThread = pCurrThread;
 
-  /* Update the memory configuration */
-  CPUUpdateMemoryConfig(pCurrThread);
-
   /* Wait for the thread to be schedulable */
   while (pCurrThread->isScheduled == true && pOldThread != pCurrThread) {}
   CPUMemoryFenceAcquire();
   pCurrThread->isScheduled = true;
+
+  /* Update the memory configuration */
+  CPUUpdateMemoryConfig(pCurrThread);
 
   /* Notify that the old thread is ready to be scheduled */
   if (pOldThread != pCurrThread)
@@ -1585,6 +1585,39 @@ E_Return CreateInitProcess(S_KernelProcess** ppProcess)
   else
   {
     retCode = ERR_NO_MEMORY;
+  }
+
+  return retCode;
+}
+
+/*******************************************************************************
+ * SYSCALL HANDLERS
+ ******************************************************************************/
+int32_t SyscallSleepNs(void* pParam0,
+                       void* pParam1,
+                       void* pParam2,
+                       void* pParam3,
+                       void* pParam4)
+{
+  int32_t  retCode;
+  E_Return retVal;
+  uint64_t kTimeNs;
+
+  (void)pParam1;
+  (void)pParam2;
+  (void)pParam3;
+  (void)pParam4;
+
+  kTimeNs = (uint64_t)pParam0;
+  retVal = SleepNs(kTimeNs);
+
+  if (retVal == NO_ERROR)
+  {
+    retCode = 0;
+  }
+  else
+  {
+    retCode = (int32_t)retVal;
   }
 
   return retCode;

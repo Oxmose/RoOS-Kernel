@@ -209,7 +209,7 @@ static E_Return _Init(S_HPETControler* pCtrl, const S_FDTNode* pkFdtNode);
  * timer can be set with the pSetTimeNs function.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  *
  * @return The time in nanosecond since the last timer reset is returned.
  */

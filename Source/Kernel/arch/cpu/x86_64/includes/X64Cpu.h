@@ -114,7 +114,7 @@ typedef struct
   uint64_t rbp;
 
   /** @brief CPU's user gs register. */
-  //uint64_t gsbase; // TODO: Save user GS
+  uint64_t gsbase;
 
   /** @brief CPU's r8 register. */
   uint64_t r8;
@@ -333,14 +333,14 @@ void CPUSetCount(const uint32_t kCPUCount);
  * function setups the MSRs used when using the system call functions.
  *
  * @param[in] kSyscallHandlerAddr The system call main handler function address.
- * @param[in] kKernelCodeSelector The kernel code selector to use when raising a
+ * @param[in] kUserCodeSelector The user code selector to use when raising a
  * syscall.
- * @param[in] kKernelDataSelector The kernel data selector to use when raising a
+ * @param[in] kKernelCodeSelector The kernel code selector to use when raising a
  * syscall.
  */
 void CPUSystemCallInit(const uintptr_t kSyscallHandlerAddr,
-                       const uint64_t  kKernelCodeSelector,
-                       const uint64_t  kKernelDataSelector);
+                       const uint64_t  kUserCodeSelector,
+                       const uint64_t  kKernelCodeSelector);
 
 /**
  * @brief Handles a system call request from the user space.

@@ -67,10 +67,10 @@
 #define KERNEL_CS_64 0x08
 /** @brief Kernel's 64 bits data segment descriptor. */
 #define KERNEL_DS_64 0x10
-/** @brief User's 64 bits code segment descriptor. */
-#define USER_CS_64 0x18
 /** @brief User's 64 bits data segment descriptor. */
-#define USER_DS_64 0x20
+#define USER_DS_64 0x18
+/** @brief User's 64 bits code segment descriptor. */
+#define USER_CS_64 0x20
 /** @brief Kernel's TSS segment descriptor. */
 #define TSS_SEGMENT 0x30
 
@@ -1304,7 +1304,7 @@ void CPUInit(void)
   CPU_ASSERT(error == NO_ERROR, "Failed to create ProcFS entry", error);
 
   /* Initialize the system calls */
-  CPUSystemCallInit((uintptr_t)&CPUSyscallHandler, KERNEL_CS_64, KERNEL_DS_64);
+  CPUSystemCallInit((uintptr_t)&CPUSyscallHandler, USER_CS_64, KERNEL_CS_64);
 
   sAllCPUBooted = false;
 }
@@ -1384,7 +1384,7 @@ void CPUAPInit(const uint8_t kCPUId)
   }
 
   /* Initialize the system calls */
-  CPUSystemCallInit((uintptr_t)&CPUSyscallHandler, KERNEL_CS_64, KERNEL_DS_64);
+  CPUSystemCallInit((uintptr_t)&CPUSyscallHandler, USER_CS_64, KERNEL_CS_64);
 
   KERNEL_INFO("Secondary CPU %d Started\n", _bootedCPUCount - 1);
 
@@ -1510,6 +1510,9 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
       pCPUState->r14 = 11;
       pCPUState->r15 = 12;
 
+      /* Setup GS for user */
+      pCPUState->gsbase = 0;
+
       /* Initial chaining */
       pCPUState->savedContext = 0xFFFFFFFFFFFFFFFFULL;
     }
@@ -1600,33 +1603,13 @@ void CPUUpdateMemoryConfig(const S_KernelThread* kpThread)
                         "c"(0xC0000100)
                        :);
 
-  /* Updates the kernel and user GS bases */
+  /* Updates the kernel GS base in user for kernel (since we have swapgs) */
   __asm__ __volatile__("wrmsr\n\t"
                        :
                        :"a"(&kpThread->pVCpu),
                         "d"((uintptr_t)&kpThread->pVCpu >> 32),
                         "c"(0xC0000101)
                        :);
-  // When user and the thread has already started (first time in kernel mode)
-  if (kpThread->type == THREAD_TYPE_USER && kpThread->startTime != 0)
-  {
-    __asm__ __volatile__("wrmsr\n\t"
-                        :
-                        :"a"(0),
-                          "d"((uintptr_t)0 >> 32),
-                          "c"(0xC0000102)
-                        :);
-  }
-  else
-  {
-    __asm__ __volatile__("wrmsr\n\t"
-                         :
-                         :"a"(&kpThread->pVCpu),
-                          "d"((uintptr_t)&kpThread->pVCpu >> 32),
-                          "c"(0xC0000102)
-                         :);
-  }
-
 }
 
 void CPUSendIPI(const uint32_t kFlags, const S_IPIParameters* kpParams)
@@ -2382,13 +2365,9 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD;
 __attribute__((noreturn)) void __stack_chk_fail(void);
 __attribute__((noreturn)) void __stack_chk_fail(void)
 {
-  PANIC(ERR_UNAUTHORIZED_ACTION,
-        MODULE_NAME,
-        "Stack smashing detected",
-        false,
-        false);
   while (true)
   {
+    CPUInterruptDisable();
     CPUHalt();
   }
 }

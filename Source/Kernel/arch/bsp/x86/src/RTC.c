@@ -179,7 +179,7 @@ static bool _DummyHandler(void);
  * @details Enables RTC ticks by clearing the RTC's IRQ mask.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  */
 static void _Enable(void* pDrvCtrl);
 
@@ -189,7 +189,7 @@ static void _Enable(void* pDrvCtrl);
  * @details Disables RTC ticks by setting the RTC's IRQ mask.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  */
 static void _Disable(void* pDrvCtrl);
 
@@ -200,7 +200,7 @@ static void _Disable(void* pDrvCtrl);
  * 8192Hz.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  * @param[in] kFrequency The new frequency to be set to the RTC.
  *
  * @warning The value must be between 2Hz and 8192Hz. The lower boundary RTC
@@ -215,7 +215,7 @@ static void _SetFrequency(void* pDrvCtrl, const uint64_t kFrequency);
  * @details Returns the RTC tick frequency in Hz.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  *
  * @return The RTC tick frequency in Hz.
  */
@@ -228,7 +228,7 @@ static uint64_t _GetFrequency(void* pDrvCtrl);
  * tick received.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  * @param[in] handler The handler of the RTC interrupt.
  *
  * @return The success state or the error code.
@@ -241,7 +241,7 @@ static E_Return _SetHandler(void* pDrvCtrl, T_InterruptHandler handler);
  * @details Removes the RTC tick handler.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  *
  * @return The success state or the error code.
  */
@@ -253,7 +253,7 @@ static E_Return _RemoveHandler(void* pDrvCtrl);
  * @details Returns the current date in RTC date format.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  *
  * @return The current date in in RTC date format
  */
@@ -265,7 +265,7 @@ static S_Date _GetDate(void* pDrvCtrl);
  * @details Returns the current daytime in seconds.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  *
  * @return The current daytime in seconds.
  */
@@ -279,7 +279,7 @@ static S_DayTime _GetDaytime(void* pDrvCtrl);
  * to interrupt the CPU again.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  * @param[out] pDate The date to update.
  * @param[out] pTime The time to update.
  *
@@ -295,7 +295,7 @@ static void _UpdateTime(void* pDrvCtrl, S_Date* pDate, S_DayTime* pTime);
  * interrupts otherwise, no further interrupt is generated.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  */
 static void _AckowledgeInt(void* pDrvCtrl);
 

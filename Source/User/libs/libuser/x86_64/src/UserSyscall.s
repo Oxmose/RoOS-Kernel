@@ -68,6 +68,7 @@ align 4
 ;     RCX - The third parameter for the system call.
 ;     R8  - The fourth parameter for the system call.
 ;     R9  - The fifth parameter for the system call.
+; Return: RAX: The result of the system call.
 Syscall:
     ; Move RCX to R10 as syscall will overwrite it
     mov r10, rcx

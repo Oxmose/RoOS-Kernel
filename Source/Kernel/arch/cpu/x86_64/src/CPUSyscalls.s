@@ -66,16 +66,19 @@ align 4
 ;
 ; Param:
 ;     RDI - The address of the system call handler
-;     RSI - The kernel code segment selector
-;     RDX - The kernel data segment selector
+;     RSI - The user code segment selector
+;     RDX - The kernel code segment selector
 CPUSystemCallInit:
-  ; Setup segments
-  mov rax, rsi
-  and rax, 0xFFFF
+  ; Setup segment for user (exit)
+  and rsi, 0xFFFF
+  sub rsi, 16
+  or  rsi, 3
+  shl rsi, 16
+  ; Setup segment for kernel (entry)
   and rdx, 0xFFFF
-  or  rdx, 3
-  shl rdx, 16
-  or  rdx, rax
+
+  ; Merge
+  or  rdx, rsi
   xor rax, rax
   mov rcx, 0xC0000081
   wrmsr
@@ -124,13 +127,13 @@ CPUSyscallHandler:
   mov rcx, r10
 
   ; Relase the interrupts
-  ;sti
+  sti
 
   ; Call the system call dispatcher to handle the request
   call SystemCallDispatcher
 
   ; Ensure no interrupts are pending
-  ;cli
+  cli
 
   ; Restore the registers
   pop r11
@@ -139,8 +142,8 @@ CPUSyscallHandler:
   pop rbp
 
   ; Switch back to user stack
-  mov rax, gs:0
-  mov rsp, [rax + VCPU_OFF_USER_STACK]
+  mov rdi, gs:0
+  mov rsp, [rdi + VCPU_OFF_USER_STACK]
   swapgs
 
   ; Return to user space

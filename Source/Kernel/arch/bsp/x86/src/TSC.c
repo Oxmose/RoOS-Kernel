@@ -126,7 +126,7 @@ static void _Disable(void* pDrvCtrl);
  * @details Returns the TSC count frequency in Hz.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  *
  * @return The TSC count frequency in Hz.
  */
@@ -162,7 +162,7 @@ static E_Return _RemoveHandler(void* pDrvCtrl);
  * timer can be set with the pSetTimeNs function.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  *
  * @return The time in nanosecond since the last timer reset is returned.
  */

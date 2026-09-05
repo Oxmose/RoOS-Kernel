@@ -507,6 +507,114 @@ E_Return VFSUnmount(const char* kpPath);
  */
 ssize_t VFSGetNextPathTokenPosition(const char* kpStr, const size_t kStrSize);
 
+/*******************************************************************************
+ * SYSCALL HANDLERS
+ ******************************************************************************/
+
+
+/**
+ * @brief Handles the VFS open system call.
+ *
+ * @param[in] pParam0 User-space path.
+ * @param[in] pParam1 Open flags.
+ * @param[in] pParam2 Open mode.
+ * @param[in] pParam3 Unused parameter.
+ * @param[in] pParam4 Unused parameter.
+ *
+ * @return The opened file descriptor or -1 on error.
+ */
+int32_t SyscallVFSOpen(void* pParam0,
+                       void* pParam1,
+                       void* pParam2,
+                       void* pParam3,
+                       void* pParam4);
+
+/**
+ * @brief Handles the VFS close system call.
+ *
+ * @param[in] pParam0 File descriptor.
+ * @param[in] pParam1 Unused parameter.
+ * @param[in] pParam2 Unused parameter.
+ * @param[in] pParam3 Unused parameter.
+ * @param[in] pParam4 Unused parameter.
+ *
+ * @return 0 on success or -1 on error.
+ */
+int32_t SyscallVFSClose(void* pParam0,
+                        void* pParam1,
+                        void* pParam2,
+                        void* pParam3,
+                        void* pParam4);
+
+/**
+ * @brief Handles the VFS read system call.
+ *
+ * @param[in] pParam0 File descriptor.
+ * @param[out] pParam1 User-space buffer.
+ * @param[in] pParam2 Number of bytes to read.
+ * @param[in] pParam3 Unused parameter.
+ * @param[in] pParam4 Unused parameter.
+ *
+ * @return The number of bytes read or -1 on error.
+ */
+int32_t SyscallVFSRead(void* pParam0,
+                       void* pParam1,
+                       void* pParam2,
+                       void* pParam3,
+                       void* pParam4);
+
+/**
+ * @brief Handles the VFS directory read system call.
+ *
+ * @param[in] pParam0 File descriptor.
+ * @param[out] pParam1 User-space directory entry.
+ * @param[in] pParam2 Unused parameter.
+ * @param[in] pParam3 Unused parameter.
+ * @param[in] pParam4 Unused parameter.
+ *
+ * @return 1 on success, 0 at the end of the directory, or -1 on error.
+ */
+int32_t SyscallVFSReadDir(void* pParam0,
+                          void* pParam1,
+                          void* pParam2,
+                          void* pParam3,
+                          void* pParam4);
+
+/**
+ * @brief Handles the VFS write system call.
+ *
+ * @param[in] pParam0 File descriptor.
+ * @param[in] pParam1 User-space buffer.
+ * @param[in] pParam2 Number of bytes to write.
+ * @param[in] pParam3 Unused parameter.
+ * @param[in] pParam4 Unused parameter.
+ *
+ * @return The number of bytes written or -1 on error.
+ */
+int32_t SyscallVFSWrite(void* pParam0,
+                        void* pParam1,
+                        void* pParam2,
+                        void* pParam3,
+                        void* pParam4);
+
+/**
+ * @brief Handles the VFS IOCTL system call.
+ *
+ * @param[in] pParam0 File descriptor.
+ * @param[in] pParam1 IOCTL operation.
+ * @param[in, out] pParam2 User-space IOCTL arguments.
+ * @param[in] pParam3 Unused parameter.
+ * @param[in] pParam4 Unused parameter.
+ *
+ * @return The value returned by the IOCTL operation.
+ */
+int32_t SyscallVFSIOCTL(void* pParam0,
+                        void* pParam1,
+                        void* pParam2,
+                        void* pParam3,
+                        void* pParam4);
+
+
 #endif /* #ifndef __FS_VIRTUALFS_H_ */
 
 /************************************ EOF *************************************/

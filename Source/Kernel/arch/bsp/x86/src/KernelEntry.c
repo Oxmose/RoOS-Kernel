@@ -195,11 +195,15 @@ void X64KernelEntry(void)
   TEST_POINT_FUNCTION(KernelMutexTest, TEST_OS_KMUTEX_ENABLED);
   TEST_POINT_FUNCTION(KernelSemaphoreTest, TEST_OS_KSEMAPHORE_ENABLED);
 
+#ifndef _TESTING_FRAMEWORK_ENABLED
+  KERNEL_INFO("Starting user space...\n");
   /* Initialize the user space */
   UserInit();
+  KERNEL_SUCCESS("User space initialized.\n");
 
   /* Initialize the kernel shell */
   KernelShellInit();
+#endif
 
   /* Perform first schedule */
   SchedulerSchedule();

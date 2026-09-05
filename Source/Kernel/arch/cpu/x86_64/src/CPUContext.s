@@ -28,8 +28,8 @@
 %define VCPU_OFF_CTX 0x0
 %define VCPU_OFF_FXD 0x8
 %define VCPU_OFF_KERNEL_STACK 0x10
-%define USER_CS_64 0x18
-%define USER_DS_64 0x20
+%define USER_DS_64 0x18
+%define USER_CS_64 0x20
 %define KERNEL_CS_64 0x08
 %define USER_THREAD_INIT_RFLAGS 0x202
 
@@ -111,11 +111,18 @@ CPUSaveContext:
   push r9
   push r8
 
-  push rbp
-  push rsp
-
   ; Restore the return address
   mov r15, rax
+
+  ; Save user GS that is swapped to kernel now
+  mov rcx, 0xC0000102
+  rdmsr
+  shl rdx, 32
+  or  rax, rdx
+  push rax
+
+  push rbp
+  push rsp
 
   ; Load the thread vcpu
   mov rax, gs:0
@@ -179,6 +186,13 @@ CPUSaveContextAndSchedule:
   push r9
   push r8
 
+  ; Save user GS that is swapped to kernel now
+  mov rcx, 0xC0000102
+  rdmsr
+  shl rdx, 32
+  or  rax, rdx
+  push rax
+
   push rbp
   push rsp
 
@@ -232,6 +246,13 @@ CPURestoreContext:
   ; Restore registers
   add rsp, 8 ; Skip RSP in CPU state, it is the same as context
   pop rbp
+
+  ; Restore user GS that is swapped to kernel now
+  pop rax
+  mov rdx, rax
+  shr rdx, 32
+  mov ecx, 0xC0000102
+  wrmsr
 
   pop r8
   pop r9
