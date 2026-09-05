@@ -87,7 +87,7 @@ typedef struct
    * @details The function should return the frequency of the timer source.
    *
    * @param[in, out] pDriverCtrl The driver controller used by the registered
-   * console driver.
+   * driver.
    *
    * @return The function should return the frequency of the timer source.
    */
@@ -100,7 +100,7 @@ typedef struct
    * timer can be set with the pSetTimeNs function.
    *
    * @param[in, out] pDriverCtrl The driver controller used by the registered
-   * console driver.
+   * driver.
    *
    * @return The time in nanosecond since the last timer reset is returned.
    */
@@ -113,7 +113,7 @@ typedef struct
    * pGetTimeNs function.
    *
    * @param[in, out] pDriverCtrl The driver controller used by the registered
-   * console driver.
+   * driver.
    * @param[in] kTimeNS The time in nanoseconds to set.
    */
   void (*pSetTimeNs)(void* pDriverCtrl, const uint64_t kTimeNS);
@@ -124,7 +124,7 @@ typedef struct
    * @details Returns the current date in RTC date format.
    *
    * @param[in, out] pDriverCtrl The driver controller used by the registered
-   * console driver.
+   * driver.
    *
    * @return The current date in in RTC date format
    */
@@ -136,7 +136,7 @@ typedef struct
    * @details Returns the current daytime.
    *
    * @param[in, out] pDriverCtrl The driver controller used by the registered
-   * console driver.
+   * driver.
    *
    * @return The current daytime.
    */
@@ -148,7 +148,7 @@ typedef struct
    * @details The function should enable the timer's interrupt.
    *
    * @param[in, out] pDriverCtrl The driver controller used by the registered
-   * console driver.
+   * driver.
    */
   void (*pEnable)(void* pDriverCtrl);
 
@@ -158,7 +158,7 @@ typedef struct
    * @details The function should disable the timer's interrupt.
    *
    * @param[in, out] pDriverCtrl The driver controller used by the registered
-   * console driver.
+   * driver.
    */
   void (*pDisable)(void* pDriverCtrl);
 
@@ -169,7 +169,7 @@ typedef struct
    * will be called at each tick received.
    *
    * @param[in, out] pDriverCtrl The driver controller used by the registered
-   * console driver.
+   * driver.
    * @param[in] handler The handler of the timer's interrupt.
    *
    * @return The success state or the error code.
@@ -182,7 +182,7 @@ typedef struct
    * @details The function should remove the timer tick handler.
    *
    * @param[in, out] pDriverCtrl The driver controller used by the registered
-   * console driver.
+   * driver.
    *
    * @return The success state or the error code.
    */
@@ -192,7 +192,7 @@ typedef struct
    * driver at every tick of the timer.
    *
    * @param[in, out] pDriverCtrl The driver controller used by the registered
-   * console driver.
+   * driver.
    *
    * @details This function can be used to execute an operation in the
    * driver at every tick of the timer such as a tick acknowledge.

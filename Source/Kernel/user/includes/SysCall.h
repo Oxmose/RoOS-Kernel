@@ -70,13 +70,15 @@
  * @param[in] pParam2 The third parameter to pass to the system call handler.
  * @param[in] pParam3 The fourth parameter to pass to the system call handler.
  * @param[in] pParam4 The fifth parameter to pass to the system call handler.
+ *
+ * @return The result of the system call.
  */
-void SystemCallDispatcher(const uint64_t kSyscallId,
-                          void*          pParam0,
-                          void*          pParam1,
-                          void*          pParam2,
-                          void*          pParam3,
-                          void*          pParam4);
+int32_t SystemCallDispatcher(const uint64_t kSyscallId,
+                             void*          pParam0,
+                             void*          pParam1,
+                             void*          pParam2,
+                             void*          pParam3,
+                             void*          pParam4);
 
 #endif /* #ifndef __USER_SYSCALL_H_ */
 

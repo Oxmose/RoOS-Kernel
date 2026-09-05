@@ -289,6 +289,32 @@ const char* SchedulerGetThreadStateString(const E_ThreadState kState);
  */
 E_Return CreateInitProcess(S_KernelProcess** ppProcess);
 
+/*******************************************************************************
+ * SYSCALL HANDLERS
+ ******************************************************************************/
+
+/**
+ * @brief System call handler for sleeping in nanoseconds.
+ *
+ * @details This function is a system call handler that puts the calling thread
+ * to sleep for a specified duration in nanoseconds.
+ *
+ * @param[in] pParam0 The duration in nanoseconds for which the thread should sleep.
+ * This must be a uint64_t value.
+ * @param[in] pParam1 Unused.
+ * @param[in] pParam2 Unused.
+ * @param[in] pParam3 Unused.
+ * @param[in] pParam4 Unused.
+ *
+ * @return The function returns 0 if the thread was put to sleep
+ * successfully, or an error code otherwise.
+ */
+int32_t SyscallSleepNs(void* pParam0,
+                       void* pParam1,
+                       void* pParam2,
+                       void* pParam3,
+                       void* pParam4);
+
 #endif /* #ifndef __CORE_SCHEDULER_H_ */
 
 /************************************ EOF *************************************/

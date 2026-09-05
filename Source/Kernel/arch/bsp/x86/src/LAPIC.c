@@ -452,7 +452,7 @@ static bool _TimerDummyHandler(void);
  * @details Enables LAPIC Timer ticks by clearing the LAPIC Timer's IRQ mask.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  */
 static void _TimerEnable(void* pDrvCtrl);
 
@@ -462,7 +462,7 @@ static void _TimerEnable(void* pDrvCtrl);
  * @details Disables LAPIC Timer ticks by setting the LAPIC Timer's IRQ mask.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  */
 static void _TimerDisable(void* pDrvCtrl);
 
@@ -485,7 +485,7 @@ static void _TimerSetFrequency(const uint64_t kFreq, const uint8_t kCpuId);
  * @details Returns the LAPIC Timer tick frequency in Hz.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  *
  * @return The LAPIC Timer tick frequency in Hz.
  */
@@ -498,7 +498,7 @@ static uint64_t _TimerGetFrequency(void* pDrvCtrl);
  * each LAPIC Timer tick received.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  * @param[in] handler The handler of the LAPIC Timer interrupt.
  *
  * @return The success state or the error code.
@@ -511,7 +511,7 @@ static E_Return _TimerSetHandler(void* pDrvCtrl, T_InterruptHandler handler);
  * @details Removes the LAPIC Timer tick handler.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  *
  * @return The success state or the error code.
  */
@@ -523,7 +523,7 @@ static E_Return _TimerRemoveHandler(void* pDrvCtrl);
  * @details Acknowledge interrupt.
  *
  * @param[in, out] pDrvCtrl The driver controller used by the registered
- * console driver.
+ * driver.
  */
 static void _TimerAckInterrupt(void* pDrvCtrl);
 
