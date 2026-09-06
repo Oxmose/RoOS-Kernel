@@ -32,7 +32,7 @@
 /* Configuration files */
 #include <config.h>
 
-/* Unit test header TODO */
+/* Unit test header */
 #include <TestFramework.h>
 
 /* Header file */
@@ -1237,6 +1237,11 @@ static ssize_t _VFSSeek(void*                 pDriverData,
       if (pArgs->offset <= pFileDesc->fileSize)
       {
         pFileDesc->offset = pArgs->offset;
+        retVal = pFileDesc->offset;
+      }
+      else
+      {
+        retVal = -1;
       }
     }
     else if (pArgs->direction == SEEK_CUR)
@@ -1244,14 +1249,22 @@ static ssize_t _VFSSeek(void*                 pDriverData,
       if (pFileDesc->offset + pArgs->offset <= pFileDesc->fileSize)
       {
         pFileDesc->offset += pArgs->offset;
+        retVal = pFileDesc->offset;
+      }
+      else
+      {
+        retVal = -1;
       }
     }
     else if (pArgs->direction == SEEK_END)
     {
       pFileDesc->offset = pFileDesc->fileSize;
+      retVal = pFileDesc->offset;
     }
-
-    retVal = pFileDesc->offset;
+    else
+    {
+      retVal = -1;
+    }
   }
   else
   {

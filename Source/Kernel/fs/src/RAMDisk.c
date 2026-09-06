@@ -36,7 +36,7 @@
 /* Configuration files */
 #include <config.h>
 
-/* Unit test header TODO */
+/* Unit test header */
 #include <TestFramework.h>
 
 /* Header file */

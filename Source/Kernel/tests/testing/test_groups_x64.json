@@ -66,5 +66,17 @@
   {
     "name": "Kernel Scheduler",
     "testname": "SCHEDULER"
+  },
+  {
+    "name": "Kernel Time Manager",
+    "testname": "TIME"
+  },
+  {
+    "name": "Kernel ELF Manager",
+    "testname": "ELFMANAGER"
+  },
+  {
+    "name": "Kernel libc",
+    "testname": "LIBC"
   }
 ]

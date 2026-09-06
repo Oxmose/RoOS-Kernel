@@ -13,7 +13,7 @@ CPU_ARCH_LIST=x86_64
 BOARD_ARCH_LIST=x86
 
 BUILD_DIR  = ./build
-BIN_DIR    = ./bin
+BIN_DIR    = bin
 
 .PHONY: all
 all: init build_modules
