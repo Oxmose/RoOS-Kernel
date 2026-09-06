@@ -937,7 +937,7 @@ static void* _DisplayRoutine(void* pArgs)
 
     _Flush();
 
-    retCode = SleepNs(1000000000 / sVGADriverCtrl.frameRate);
+    retCode = SleepNs(1000000000 / sVGADriverCtrl.frameRate, NULL);
     if (retCode != NO_ERROR)
     {
       KERNEL_ERROR("VGA Text Driver failed to sleep.\n");

@@ -252,11 +252,13 @@ E_Return JoinThread(S_KernelThread* pThread,
  *
  * @param[in] kTimeNs The duration in nanoseconds for which the thread should
  * sleep.
+ * @param[out] pRemainingTimeNS The pointer to the remaining time in
+ * nanoseconds in case the function returned before the wakeup time.
  *
  * @return The function returns NO_ERROR if the thread was put to sleep
  * successfully, or an error code otherwise.
  */
-E_Return SleepNs(const uint64_t kTimeNs);
+E_Return SleepNs(const uint64_t kTimeNs, uint64_t* pRemainingTimeNS);
 
 /**
  * @brief Returns the string representation of a thread state.

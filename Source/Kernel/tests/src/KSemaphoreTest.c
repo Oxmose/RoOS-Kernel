@@ -374,7 +374,7 @@ static void _TestPrioSemaphore(void)
   }
   sLastTid = pThreads[i - 1]->tid + 1;
 
-  SleepNs(500000000);
+  SleepNs(500000000, NULL);
   /* Give Semaphore */
   error = KernelSemaphorePost(&orderSemaphore);
   TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_ORDER_TEST(100),
@@ -442,7 +442,7 @@ static void _TestFIFOSemaphore(void)
   sLastTid = pThreads[i - 1]->tid + 1;
   sOrderedTid = 0;
 
-  SleepNs(500000000);
+  SleepNs(500000000, NULL);
   /* Give Semaphore */
   error = KernelSemaphorePost(&orderSemaphore);
   TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_FIFO_TEST(100),
@@ -522,7 +522,7 @@ static void _TestTryWaitSemaphore(void)
                             TEST_OS_KSEMAPHORE_ENABLED);
   }
 
-  SleepNs(500000000);
+  SleepNs(500000000, NULL);
   /* Give semaphore */
   error = KernelSemaphorePost(&semaphores[1]);
   TEST_POINT_ASSERT_RCODE(TEST_KSEMAPHORE_TRYWAIT_TEST(100),

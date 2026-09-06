@@ -1,38 +1,32 @@
 /*******************************************************************************
- * @file UserKernelLib.c
- *
- * @see UserKernelLib.c
+ * @file unistd.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 21/10/2024
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief Unistd port for roOs.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details Unistd port for roOs. This port is not inteded to be conplete and
+ * provides API for roOs.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
+#ifndef __LIB_UNISTD_H_
+#define __LIB_UNISTD_H_
+
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
-/* Included headers */
-/* None */
-
-/* Header file */
-#include <UserKernelLib.h>
+#include <sys/types.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-#ifdef _STACK_PROT
-#define STACK_CHK_GUARD 0x595e9fbd94fda766ULL
-#endif
+/* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -45,11 +39,6 @@
 /* None */
 
 /*******************************************************************************
- * STATIC FUNCTIONS DECLARATIONS
- ******************************************************************************/
-/* None */
-
-/*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
 
@@ -57,9 +46,7 @@
 /* None */
 
 /************************* Exported global variables **************************/
-#ifdef _STACK_PROT
-void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
-#endif
+/* None */
 
 /************************** Static global variables ***************************/
 /* None */
@@ -67,12 +54,34 @@ void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
+/**
+ * @brief Causes the calling thread to sleep.
+ *
+ * @details Causes the calling thread to sleep either until the
+ * number of real-time seconds specified in seconds have elapsed or
+ * until a signal arrives which is not ignored.
+ *
+ * @param[in] seconds The number of seconds to sleep.
+ *
+ * @return Zero if the requested time has elapsed, or the number of seconds
+ *  left to sleep, if the call was interrupted by a signal handler.
+ */
+unsigned int sleep(unsigned int seconds);
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void)
-{
-    while (1){}
-}
-#endif
+/**
+ * @brief Suspend execution for microsecond intervals.
+ *
+ * @details Suspend execution of the calling thread for (at least) usec
+ * microseconds. The sleep may be lengthened slightly by any system activity or
+ * by the time spent processing the call or by the granularity of system timers.
+ *
+ * @param[in] usec The number of microseconds to sleep.
+ *
+ * @return  The usleep() function returns 0 on success. On error, -1 is
+ * returned, with errno set to indicate the error.
+ */
+int usleep(useconds_t usec);
+
+#endif /* #ifndef __LIB_UNISTD_H_ */
 
 /************************************ EOF *************************************/

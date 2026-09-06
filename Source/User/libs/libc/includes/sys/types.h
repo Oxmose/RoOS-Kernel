@@ -1,51 +1,41 @@
 /*******************************************************************************
- * @file UserKernelLib.c
- *
- * @see UserKernelLib.c
+ * @file types.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 27/10/2024
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief Lib C types for roOs.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details Lib C types for roOs.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
+#ifndef __LIB_SYS_TYPES_H_
+#define __LIB_SYS_TYPES_H_
+
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
-/* Included headers */
-/* None */
-
-/* Header file */
-#include <UserKernelLib.h>
+#include <stddef.h>
+#include <stdint.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-#ifdef _STACK_PROT
-#define STACK_CHK_GUARD 0x595e9fbd94fda766ULL
-#endif
+/* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/* None */
+/** @brief Type for useconds */
+typedef unsigned long useconds_t;
 
 /*******************************************************************************
  * MACROS
- ******************************************************************************/
-/* None */
-
-/*******************************************************************************
- * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
 /* None */
 
@@ -57,9 +47,7 @@
 /* None */
 
 /************************* Exported global variables **************************/
-#ifdef _STACK_PROT
-void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
-#endif
+/* None */
 
 /************************** Static global variables ***************************/
 /* None */
@@ -67,12 +55,8 @@ void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
+/* None */
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void)
-{
-    while (1){}
-}
-#endif
+#endif /* #ifndef __LIB_SYS_TYPES_H_ */
 
 /************************************ EOF *************************************/

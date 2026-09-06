@@ -2222,13 +2222,14 @@ void CPUGetMaskString(const S_CPUMask* kpMask, S_CPUMaskString maskString)
 
 E_Return CPUCreateTLS(S_KernelThread* pThread)
 {
-  size_t    align;
-  size_t    size;
-  E_Return  error;
-  E_Return  intError;
-  uintptr_t tlsPhys;
-  size_t    userDataAlign;
-  void*     pTmpData;
+  size_t        align;
+  size_t        size;
+  E_Return      error;
+  E_Return      intError;
+  uintptr_t     tlsPhys;
+  size_t        userDataAlign;
+  void*         pTmpData;
+  S_UserThread* pUserThread;
 
   if(pThread->type != THREAD_TYPE_KERNEL)
   {
@@ -2237,7 +2238,6 @@ E_Return CPUCreateTLS(S_KernelThread* pThread)
     /* We do not support more than a page alignement */
     if(align <= KERNEL_PAGE_SIZE)
     {
-
       userDataAlign = ALIGN_UP(pThread->pProcess->mainTlsSize, align);
 
       size = ALIGN_UP(userDataAlign + sizeof(S_UserThread), KERNEL_PAGE_SIZE);
@@ -2265,17 +2265,30 @@ E_Return CPUCreateTLS(S_KernelThread* pThread)
            * Copy the main TLS, the User linker defines that the data for the TLS
            * comes before the bss for the TLS.
            */
-          memcpy((uint8_t*)pTmpData + userDataAlign -
-                           pThread->pProcess->mainTlsSize,
-                pThread->pProcess->pMainTlsData,
-                pThread->pProcess->mainTlsInitDataSize);
-          /* Zeroize the TLS */
+          if (pThread->pProcess->mainTlsInitDataSize > 0)
+          {
+            memcpy((uint8_t*)pTmpData + userDataAlign -
+                            pThread->pProcess->mainTlsSize,
+                  pThread->pProcess->pMainTlsData,
+                  pThread->pProcess->mainTlsInitDataSize);
+          }
+          /* Zeroize the TLS BSS */
           memset((uint8_t*)pTmpData +
                 userDataAlign -
                 pThread->pProcess->mainTlsSize +
                 pThread->pProcess->mainTlsInitDataSize,
                 0,
                 userDataAlign - pThread->pProcess->mainTlsInitDataSize);
+
+          /* Setup the user thread data */
+          pUserThread = (S_UserThread*)((uintptr_t)pTmpData + userDataAlign);
+
+          pUserThread->pSelfPointer = (void*)((uintptr_t)
+                                       pThread->pUserThreadData +
+                                       userDataAlign);
+          pUserThread->pid      = pThread->pProcess->pid;
+          pUserThread->tid      = pThread->tid;
+          pUserThread->priority = pThread->priority;
 
 
           intError = MemoryKernelUnmap(pTmpData, size);
@@ -2285,7 +2298,7 @@ E_Return CPUCreateTLS(S_KernelThread* pThread)
 
           /* Setup the user data pointer */
           pThread->pUserThreadData = (void*)((uintptr_t)pThread->pUserThreadData +
-                                    userDataAlign);
+                                     userDataAlign);
         }
         else
         {
@@ -2306,16 +2319,8 @@ E_Return CPUCreateTLS(S_KernelThread* pThread)
   else
   {
     /* Kernel thread do not have thread local storage */
-    pThread->pUserThreadData = KMallocUser(sizeof(S_UserThread),
-                                           pThread->pProcess->pHeap);
-    if(pThread->pUserThreadData == NULL)
-    {
-      error = ERR_NO_MEMORY;
-    }
-    else
-    {
-      error = NO_ERROR;
-    }
+    pThread->pUserThreadData = NULL;
+    error = NO_ERROR;
   }
 
   return error;
@@ -2350,11 +2355,6 @@ void CPUDestroyTLS(S_KernelThread* pThread)
     CPU_ASSERT(error == NO_ERROR,
                "Failed to release thread local storage.",
                error);
-  }
-  else
-  {
-    /* Kernel thread do not have thread local storage */
-    KFreeUser(pThread->pUserThreadData, pThread->pProcess->pHeap);
   }
 }
 

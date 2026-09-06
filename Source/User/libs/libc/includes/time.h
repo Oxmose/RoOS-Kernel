@@ -1,51 +1,55 @@
 /*******************************************************************************
- * @file UserKernelLib.c
- *
- * @see UserKernelLib.c
+ * @file time.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 27/10/2024
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief Time port for roOs.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details Time port for roOs. This port is not inteded to be complete and
+ * provides API for roOs.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
+#ifndef __LIB_TIME_H_
+#define __LIB_TIME_H_
+
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
-/* Included headers */
-/* None */
-
-/* Header file */
-#include <UserKernelLib.h>
+#include <stddef.h>    /* Standard definitions */
+#include <sys/types.h> /* System types */
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-#ifdef _STACK_PROT
-#define STACK_CHK_GUARD 0x595e9fbd94fda766ULL
-#endif
+/* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/* None */
+/** @brief Real arithmetic type capable of representing times. */
+typedef int64_t time_t;
+
+/**
+ * @brief Structure holding an interval broken down into seconds and
+ * nanoseconds.
+ */
+struct timespec
+{
+  /** @brief Whole seconds (valid values are >= 0) */
+  time_t tv_sec;
+
+  /** @brief Nanoseconds (valid values are [0, 999999999]) */
+  long int tv_nsec;
+};
 
 /*******************************************************************************
  * MACROS
- ******************************************************************************/
-/* None */
-
-/*******************************************************************************
- * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
 /* None */
 
@@ -57,9 +61,7 @@
 /* None */
 
 /************************* Exported global variables **************************/
-#ifdef _STACK_PROT
-void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
-#endif
+/* None */
 
 /************************** Static global variables ***************************/
 /* None */
@@ -67,12 +69,24 @@ void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
+/**
+ * @brief Suspends the execution of the calling thread.
+ *
+ * @details Suspends the execution of the calling thread until
+ * either at least the time specified in *duration has elapsed, or
+ * the delivery of a signal that triggers the invocation of a
+ * handler in the calling thread or that terminates the process.
+ *
+ * @param[in] duration It is used to specify intervals of time with nanosecond
+ * precision.
+ * @param[out] rem Can be NULL, can then be used to call nanosleep() again and
+ * complete an uncomplete pause.
+ *
+ * @return The function returns 0 for success, or -1 for failure (in which case
+ * errno is set appropriately).
+ */
+int nanosleep(const struct timespec *duration, struct timespec *rem);
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void)
-{
-    while (1){}
-}
-#endif
+#endif /* #ifndef __LIB_TIME_H_ */
 
 /************************************ EOF *************************************/

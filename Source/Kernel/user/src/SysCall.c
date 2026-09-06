@@ -21,6 +21,7 @@
  * INCLUDES
  ******************************************************************************/
 /* Included headers */
+#include <errno.h>
 #include <stdint.h>
 #include <Scheduler.h>
 #include <VirtualFS.h>
@@ -175,8 +176,7 @@ void* SystemCallDispatcher(const uint64_t kSyscallId,
   }
   else
   {
-    returnVal = (void*)-1;
-    /* TODO: Set errno to ENOSYS */
+    returnVal = (void*)(uintptr_t)-ENOSYS;
   }
 
   return returnVal;

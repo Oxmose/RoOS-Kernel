@@ -19,12 +19,15 @@ init:
 
 build_modules:
 	@$(MAKE) -C ./libuser
+	@$(MAKE) -C ./libc
 
 # Copy the generated libs
 	@cp ./libuser/$(BIN_DIR)/* $(BIN_DIR)/
+	@cp ./libc/$(BIN_DIR)/* $(BIN_DIR)/
 
 clean:
 	@$(MAKE) -C ./libuser clean
+	@$(MAKE) -C ./libc clean
 
 	$(RM) -rf $(BIN_DIR)
 

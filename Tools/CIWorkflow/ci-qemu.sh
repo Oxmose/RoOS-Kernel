@@ -2,7 +2,7 @@
 set -e
 
 # Setup build
-VERSION=${QEMU_VERSION:=10.0.8}
+VERSION=${QEMU_VERSION:=10.0.11}
 ARCHES=${QEMU_ARCHES:=x86_64}
 TARGETS=${QEMU_TARGETS:=$(echo $ARCHES | sed 's#$# #;s#\([^ ]*\) #\1-softmmu \1-linux-user #g')}
 
