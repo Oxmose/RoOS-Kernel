@@ -19,8 +19,8 @@ KERNEL_MEM_OFFSET = 0xFFFFFFFF80000000;
 /* Memory map */
 MEMORY
 {
-    LOW_AP_STARTUP_CODE (rwx):   ORIGIN = 0x00008000,            LENGTH = 1K
-    BIOS_CALL_REGION    (rwx):   ORIGIN = 0x00009000,            LENGTH = 28K
+    LOW_AP_STARTUP_CODE (rx) :   ORIGIN = 0x00008000,            LENGTH = 1K
+    BIOS_CALL_REGION    (rx) :   ORIGIN = 0x00009000,            LENGTH = 28K
     LOW_STARTUP_CODE    (rx) :   ORIGIN = 0x00100000,            LENGTH = 1K
 
     KERNEL_CODE         (rx) :   ORIGIN = 0xFFFFFFFF80101000,    LENGTH = 256K

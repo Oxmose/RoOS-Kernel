@@ -106,9 +106,6 @@
         interrupt-controllers {
             pic {
                 compatible = "x86,x86-pic";
-                #interrupt-controller;
-                #address-cells = <0>;
-                #interrupt-cells = <2>;
                 int-offset = <0x30>;
                 is-chained;
                 comm = <0x20 0x21 0xA0 0xA1>;

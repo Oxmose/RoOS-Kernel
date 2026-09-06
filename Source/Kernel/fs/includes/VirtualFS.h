@@ -461,7 +461,7 @@ int32_t VFSReaddir(int32_t fd, S_DirectoryEntry* pDirEntry);
  * @return The function return whatever value required to be returned by the
  * IOCTL command.
  */
-int32_t VFSIOCTL(int32_t fd, uint32_t operation, void* pArgs);
+ssize_t VFSIOCTL(int32_t fd, uint32_t operation, void* pArgs);
 
 /**
  * @brief Mount function for the VFS.

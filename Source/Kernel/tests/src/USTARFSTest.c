@@ -53,6 +53,16 @@ static void _TestUSTARFile(const char* kpPath,
       }
     }
 
+    bytesRead = VFSRead(fd, NULL, 1);
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 19), bytesRead == -1, -1,
+                          bytesRead, TEST_USTARFS_ENABLED);
+    bytesRead = VFSRead(fd, buffer, 0);
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 20), bytesRead == 0, 0,
+                          bytesRead, TEST_USTARFS_ENABLED);
+    bytesRead = VFSWrite(fd, NULL, 1);
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 21), bytesRead == -1, -1,
+                          bytesRead, TEST_USTARFS_ENABLED);
+
     while (totalRead < fileSize)
     {
       requestSize = fileSize - totalRead;
@@ -71,40 +81,63 @@ static void _TestUSTARFile(const char* kpPath,
     TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 3),
                           totalRead == fileSize, fileSize, totalRead,
                           TEST_USTARFS_ENABLED);
+    bytesRead = VFSRead(fd, buffer, fileSize + 256);
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 4),
+                          bytesRead == 0,
+                          0, bytesRead, TEST_USTARFS_ENABLED);
     bytesRead = VFSRead(fd, buffer, 1);
-    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 4), bytesRead == 0, 0,
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 5), bytesRead == 0, 0,
                           bytesRead, TEST_USTARFS_ENABLED);
     bytesRead = VFSIOCTL(fd, VFS_IOCTL_FILE_TELL, NULL);
-    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 5),
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 6),
                           bytesRead == (ssize_t)fileSize,
                           fileSize, bytesRead, TEST_USTARFS_ENABLED);
     seekArgs.direction = SEEK_SET;
     seekArgs.offset = 0;
     bytesRead = VFSIOCTL(fd, VFS_IOCTL_FILE_SEEK, &seekArgs);
-    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 6), bytesRead == 0, 0,
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 7), bytesRead == 0, 0,
                 bytesRead, TEST_USTARFS_ENABLED);
     seekArgs.direction = SEEK_CUR;
     seekArgs.offset = fileSize + 1;
     bytesRead = VFSIOCTL(fd, VFS_IOCTL_FILE_SEEK, &seekArgs);
-    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 7), bytesRead == 0, 0,
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 8), bytesRead == -1, -1,
                 bytesRead, TEST_USTARFS_ENABLED);
     seekArgs.direction = SEEK_SET;
     seekArgs.offset = fileSize + 1;
     bytesRead = VFSIOCTL(fd, VFS_IOCTL_FILE_SEEK, &seekArgs);
-    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 8), bytesRead == 0, 0,
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 9), bytesRead == -1, -1,
                 bytesRead, TEST_USTARFS_ENABLED);
+    seekArgs.direction = SEEK_SET;
+    seekArgs.offset = -1;
+    bytesRead = VFSIOCTL(fd, VFS_IOCTL_FILE_SEEK, &seekArgs);
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 10), bytesRead == -1, -1,
+                          bytesRead, TEST_USTARFS_ENABLED);
+    seekArgs.direction = SEEK_CUR;
+    seekArgs.offset = -1;
+    bytesRead = VFSIOCTL(fd, VFS_IOCTL_FILE_SEEK, &seekArgs);
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 11), bytesRead == -1, -1,
+                          bytesRead, TEST_USTARFS_ENABLED);
     seekArgs.direction = (E_SeekDirection)99;
     seekArgs.offset = 0;
     bytesRead = VFSIOCTL(fd, VFS_IOCTL_FILE_SEEK, &seekArgs);
-    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 9), bytesRead == 0, 0,
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 12), bytesRead == -1, -1,
                 bytesRead, TEST_USTARFS_ENABLED);
     seekArgs.direction = SEEK_END;
     seekArgs.offset = 0;
     bytesRead = VFSIOCTL(fd, VFS_IOCTL_FILE_SEEK, &seekArgs);
-    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 10),
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 13),
                 bytesRead == (ssize_t)fileSize,
                 fileSize, bytesRead, TEST_USTARFS_ENABLED);
-    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 11), VFSClose(fd) == 0, 0, 0,
+    bytesRead = VFSRead(fd, buffer, 1);
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 15), bytesRead == 0, 0,
+                          bytesRead, TEST_USTARFS_ENABLED);
+    bytesRead = VFSWrite(fd, buffer, 1);
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 16), bytesRead == -1, -1,
+                          bytesRead, TEST_USTARFS_ENABLED);
+    bytesRead = VFSIOCTL(fd, 0xFFFFFFFF, NULL);
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 17), bytesRead == -1, -1,
+                          bytesRead, TEST_USTARFS_ENABLED);
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(testId + 18), VFSClose(fd) == 0, 0, 0,
                 TEST_USTARFS_ENABLED);
   }
 }
@@ -170,25 +203,25 @@ void USTARFSTest(void)
     _TestUSTARFile(USTAR_TEST_MOUNT "/.roos_init", "INIT=/initrd/init",
              17, 20);
     _TestUSTARFile(USTAR_TEST_MOUNT "/fil1.test", "Coucous Truncate me", 19,
-             40);
+             50);
     _TestUSTARFile(USTAR_TEST_MOUNT "/newfile2.txt",
              "Lorem ipsum dolor sit amet, consect", USTAR_LARGE_FILE_SIZE,
-             60);
-    _TestUSTARFile(USTAR_TEST_MOUNT "/folder1/myfile.file.txt", "", 0, 80);
+             80);
+    _TestUSTARFile(USTAR_TEST_MOUNT "/folder1/myfile.file.txt", "", 0, 110);
     _TestUSTARFile(USTAR_TEST_MOUNT "/folder1/smallfile.txt", "I am smol", 9,
-             100);
+             140);
     _TestUSTARFile(USTAR_TEST_MOUNT "/folder1/newfile3.txt",
              "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
              USTAR_LARGE_FILE_SIZE,
-             120);
+             170);
     _TestUSTARFile(USTAR_TEST_MOUNT
-             "/folder1/anotherfolder/myfileinfolder.txt", "", 0, 140);
+             "/folder1/anotherfolder/myfileinfolder.txt", "", 0, 200);
     _TestUSTARFile(USTAR_TEST_MOUNT
              "/folder1/anotherfolder/myfileinfolder - Copie.txt", "",
-             0, 160);
+             0, 230);
 
     dirFd = VFSOpen(USTAR_TEST_MOUNT, O_RDONLY, 0);
-    TEST_POINT_ASSERT_INT(TEST_USTARFS(200), dirFd >= 0, 0, dirFd,
+    TEST_POINT_ASSERT_INT(TEST_USTARFS(300), dirFd >= 0, 0, dirFd,
                           TEST_USTARFS_ENABLED);
     if (dirFd >= 0)
     {
@@ -196,11 +229,11 @@ void USTARFSTest(void)
       foundFile = false;
       foundDirectory = false;
       retVal = VFSReaddir(dirFd, &entry);
-      TEST_POINT_ASSERT_INT(TEST_USTARFS(201), retVal == 1 || retVal == 0,
+      TEST_POINT_ASSERT_INT(TEST_USTARFS(301), retVal == 1 || retVal == 0,
                             1, retVal, TEST_USTARFS_ENABLED);
       while (retVal == 1)
       {
-        TEST_POINT_ASSERT_INT(TEST_USTARFS(208 + entryCount * 50),
+        TEST_POINT_ASSERT_INT(TEST_USTARFS(308 + entryCount * 50),
                               entry.pName[0] != 0, 1, entry.pName[0] != 0,
                               TEST_USTARFS_ENABLED);
 
@@ -215,7 +248,7 @@ void USTARFSTest(void)
         }
 
         fileFd = VFSOpen(path, O_RDONLY, 0);
-        TEST_POINT_ASSERT_INT(TEST_USTARFS(209 + entryCount * 50), fileFd >= 0,
+        TEST_POINT_ASSERT_INT(TEST_USTARFS(309 + entryCount * 50), fileFd >= 0,
                               0, fileFd,
                               TEST_USTARFS_ENABLED);
         if (fileFd >= 0)
@@ -224,41 +257,41 @@ void USTARFSTest(void)
           {
             foundFile = true;
             bytesRead = VFSRead(fileFd, buffer, 0);
-            TEST_POINT_ASSERT_INT(TEST_USTARFS(210 + entryCount * 50),
+            TEST_POINT_ASSERT_INT(TEST_USTARFS(310 + entryCount * 50),
                                   bytesRead == 0, 0, bytesRead,
                                   TEST_USTARFS_ENABLED);
             bytesRead = VFSRead(fileFd, buffer, sizeof(buffer));
-            TEST_POINT_ASSERT_INT(TEST_USTARFS(211 + entryCount * 50),
+            TEST_POINT_ASSERT_INT(TEST_USTARFS(311 + entryCount * 50),
                                   bytesRead >= 0, 0, bytesRead,
                                   TEST_USTARFS_ENABLED);
             retVal = VFSIOCTL(fileFd, VFS_IOCTL_FILE_TELL, NULL);
-            TEST_POINT_ASSERT_INT(TEST_USTARFS(212 + entryCount * 50),
+            TEST_POINT_ASSERT_INT(TEST_USTARFS(312 + entryCount * 50),
                                   retVal == bytesRead, bytesRead, retVal,
                                   TEST_USTARFS_ENABLED);
             seekArgs.direction = SEEK_SET;
             seekArgs.offset = 0;
             retVal = VFSIOCTL(fileFd, VFS_IOCTL_FILE_SEEK, &seekArgs);
-            TEST_POINT_ASSERT_INT(TEST_USTARFS(213 + entryCount * 50),
+            TEST_POINT_ASSERT_INT(TEST_USTARFS(313 + entryCount * 50),
                                   retVal == 0, 0, retVal,
                                   TEST_USTARFS_ENABLED);
             bytesRead = VFSRead(fileFd, buffer, 1);
-            TEST_POINT_ASSERT_INT(TEST_USTARFS(214 + entryCount * 50),
+            TEST_POINT_ASSERT_INT(TEST_USTARFS(314 + entryCount * 50),
                                   bytesRead == 0 || bytesRead == 1, 1, bytesRead,
                                   TEST_USTARFS_ENABLED);
             seekArgs.direction = SEEK_CUR;
             seekArgs.offset = 0;
             retVal = VFSIOCTL(fileFd, VFS_IOCTL_FILE_SEEK, &seekArgs);
-            TEST_POINT_ASSERT_INT(TEST_USTARFS(215 + entryCount * 50),
+            TEST_POINT_ASSERT_INT(TEST_USTARFS(315 + entryCount * 50),
                                   retVal >= 0, 0, retVal,
                                   TEST_USTARFS_ENABLED);
             seekArgs.direction = (E_SeekDirection)99;
             seekArgs.offset = 0;
             retVal = VFSIOCTL(fileFd, VFS_IOCTL_FILE_SEEK, &seekArgs);
-            TEST_POINT_ASSERT_INT(TEST_USTARFS(216 + entryCount * 50),
+            TEST_POINT_ASSERT_INT(TEST_USTARFS(316 + entryCount * 50),
                                   retVal >= 0, 0, retVal,
                                   TEST_USTARFS_ENABLED);
             retVal = VFSWrite(fileFd, buffer, sizeof(buffer));
-            TEST_POINT_ASSERT_INT(TEST_USTARFS(217 + entryCount * 50),
+            TEST_POINT_ASSERT_INT(TEST_USTARFS(317 + entryCount * 50),
                                   retVal == -1, -1, retVal,
                                   TEST_USTARFS_ENABLED);
           }
@@ -266,11 +299,11 @@ void USTARFSTest(void)
           {
             foundDirectory = true;
             retVal = VFSReaddir(fileFd, &entry);
-            TEST_POINT_ASSERT_INT(TEST_USTARFS(218 + entryCount * 50),
+            TEST_POINT_ASSERT_INT(TEST_USTARFS(318 + entryCount * 50),
                                   retVal == 1 || retVal == 0 || retVal == -1,
                                   1, retVal, TEST_USTARFS_ENABLED);
           }
-          TEST_POINT_ASSERT_INT(TEST_USTARFS(219 + entryCount * 50),
+          TEST_POINT_ASSERT_INT(TEST_USTARFS(319 + entryCount * 50),
                                 VFSClose(fileFd) == 0, 1, 0,
                                 TEST_USTARFS_ENABLED);
         }

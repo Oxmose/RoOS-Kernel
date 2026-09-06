@@ -39,7 +39,7 @@
 #define TEST_CRITICAL_ENABLED                     0
 #define TEST_INTERRUPT_ENABLED                    0
 #define TEST_OS_UHASHTABLE_ENABLED                0
-#define TEST_SCHEDULER_ENABLED                    1
+#define TEST_SCHEDULER_ENABLED                    0
 #define TEST_VFS_ENABLED                          0
 #define TEST_PROCFS_ENABLED                       0
 #define TEST_OS_VECTOR_ENABLED                    0
@@ -48,6 +48,9 @@
 #define TEST_OS_KQUEUE_ENABLED                    0
 #define TEST_OS_FAST_QUEUES_ENABLED               0
 #define TEST_CPUID_ENABLED                        0
+#define TEST_TIME_ENABLED                         0
+#define TEST_ELFMANAGER_ENABLED                   0
+#define TEST_LIBC_ENABLED                         1
 
 /*************************************************
  * TEST IDENTIFIERS
@@ -282,6 +285,31 @@
 #define TEST_CPUID_LEVEL_ID         3
 #define TEST_CPUID_FLAGS_ID         4
 
+/** @brief Time manager tests */
+#define TEST_TIME_TYPES_ID          0
+#define TEST_TIME_UPTIME_ID         10
+#define TEST_TIME_DAYTIME_ID        20
+#define TEST_TIME_DATE_ID           30
+#define TEST_TIME_TICKS_ID          40
+#define TEST_TIME_WAIT_ZERO_ID      50
+#define TEST_TIME_WAIT_SHORT_ID     51
+
+/** @brief ELF manager tests */
+#define TEST_ELFMANAGER_NULL_PATH_ID   0
+#define TEST_ELFMANAGER_MISSING_ID     1
+#define TEST_ELFMANAGER_INVALID_ID     2
+#define TEST_ELFMANAGER_MOUNT_ID       3
+#define TEST_ELFMANAGER_PROCESS_ID     4
+#define TEST_ELFMANAGER_LOAD_ID        6
+#define TEST_ELFMANAGER_ENTRY_ID       7
+
+/** @brief libc tests */
+#define TEST_LIBC_MEMORY_ID            0
+#define TEST_LIBC_STRING_ID            100
+#define TEST_LIBC_CONVERSION_ID        200
+#define TEST_LIBC_FORMAT_ID            300
+#define TEST_LIBC_ARITHMETIC_ID        400
+
 /** @brief FDT tests */
 #define TEST_DEVTREE_PARSE          0
 #define TEST_DEVTREE_GETPROP0       1
@@ -399,7 +427,7 @@
 #define TEST_KSEMAPHORE_MULTIPLE_TEST(X)  (100000000 + X)
 
 /** @brief Current test name */
-#define TEST_FRAMEWORK_TEST_NAME "Kernel Scheduler"
+#define TEST_FRAMEWORK_TEST_NAME "Kernel libc"
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -452,6 +480,12 @@ void FastQueuesTest(void);
 void KQueuesTest(void);
 /** @brief CPUID test function */
 void CPUIDTest(void);
+/** @brief Time manager test function */
+void TimeManagerTest(void);
+/** @brief ELF manager test function */
+void ELFManagerTest(void);
+/** @brief libc test function */
+void LibcTest(void);
 /** @brief Kernel mutex test function */
 void KernelMutexTest(void);
 /** @brief Kernel semaphore test function */

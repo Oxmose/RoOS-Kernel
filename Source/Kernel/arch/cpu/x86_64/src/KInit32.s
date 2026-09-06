@@ -166,7 +166,7 @@ __kInitInitPGdir:
   mov [ebx], ecx
 
   ; Set the high PD in the kernel PDP
-  mov eax, KERNEL_PDP_ENTRY
+  mov eax, KERNEL_PDP_ENTRY & 0xFFFFFFFF
   and eax, 0x1FF
   mov edx, 8
   mul edx
@@ -320,15 +320,13 @@ __kInitKernelErrorEnd:
 ;-------------------------------------------------------------------------------
 ; DATA
 ;-------------------------------------------------------------------------------
-section .data
-
 _noLMMessage:
-  db "Your system is not 64 Bits compatible."
+  db "System is not 64 Bits compatible."
   db 0
 
 ;-------------------------------------------------------------------------------
 ; Boot temporary GDT
-align 32
+align 16
 _gdtTmp:
   .null:
     dd 0x00000000

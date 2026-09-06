@@ -1607,12 +1607,12 @@ int32_t VFSReaddir(int32_t fd, S_DirectoryEntry* pDirEntry)
   return retVal;
 }
 
-int32_t VFSIOCTL(int32_t fd, uint32_t operation, void* pArgs)
+ssize_t VFSIOCTL(int32_t fd, uint32_t operation, void* pArgs)
 {
   S_FDTable*        pTable;
   S_FileDescriptor* pDesc;
   E_Return          error;
-  int32_t           retVal;
+  ssize_t           retVal;
   T_VFSIOCTL        pIOCTL;
   void*             pHandle;
   void*             pDriverData;
