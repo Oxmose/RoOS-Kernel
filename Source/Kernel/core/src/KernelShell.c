@@ -145,7 +145,7 @@ static void _ShellSleep(const char* args)
   E_Return error;
 
   time = strtoul(args, NULL, 10);
-  error = SleepNs(time);
+  error = SleepNs(time, NULL);
 
   if (error != NO_ERROR)
   {
@@ -564,7 +564,7 @@ static void* _ShellEntry(void* args)
   (void)args;
 
   /* Wait for all the system to be up */
-  SleepNs(100000000);
+  SleepNs(100000, NULL);
 
   KPrintf("\n==== ROOS Kernel Shell ==== Version %s\n", SHELL_VERSION);
 

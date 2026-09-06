@@ -1,52 +1,73 @@
 /*******************************************************************************
- * @file UserKernelLib.c
- *
- * @see UserKernelLib.c
+ * @file stdbool.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 05/10/2023
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief Kernel's bool type.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details Define basics bool types for the kernel.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
+
+#ifndef __LIB_STDBOOL_H_
+#define __LIB_STDBOOL_H_
+
+
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
-/* Included headers */
-/* None */
 
-/* Header file */
-#include <UserKernelLib.h>
+/* None */
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-#ifdef _STACK_PROT
-#define STACK_CHK_GUARD 0x595e9fbd94fda766ULL
-#endif
+/* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/* None */
+
+
+#if defined(__GNUC__) || \
+    (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901)
+
+/** @brief False value for the bool type. */
+#define false 0
+/** @brief True value for the bool type. */
+#define true 1
+
+#else
+
+/** @brief Boolean primitive type. */
+typedef enum
+{
+    /** @brief False value for the bool type. */
+    false = 0,
+    /** @brief True value for the bool type. */
+    true = 1
+} _Bool;
+
+/** @brief False constant. */
+#define false false
+/** @brief True constant. */
+#define true true
+
+#endif
+
+/** @brief Defines the bool type. */
+#define bool _Bool
 
 /*******************************************************************************
  * MACROS
  ******************************************************************************/
-/* None */
 
-/*******************************************************************************
- * STATIC FUNCTIONS DECLARATIONS
- ******************************************************************************/
 /* None */
 
 /*******************************************************************************
@@ -57,9 +78,7 @@
 /* None */
 
 /************************* Exported global variables **************************/
-#ifdef _STACK_PROT
-void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
-#endif
+/* None */
 
 /************************** Static global variables ***************************/
 /* None */
@@ -68,11 +87,8 @@ void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
  * FUNCTIONS
  ******************************************************************************/
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void)
-{
-    while (1){}
-}
-#endif
+/* None */
+
+#endif /* #ifndef __LIB_STDBOOL_H_ */
 
 /************************************ EOF *************************************/

@@ -174,8 +174,6 @@ typedef struct S_UserThread
   int32_t tid;
   /** @brief The thread's priority */
   uint8_t priority;
-  /** @brief The thread local storage size */
-  ssize_t tlsSize;
 } S_UserThread;
 
 /** @brief This is the representation of the thread for the kernel. */

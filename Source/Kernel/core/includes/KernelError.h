@@ -49,7 +49,9 @@ typedef enum
   /** @brief Invalid value detected */
   ERR_INVALID_VALUE,
   /** @brief Value not found. */
-  ERR_NOT_FOUND
+  ERR_NOT_FOUND,
+  /** @brief Operation interrupted. */
+  ERR_INTERRUPTED
 } E_Return;
 
 /*******************************************************************************

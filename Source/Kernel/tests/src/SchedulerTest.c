@@ -120,7 +120,7 @@ static void* TestRoutineFail(void* args)
 
 static void* TestJoinRoutine(void* args)
 {
-  SleepNs((uint64_t)args);
+  SleepNs((uint64_t)args, NULL);
   if ((uint64_t)args == 0)
   {
     return (void*)0xC0DE;
@@ -348,10 +348,11 @@ static void TestSleep(void)
 {
   uint64_t currentTime;
   uint64_t newTime;
+  uint64_t remainingTime;
   E_Return error;
 
   currentTime = TimeGetUptime();
-  error = SleepNs(0xFFFFFFFFFFFFFFFF);
+  error = SleepNs(0xFFFFFFFFFFFFFFFF, &remainingTime);
   newTime = TimeGetUptime();
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_SLEEP_ID(0),
                           error == ERR_INVALID_PARAMETER,
@@ -359,61 +360,81 @@ static void TestSleep(void)
                           error,
                           TEST_SCHEDULER_ENABLED);
   TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(1),
+                           remainingTime == 0xFFFFFFFFFFFFFFFF,
+                           0xFFFFFFFFFFFFFFFF,
+                           remainingTime,
+                           TEST_SCHEDULER_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(2),
                            newTime - currentTime < 100000000,
                            100000000,
                            newTime - currentTime,
                            TEST_SCHEDULER_ENABLED);
 
   currentTime = TimeGetUptime();
-  error = SleepNs(1000000);
+  error = SleepNs(1000000, &remainingTime);
   newTime = TimeGetUptime();
-  TEST_POINT_ASSERT_RCODE(SCHED_TEST_SLEEP_ID(2),
+  TEST_POINT_ASSERT_RCODE(SCHED_TEST_SLEEP_ID(3),
                           error == NO_ERROR,
                           NO_ERROR,
                           error,
                           TEST_SCHEDULER_ENABLED);
-  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(3),
+  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(4),
+                           remainingTime == 0,
+                           0,
+                           remainingTime,
+                           TEST_SCHEDULER_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(5),
                            newTime - currentTime > 1000000,
                            1000000,
                            newTime - currentTime,
                            TEST_SCHEDULER_ENABLED);
-  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(4),
+  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(6),
                            newTime - currentTime < 5000000,
                            5000000,
                            newTime - currentTime,
                            TEST_SCHEDULER_ENABLED);
   currentTime = TimeGetUptime();
-  error = SleepNs(10000000);
+  error = SleepNs(10000000, &remainingTime);
   newTime = TimeGetUptime();
-  TEST_POINT_ASSERT_RCODE(SCHED_TEST_SLEEP_ID(5),
+  TEST_POINT_ASSERT_RCODE(SCHED_TEST_SLEEP_ID(7),
                           error == NO_ERROR,
                           NO_ERROR,
                           error,
                           TEST_SCHEDULER_ENABLED);
-  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(6),
+  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(8),
+                           remainingTime == 0,
+                           0,
+                           remainingTime,
+                           TEST_SCHEDULER_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(9),
                            newTime - currentTime > 10000000,
                            10000000,
                            newTime - currentTime,
                            TEST_SCHEDULER_ENABLED);
-  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(7),
+  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(10),
                            newTime - currentTime < 15000000,
                            15000000,
                            newTime - currentTime,
                            TEST_SCHEDULER_ENABLED);
   currentTime = TimeGetUptime();
-  error = SleepNs(100000000);
+  error = SleepNs(100000000, &remainingTime);
   newTime = TimeGetUptime();
-  TEST_POINT_ASSERT_RCODE(SCHED_TEST_SLEEP_ID(8),
+  TEST_POINT_ASSERT_RCODE(SCHED_TEST_SLEEP_ID(11),
                           error == NO_ERROR,
                           NO_ERROR,
                           error,
                           TEST_SCHEDULER_ENABLED);
-  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(9),
+  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(12),
+                           remainingTime == 0,
+                           0,
+                           remainingTime,
+                           TEST_SCHEDULER_ENABLED);
+  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(13),
                            newTime - currentTime > 100000000,
                            100000000,
                            newTime - currentTime,
                            TEST_SCHEDULER_ENABLED);
-  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(10),
+  TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(14),
                            newTime - currentTime < 105000000,
                            105000000,
                            newTime - currentTime,
@@ -448,7 +469,7 @@ static void TestJoin(void)
                           NO_ERROR,
                           error,
                           TEST_SCHEDULER_ENABLED);
-  SleepNs(5000000000);
+  SleepNs(5000000000, NULL);
   error = JoinThread(pTestThread, &returnValue);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_JOIN_THREAD_ID(1),
                           error == NO_ERROR,

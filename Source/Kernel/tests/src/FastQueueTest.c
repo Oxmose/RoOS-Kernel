@@ -89,7 +89,7 @@ static void* FastQueueProducerRoutine(void* pArgs)
     pContext->values[i] = i + 1;
     FQueuePush(pContext->pQueue, &pContext->values[i]);
     AtomicIncrement32(&pContext->pushCount);
-    SleepNs(10000);
+    SleepNs(10000, NULL);
   }
 
   return NULL;
@@ -111,7 +111,7 @@ static void* FastQueueConsumerRoutine(void* pArgs)
     }
     else
     {
-      SleepNs(1000);
+      SleepNs(1000, NULL);
     }
   }
 

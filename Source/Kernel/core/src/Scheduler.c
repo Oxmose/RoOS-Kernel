@@ -23,6 +23,7 @@
 /* Included headers */
 #include <CPU.h>
 #include <Panic.h>
+#include <errno.h>
 #include <string.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -1441,7 +1442,7 @@ E_Return JoinThread(S_KernelThread* pThread,
   return error;
 }
 
-E_Return SleepNs(const uint64_t kTimeNs)
+E_Return SleepNs(const uint64_t kTimeNs, uint64_t* pRemainingTimeNS)
 {
   E_Return           error;
   uint64_t           currentTime;
@@ -1469,10 +1470,31 @@ E_Return SleepNs(const uint64_t kTimeNs)
     /* Schedule the thread*/
     CPUSaveContextAndSchedule(pThread->pVCpu);
 
-    error = NO_ERROR;
+    currentTime = TimeGetUptime();
+
+    if (currentTime < wakeupTime)
+    {
+      if (pRemainingTimeNS != NULL)
+      {
+        *pRemainingTimeNS = wakeupTime - currentTime;
+      }
+      error = ERR_INTERRUPTED;
+    }
+    else
+    {
+      if (pRemainingTimeNS != NULL)
+      {
+        *pRemainingTimeNS = 0;
+      }
+      error = NO_ERROR;
+    }
   }
   else
   {
+    if (pRemainingTimeNS != NULL)
+    {
+      *pRemainingTimeNS = kTimeNs;
+    }
     error = ERR_INVALID_PARAMETER;
   }
 
@@ -1599,27 +1621,31 @@ void* SyscallSleepNs(void* pParam0,
                      void* pParam3,
                      void* pParam4)
 {
-  void*    retCode;
-  E_Return retVal;
-  uint64_t kTimeNs;
+  void*     retCode;
+  E_Return  retVal;
+  uint64_t  kTimeNs;
+  uint64_t* pRemainingTimeNS;
 
-  (void)pParam1;
   (void)pParam2;
   (void)pParam3;
   (void)pParam4;
 
-  kTimeNs = (uint64_t)(uintptr_t)pParam0;
-  retVal = SleepNs(kTimeNs);
+  kTimeNs          = (uint64_t)(uintptr_t)pParam0;
+  pRemainingTimeNS = (uint64_t*)pParam1;
+  retVal           = SleepNs(kTimeNs, pRemainingTimeNS);
 
   if (retVal == NO_ERROR)
   {
     retCode = (void*)0;
   }
+  else if (retVal == ERR_INTERRUPTED)
+  {
+    retCode = (void*)-EINTR;
+  }
   else
   {
-    retCode = (void*)(uintptr_t)retVal;
+    retCode = (void*)-EINVAL;
   }
-
   return (void*)retCode;
 }
 

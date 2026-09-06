@@ -5,25 +5,20 @@
 #
 # Author: Alexy Torres Aurora Dugo
 #
-# Application module makefile. This makefile is used to compile the a program
-# for roOs.
+# Library module makefile. This makefile is used to compile the library module.
 ################################################################################
 
 # Dependencies
 include dependencies.mk
-include ../../../ARTIFACTS/settings.mk
-
-BINARY_NAME = init
+include ../../../User/ARTIFACTS/settings.mk
 
 rwildcard=$(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
 
 # Variables definitions
 SRC_DIR    = src
 BUILD_DIR  = build
-LIB_DIR    = lib
 INC_DIR    = includes
 BIN_DIR    = bin
-ARTIFACTS_DIR = ../../../ARTIFACTS
 
 C_SRCS = $(call rwildcard,$(SRC_DIR),*.c)
 A_SRCS = $(call rwildcard,$(SRC_DIR),*.s)
@@ -35,18 +30,22 @@ all: init module
 
 init:
 	@echo "\e[1m\e[34m\n#-------------------------------------------------------------------------------\e[22m\e[39m"
-	@echo "\e[1m\e[34m| Compiling program $(BINARY_NAME)\e[22m\e[39m"
+	@echo "\e[1m\e[34m| Compiling user libc module\e[22m\e[39m"
 	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\n\e[22m\e[39m"
 
 	@mkdir -p $(BUILD_DIR)
 	@mkdir -p $(BIN_DIR)
+ifneq ($(C_OBJS), )
+	$(shell mkdir -p $(dir $(C_OBJS)) >/dev/null)
+endif
+ifneq ($(A_OBJS), )
+	exit -1
+	$(shell mkdir -p $(dir $(A_OBJS)) >/dev/null)
+endif
 
 module: compile_asm compile_cc
-
-	$(LD) $(LDFLAGS) -T $(ARTIFACTS_DIR)/$(USER_LINKER_FILE) $(BUILD_DIR)/*.o -o $(BIN_DIR)/$(BINARY_NAME) $(DEP_MODULES) $(DEP_LIBS) -Map=$(BUILD_DIR)/output.map
-	# Create debug symbols file
-	$(OBJCOPY) --only-keep-debug $(BIN_DIR)/$(BINARY_NAME) $(BIN_DIR)/$(BINARY_NAME).debug
-	@echo "\e[1m\e[92m=> Generated program $(BINARY_NAME)\e[22m\e[39m"
+	@$(AR) r $(BIN_DIR)/liblibc.a $(A_OBJS) $(C_OBJS)
+	@echo "\e[1m\e[92m=> Generated user libc module\e[22m\e[39m"
 	@echo "\e[1m\e[92m--------------------------------------------------------------------------------\n\e[22m\e[39m"
 
 # Assembly sources compilation
@@ -66,7 +65,7 @@ endif
 	@echo  "\e[32m  $< \e[22m\e[39m=> \e[1m\e[94m$@\e[22m\e[39m"
 	$(CC) $(CFLAGS) $< -o $@ -I $(INC_DIR) $(DEP_INCLUDES)
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.S
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
 	@echo  "\e[32m  $< \e[22m\e[39m=> \e[1m\e[94m$@\e[22m\e[39m"
 	$(AS) $(ASFLAGS) $< -o $@ -I $(INC_DIR) $(DEP_INCLUDES)
 
@@ -74,7 +73,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.S
 clean:
 	$(RM) -rf $(BUILD_DIR) $(BIN_DIR)
 	@echo "\e[1m\e[34m\n#-------------------------------------------------------------------------------\e[22m\e[39m"
-	@echo "\e[1m\e[34m| Cleaned program $(BINARY_NAME)\e[22m\e[39m"
+	@echo "\e[1m\e[34m| Cleaned user libc module\e[22m\e[39m"
 	@echo "\e[1m\e[34m#-------------------------------------------------------------------------------\n\e[22m\e[39m"
 
 # Check header files modifications

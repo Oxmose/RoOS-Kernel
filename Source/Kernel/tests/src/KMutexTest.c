@@ -281,7 +281,7 @@ static void* _TestElevationMutexRoutine(void* args)
     while (pElevationMutex->pWaitingList->size == 0){
 
     }
-    SleepNs(1000000);
+    SleepNs(1000000, NULL);
 
     KPrintf("New thread waiting and prio is %d\n", pCurThread->priority);
 
@@ -294,7 +294,7 @@ static void* _TestElevationMutexRoutine(void* args)
     while (pElevationMutex->pWaitingList->size == 1){
 
     }
-    SleepNs(1000000);
+    SleepNs(1000000, NULL);
 
     KPrintf("New thread waiting and prio is %d\n", pCurThread->priority);
 
@@ -307,7 +307,7 @@ static void* _TestElevationMutexRoutine(void* args)
     while (pElevationMutex->pWaitingList->size == 2){
 
     }
-    SleepNs(1000000);
+    SleepNs(1000000, NULL);
 
     KPrintf("New thread waiting and prio is %d\n", pCurThread->priority);
     TEST_POINT_ASSERT_BYTE(TEST_KMUTEX_ELEVATION_PRIO(3),
@@ -335,7 +335,7 @@ static void* _TestElevationMutexRoutine(void* args)
   }
   else if (prio == 12)
   {
-    SleepNs(200000000);
+    SleepNs(200000000, NULL);
 
     error = KernelMutexLock(pElevationMutex);
     TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ELEVATION_PRIO(6),
@@ -369,7 +369,7 @@ static void* _TestElevationMutexRoutine(void* args)
   }
   else if (prio == 9)
   {
-    SleepNs(6000000000);
+    SleepNs(6000000000, NULL);
 
     error = KernelMutexLock(pElevationMutex);
     TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ELEVATION_PRIO(10),
@@ -403,7 +403,7 @@ static void* _TestElevationMutexRoutine(void* args)
   }
   else if (prio == 7)
   {
-    SleepNs(4000000000);
+    SleepNs(4000000000, NULL);
 
     error = KernelMutexLock(pElevationMutex);
     TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ELEVATION_PRIO(14),
@@ -673,7 +673,7 @@ static void _TestPrioMutex(void)
   }
   sLastTid = pThreads[i - 1]->tid + 1;
 
-  SleepNs(500000000);
+  SleepNs(500000000, NULL);
   /* Give mutex */
   error = KernelMutexUnlock(&orderMutex);
   TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_ORDER_TEST(100),
@@ -741,7 +741,7 @@ static void _TestFIFOMutex(void)
   sLastTid = pThreads[i - 1]->tid + 1;
   sOrderedTid = 0;
 
-  SleepNs(500000000);
+  SleepNs(500000000, NULL);
   /* Give mutex */
   error = KernelMutexUnlock(&orderMutex);
   TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_FIFO_TEST(100),
@@ -821,7 +821,7 @@ static void _TestTrylockMutex(void)
                             TEST_OS_KMUTEX_ENABLED);
   }
 
-  SleepNs(500000000);
+  SleepNs(500000000, NULL);
   /* Give mutex */
   error = KernelMutexUnlock(&mutexes[1]);
   TEST_POINT_ASSERT_RCODE(TEST_KMUTEX_TRYLOCK_TEST(100),

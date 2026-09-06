@@ -356,11 +356,15 @@ static E_Return _CheckFile(const S_ELFHeader* kpHeader);
  * create the main TLS for the process. The size and alignement as well as the
  * data are saved to the process structure.
  *
+ * @param[in] kFileFd The ELF file descriptor.
  * @param[in] kpHeader The TLS segment program header.
  * @param[out] pProcess The process to update.
+ *
+ * @return The function return the success or error status.
  */
-static void _GetTLSData(const S_ELFProgramHeader* kpHeader,
-                        S_KernelProcess*          pProcess);
+static E_Return _GetTLSData(const int32_t             kFileFd,
+                            const S_ELFProgramHeader* kpHeader,
+                            S_KernelProcess*          pProcess);
 
 /**
  * @brief Loads the program header.
@@ -525,9 +529,14 @@ static E_Return _CheckFile(const S_ELFHeader* kpHeader)
   return error;
 }
 
-static void _GetTLSData(const S_ELFProgramHeader* kpHeader,
-                        S_KernelProcess*          pProcess)
+static E_Return _GetTLSData(const int32_t             kFileFd,
+                            const S_ELFProgramHeader* kpHeader,
+                            S_KernelProcess*          pProcess)
 {
+  E_Return             error;
+  ssize_t              opResult;
+  S_SeekIOCTLArguments seekArgs;
+
   pProcess->mainTlsMappingFlags = MEMMGR_MAP_USER | MEMMGR_MAP_RW;
   if ((kpHeader->pFlags & ELF_SEG_FLAG_R) == ELF_SEG_FLAG_R)
   {
@@ -545,10 +554,43 @@ static void _GetTLSData(const S_ELFProgramHeader* kpHeader,
     pProcess->mainTlsMappingFlags |= MEMMGR_MAP_EXEC;
   }
 
-  pProcess->pMainTlsData        = (void*)kpHeader->pVAddr;
-  pProcess->mainTlsSize         = kpHeader->pMemSz;
-  pProcess->mainTlsInitDataSize = kpHeader->pFileSz;
-  pProcess->mainTlsAlign        = kpHeader->pAlign;
+  /* Allocate the master TLS data and copy from ELF */
+  if (kpHeader->pFileSz > 0)
+  {
+    pProcess->pMainTlsData = KMallocUser(kpHeader->pMemSz, pProcess->pHeap);
+    if (pProcess->pMainTlsData != NULL)
+    {
+      /* Set file position */
+      seekArgs.direction = SEEK_SET;
+      seekArgs.offset    = kpHeader->pOffset;
+      opResult = VFSIOCTL(kFileFd, VFS_IOCTL_FILE_SEEK, &seekArgs);
+      if (opResult == (ssize_t)kpHeader->pOffset)
+      {
+        /* Copy the initial data from the ELF file */
+        opResult = VFSRead(kFileFd, pProcess->pMainTlsData, kpHeader->pFileSz);
+        pProcess->mainTlsSize         = kpHeader->pMemSz;
+        pProcess->mainTlsInitDataSize = kpHeader->pFileSz;
+        pProcess->mainTlsAlign        = kpHeader->pAlign;
+
+        error = NO_ERROR;
+      }
+      else
+      {
+        KFreeUser(pProcess->pMainTlsData, pProcess->pHeap);
+        error = ERR_INVALID_VALUE;
+      }
+    }
+    else
+    {
+      error = ERR_NO_MEMORY;
+    }
+  }
+  else
+  {
+    error = NO_ERROR;
+  }
+
+  return error;
 }
 
 static E_Return _LoadELFReloc(const int32_t      kFileFd,
@@ -679,6 +721,8 @@ static E_Return _LoadELFExec(const int32_t      kFileFd,
   pProgHeader = NULL;
   pDataBuffer = NULL;
 
+  pProcess->pMainTlsData = NULL;
+
   error = _LoadProgramHeader(kFileFd, kpHeader, &pProgHeader);
   if (error == NO_ERROR)
   {
@@ -694,7 +738,11 @@ static E_Return _LoadELFExec(const int32_t      kFileFd,
         {
           if (pProgHeader[i].pType == ELF_SEG_TYPE_TLS)
           {
-            _GetTLSData(&pProgHeader[i], pProcess);
+            error = _GetTLSData(kFileFd, &pProgHeader[i], pProcess);
+            if (error != NO_ERROR)
+            {
+              break;
+            }
           }
 
           /* Only check the loadable segments */
@@ -877,6 +925,10 @@ static E_Return _LoadELFExec(const int32_t      kFileFd,
     }
   }
 
+  if (pProcess->pMainTlsData != NULL)
+  {
+    KFreeUser(pProcess->pMainTlsData, pProcess->pHeap);
+  }
   if (pProgHeader != NULL)
   {
     KFree(pProgHeader);

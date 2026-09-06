@@ -1,19 +1,17 @@
 /*******************************************************************************
- * @file UserKernelLib.c
+ * @file errno.c
  *
- * @see UserKernelLib.c
+ * @see errno.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 25/10/2024
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief User errno library.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details User errno library. Defines the errno values and errno getter.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
@@ -25,14 +23,12 @@
 /* None */
 
 /* Header file */
-#include <UserKernelLib.h>
+#include <errno.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-#ifdef _STACK_PROT
-#define STACK_CHK_GUARD 0x595e9fbd94fda766ULL
-#endif
+/* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -45,11 +41,6 @@
 /* None */
 
 /*******************************************************************************
- * STATIC FUNCTIONS DECLARATIONS
- ******************************************************************************/
-/* None */
-
-/*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
 
@@ -57,22 +48,23 @@
 /* None */
 
 /************************* Exported global variables **************************/
-#ifdef _STACK_PROT
-void* __stack_chk_guard = (void*)STACK_CHK_GUARD;
-#endif
+/* None */
 
 /************************** Static global variables ***************************/
+/** @brief The thread-local errno variable. */
+static __thread int errnoVal;
+
+/*******************************************************************************
+ * STATIC FUNCTIONS DECLARATIONS
+ ******************************************************************************/
 /* None */
 
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void)
+int* GetErrno(void)
 {
-    while (1){}
+  return &errnoVal;
 }
-#endif
 
 /************************************ EOF *************************************/
