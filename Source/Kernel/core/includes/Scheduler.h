@@ -119,7 +119,7 @@ bool SchedulerSchedule(void);
  *
  * @return A handle to the current running thread is returned.
  */
-S_KernelThread* SchedulerGetCurrentThread(void);
+S_KernelThread* GetCurrentThread(void);
 
 /**
  * @brief Returns the handle to the current running process.
@@ -129,25 +129,49 @@ S_KernelThread* SchedulerGetCurrentThread(void);
  *
  * @return A handle to the current running process is returned.
  */
-S_KernelProcess* SchedulerGetCurrentProcess(void);
-
-/**
- * @brief Sets the current thread as errored.
- *
- * @details Sets the currrent thread as errored and prevents it from executing
- * again.
- */
-void SchedulerSetCurrentThreadErrored(void);
+S_KernelProcess* GetCurrentProcess(void);
 
 /**
  * @brief Sets the current thread to waiting state.
  *
- * #details Sets the current thread to waiting state. The thread will not be
+ * @details Sets the current thread to waiting state. The thread will not be
  * scheduled until it is set to ready state again.
+ *
+ * @param[out] pWaitingList The waiting list to which the thread will be added.
+ * @param[in] kIsInterruptible Tells if the thread can be interrupted by
+ * signals.
  *
  * @warning This function should be called with the thread's lock acquired.
  */
-void SchedulerSetCurrentThreadToWaiting(void);
+void SetCurrentThreadToWaiting(S_KernelQueue* pWaitingList,
+                               const bool     kIsInterruptible);
+
+/**
+ * @brief Sets the current thread to waiting state.
+ *
+ * @details Sets the current thread to waiting state. The thread will not be
+ * scheduled until it is set to ready state again.
+ *
+ * @param[out] pWaitingList The waiting list to which the thread will be added.
+ * @param[in] kPriority The priority of the thread. The thread will be added to
+ * the waiting list according to its priority.
+ * @param[in] kIsInterruptible Tells if the thread can be interrupted by
+ * signals.
+ *
+ * @warning This function should be called with the thread's lock acquired.
+ */
+void SetCurrentThreadToWaitingWithPriority(S_KernelQueue* pWaitingList,
+                                           const uint64_t kPriority,
+                                           const bool     kIsInterruptible);
+
+/**
+ * @brief Kills the current thread.
+ *
+ * @details Kills the current thread. The thread will be set to zombie state and
+ * will not be scheduled again. The thread's resources will be released when it
+ * is joined by another thread.
+ */
+void KillCurrentThread(void);
 
 /**
  * @brief Sets the thread to ready state.
@@ -157,7 +181,19 @@ void SchedulerSetCurrentThreadToWaiting(void);
  *
  * @param[out] pThread The thread to set to ready state.
  */
-void SchedulerSetThreadToReady(S_KernelThread* pThread);
+void SetThreadToReady(S_KernelThread* pThread);
+
+/**
+ * @brief Set the thread to the ready state due to a signal.
+ *
+ * @details Set the thread to the ready state due to a signal. This function is
+ * called when a signal is sent to a thread that is in a waiting state.
+ * The thread will be scheduled again when it is the highest priority thread in
+ * the ready state.
+ *
+ * @param[in] pThread The thread to set to ready state due to a signal.
+ */
+void SetThreadSignaled(S_KernelThread* pThread);
 
 /**
  * @brief Set the thread's priority.
@@ -169,8 +205,7 @@ void SchedulerSetThreadToReady(S_KernelThread* pThread);
  * @param[in] kPriority The priority to set. Must be between KERNEL_HIGHEST_PRIORITY
  * and KERNEL_LOWEST_PRIORITY.
  */
-void SchedulerSetThreadPriority(S_KernelThread* pThread,
-                                const uint32_t  kPriority);
+void SetThreadPriority(S_KernelThread* pThread, const uint32_t kPriority);
 
 /**
  * @brief Tells if the scheduler has been initialized.
@@ -291,6 +326,30 @@ const char* SchedulerGetThreadStateString(const E_ThreadState kState);
  */
 E_Return CreateInitProcess(S_KernelProcess** ppProcess);
 
+/**
+ * @brief Restores a thread's context and manages its pending signals.
+ *
+ * @details Restores a thread's context and manages its pending signals. This
+ * function will handle any pending signals for the thread and then restore its
+ * CPU context, allowing it to resume execution.
+ *
+ * @param[in, out] pThread The thread whose context is to be restored and whose
+ * signals are to be managed.
+ */
+void SchedulerRestoreThread(S_KernelThread* pThread);
+
+/**
+ * @brief Gets a thread by its ID.
+ *
+ * @details This function retrieves a thread from the threads table using its
+ * ID.
+ *
+ * @param[in] kThreadId The ID of the thread to retrieve.
+ *
+ * @return A pointer to the thread if found, or NULL if not found.
+ */
+S_KernelThread* GetThreadById(const int32_t kThreadId);
+
 /*******************************************************************************
  * SYSCALL HANDLERS
  ******************************************************************************/
@@ -317,6 +376,92 @@ void* SyscallSleepNs(void* pParam0,
                      void* pParam3,
                      void* pParam4);
 
+/**
+ * @brief Creates a new thread in the system.
+ *
+ * @details This function is a system call handler that creates a new thread in
+ * the system with the specified attributes and routine.
+ *
+ * @param[out] pParam0 The pointer to the thread structure. This is the handle
+ * of the thread for the user.
+ * @param[in] pParam1 The pointer to the thread attributes structure, which
+ * defines the properties of the new thread.
+ * @param[in] pParam2 The pointer to the thread routine, which is the function
+ * that will be executed by the new thread.
+ * @param[in] pParam3 The pointer to the thread's argument.
+ * @param[in] pParam4 Unused.
+ *
+ * @return The function return 0 if the thread was created successfully, or an
+ * error code otherwise.
+ */
+void* SyscallThreadCreate(void* pParam0,
+                          void* pParam1,
+                          void* pParam2,
+                          void* pParam3,
+                          void* pParam4);
+
+/**
+ * @brief This function is a system call handler that allows a thread to wait
+ * for the completion of another thread and retrieve its return value.
+ *
+ * @param[in] pParam0 The handle of the thread to wait for.
+ * @param[out] pParam1 The pointer to the location where the return value of the
+ * thread will be stored.
+ * @param[in] pParam2 Unused.
+ * @param[in] pParam3 Unused.
+ * @param[in] pParam4 Unused.
+ *
+ * @return The function returns 0 if the thread was joined successfully, or an
+ * error code otherwise.
+ */
+void* SyscallThreadJoin(void* pParam0,
+                        void* pParam1,
+                        void* pParam2,
+                        void* pParam3,
+                        void* pParam4);
+
+/**
+ * @brief System call handler for exiting a thread.
+ *
+ * @details This function is a system call handler that exits the calling thread.
+ *
+ * @param[in] pParam0 The exit status of the thread.
+ * @param[in] pParam1 Unused.
+ * @param[in] pParam2 Unused.
+ * @param[in] pParam3 Unused.
+ * @param[in] pParam4 Unused.
+ *
+ * @return The function never retrurns as the thread is terminated, but to
+ * maintain compatibility, it returns NULL.
+ */
+void* SyscallThreadExit(void* pParam0,
+                        void* pParam1,
+                        void* pParam2,
+                        void* pParam3,
+                        void* pParam4);
+
+/**
+ * @brief System call handler for retrieving the current thread's handle.
+ *
+ * @details This function is a system call handler that retrieves the handle of
+ * the current thread. It allows user-space applications to obtain a reference
+ * to the thread that is currently executing.
+ *
+ * @param[out] pParam0 The pointer to the location where the current thread's
+ * handle will be stored.
+ * @param[in] pParam1 Unused.
+ * @param[in] pParam2 Unused.
+ * @param[in] pParam3 Unused.
+ * @param[in] pParam4 Unused.
+ *
+ * @return The function returns 0 if the thread was joined successfully, or an
+ * error code otherwise.
+ */
+void* SyscallThreadGetSelf(void* pParam0,
+                           void* pParam1,
+                           void* pParam2,
+                           void* pParam3,
+                           void* pParam4);
 #endif /* #ifndef __CORE_SCHEDULER_H_ */
 
 /************************************ EOF *************************************/

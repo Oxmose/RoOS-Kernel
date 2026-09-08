@@ -158,34 +158,37 @@ E_Return KernelMutexLock(S_KernelMutex* pMutex)
   KERNEL_ENTER_CRITICAL_LOCAL(intState);
   KERNEL_LOCK(pMutex->lock);
 
-  pCurThread = SchedulerGetCurrentThread();
+  pCurThread = GetCurrentThread();
 
   if (pMutex->lockState == 0)
   {
     if ((pMutex->flags & KMUTEX_FLAG_RECURSIVE) != KMUTEX_FLAG_RECURSIVE ||
        pCurThread != pMutex->pAcquiredThread)
     {
-      /* Set thread to waiting */
-      SchedulerSetCurrentThreadToWaiting();
-
-      /* Add to list */
-      if ((pMutex->flags & KMUTEX_FLAG_QUEUING_FIFO) ==
-          KMUTEX_FLAG_QUEUING_FIFO)
+      do
       {
-        KQueuePush(pCurThread->pThreadNode, pMutex->pWaitingList);
-      }
-      else
-      {
-        KQueuePushPrio(pCurThread->pThreadNode,
-                       pMutex->pWaitingList,
-                       pCurThread->priority);
-      }
+        /* Add to list */
+        if ((pMutex->flags & KMUTEX_FLAG_QUEUING_FIFO) ==
+            KMUTEX_FLAG_QUEUING_FIFO)
+        {
+          SetCurrentThreadToWaiting(pMutex->pWaitingList, false);
+        }
+        else
+        {
+          SetCurrentThreadToWaitingWithPriority(pMutex->pWaitingList,
+                                                pCurThread->priority,
+                                                false);
+        }
 
-      /* Unlock mutex and schedule */
-      KERNEL_UNLOCK(pMutex->lock);
-      CPUSaveContextAndSchedule(pCurThread->pVCpu);
+        /* Unlock mutex and schedule */
+        KERNEL_UNLOCK(pMutex->lock);
+        CPUSaveContextAndSchedule(pCurThread->pVCpu);
 
+        /* Check that we got the mutex */
+        KERNEL_LOCK(pMutex->lock);
+      } while (pCurThread != pMutex->pAcquiredThread);
       error = NO_ERROR;
+      KERNEL_UNLOCK(pMutex->lock);
     }
     else
     {
@@ -214,7 +217,7 @@ E_Return KernelMutexLock(S_KernelMutex* pMutex)
         KMUTEX_FLAG_PRIO_ELEVATION)
     {
       /* Update the process priority */
-      SchedulerSetThreadPriority(pCurThread, pMutex->elevatedPriority);
+      SetThreadPriority(pCurThread, pMutex->elevatedPriority);
     }
     KERNEL_UNLOCK(pMutex->lock);
 
@@ -222,7 +225,6 @@ E_Return KernelMutexLock(S_KernelMutex* pMutex)
   }
 
   KERNEL_EXIT_CRITICAL_LOCAL(intState);
-
 
   return error;
 }
@@ -234,7 +236,7 @@ E_Return KernelMutexUnlock(S_KernelMutex* pMutex)
   S_KernelQueueNode* pNode;
   E_Return           error;
 
-  pCurThread = SchedulerGetCurrentThread();
+  pCurThread = GetCurrentThread();
 
   KERNEL_LOCK(pMutex->lock);
 
@@ -248,7 +250,7 @@ E_Return KernelMutexUnlock(S_KernelMutex* pMutex)
           KMUTEX_FLAG_PRIO_ELEVATION)
       {
         /* Update the process priority */
-        SchedulerSetThreadPriority(pCurThread, pMutex->acquiredThreadPriority);
+        SetThreadPriority(pCurThread, pMutex->acquiredThreadPriority);
       }
 
       /* Check if there are waiting threads */
@@ -261,15 +263,14 @@ E_Return KernelMutexUnlock(S_KernelMutex* pMutex)
         pMutex->acquiredThreadPriority = pReleasedThread->priority;
 
         if ((pMutex->flags & KMUTEX_FLAG_PRIO_ELEVATION) ==
-          KMUTEX_FLAG_PRIO_ELEVATION)
+             KMUTEX_FLAG_PRIO_ELEVATION)
         {
           /* Update the process priority */
-          SchedulerSetThreadPriority(pReleasedThread,
-                                     pMutex->elevatedPriority);
+          SetThreadPriority(pReleasedThread, pMutex->elevatedPriority);
         }
 
         /* Release the thread */
-        SchedulerSetThreadToReady(pReleasedThread);
+        SetThreadToReady(pReleasedThread);
       }
       else
       {
@@ -303,7 +304,7 @@ E_Return KernelMutexTryLock(S_KernelMutex* pMutex, int32_t* pLockState)
 
   KERNEL_LOCK(pMutex->lock);
 
-  pCurThread = SchedulerGetCurrentThread();
+  pCurThread = GetCurrentThread();
 
   *pLockState = pMutex->lockState;
   if (pMutex->lockState == 0)
@@ -339,7 +340,7 @@ E_Return KernelMutexTryLock(S_KernelMutex* pMutex, int32_t* pLockState)
         KMUTEX_FLAG_PRIO_ELEVATION)
     {
       /* Update the process priority */
-      SchedulerSetThreadPriority(pCurThread, pMutex->elevatedPriority);
+      SetThreadPriority(pCurThread, pMutex->elevatedPriority);
     }
 
     error = NO_ERROR;

@@ -525,7 +525,7 @@ void KernelPanic(const uint32_t kErrorCode,
     }
     else
     {
-      kpVCPU = CPUGetVirtualCPU(SchedulerGetCurrentThread());
+      kpVCPU = CPUGetVirtualCPU(GetCurrentThread());
     }
 
     /* Set the parameters */

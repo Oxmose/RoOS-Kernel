@@ -26,6 +26,7 @@
 ;-------------------------------------------------------------------------------
 %define VCPU_OFF_KERNEL_STACK 0x10
 %define VCPU_OFF_USER_STACK   0x18
+%define VCPU_OFF_HANDLE       0x20
 %define SYSCALL_RFLAGS_MASK   0x600
 
 ;-------------------------------------------------------------------------------
@@ -43,6 +44,7 @@
 ;-------------------------------------------------------------------------------
 extern SystemCallDispatcher
 extern CPUGetId
+extern SignalManage
 
 ;-------------------------------------------------------------------------------
 ; EXPORTED FUNCTIONS
@@ -115,13 +117,21 @@ CPUSyscallHandler:
   mov [rax + VCPU_OFF_USER_STACK], rsp
   mov rsp, [rax + VCPU_OFF_KERNEL_STACK]
 
-  ; Create stack frame
-  push rbp
-  mov  rbp, rsp
+  ; Ensure stack is aligned
+  and rsp, 0xFFFFFFFFFFFFFFF0
 
+  ; Create stack frame
   push rbx
+  push r12
+  push r13
+  push r14
+  push r15
+  push rdi
+  push rsi
   push rcx
   push r11
+  push rbp
+  push rax
 
   ; Move back the correct RCX value
   mov rcx, r10
@@ -135,15 +145,31 @@ CPUSyscallHandler:
   ; Ensure no interrupts are pending
   cli
 
+  ; Save the system call return value in case a signal needs to be handled
+  mov [rsp], rax
+
+  ; Manage signals
+  mov rdi, gs:0
+  mov rdi, [rdi + VCPU_OFF_HANDLE]
+  mov rsi, 1
+  call SignalManage
+
   ; Restore the registers
+  pop rax
+  pop rbp
   pop r11
   pop rcx
+  pop rsi
+  pop rdi
+  pop r15
+  pop r14
+  pop r13
+  pop r12
   pop rbx
-  pop rbp
 
   ; Switch back to user stack
-  mov rdi, gs:0
-  mov rsp, [rdi + VCPU_OFF_USER_STACK]
+  mov rdx, gs:0
+  mov rsp, [rdx + VCPU_OFF_USER_STACK]
   swapgs
 
   ; Return to user space

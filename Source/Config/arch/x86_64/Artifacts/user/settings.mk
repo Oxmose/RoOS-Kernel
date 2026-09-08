@@ -26,7 +26,7 @@ endif
 USER_LINKER_FILE = user_linker.ld
 
 DEBUG_FLAGS = -O0 -g
-EXTRA_FLAGS = -O3
+EXTRA_FLAGS = -O3 -fno-asynchronous-unwind-tables -g
 ARCH_FLAGS = -DARCH_64_BITS
 
 CFLAGS = -std=c11 -nostdinc -fno-builtin -nostdlib  \

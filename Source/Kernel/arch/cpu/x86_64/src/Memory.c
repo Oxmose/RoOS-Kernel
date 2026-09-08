@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <X64Cpu.h>
+#include <Signals.h>
 #include <Critical.h>
 #include <Scheduler.h>
 #include <KernelHeap.h>
@@ -768,7 +769,7 @@ static bool _PageFaultHandler(void)
   S_ProcessMemoryMetadata* pProcData;
   S_InterruptContext*      pIntContext;
 
-  pCurrentThread = SchedulerGetCurrentThread();
+  pCurrentThread = GetCurrentThread();
   pProcData = (S_ProcessMemoryMetadata*)pCurrentThread->pProcess->pMemoryData;
 
   /* Get the fault address and error code */
@@ -834,7 +835,7 @@ static bool _PageFaultHandler(void)
     pCurrentThread->errorTable.instAddr     = CPUGetContextIP(pCurrentThread);
     pCurrentThread->errorTable.pExecVCpu    = pCurrentThread->pVCpu;
 
-    SchedulerSetCurrentThreadErrored();
+    SignalThread(pCurrentThread, THREAD_SIGSEGV);
   }
   else
   {

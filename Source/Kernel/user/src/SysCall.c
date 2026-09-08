@@ -23,6 +23,7 @@
 /* Included headers */
 #include <errno.h>
 #include <stdint.h>
+#include <Signals.h>
 #include <Scheduler.h>
 #include <VirtualFS.h>
 
@@ -68,13 +69,17 @@ typedef enum
   /** @brief Get PID system call */
   SYSCALL_ID_GETPID,
   /** @brief Get TID system call */
-  SYSCALL_ID_GETTID,
+  SYSCALL_ID_THREAD_GETTID,
+  #endif
+  /** @brief Get self system call */
+  SYSCALL_ID_THREAD_GET_SELF,
   /** @brief Thread create system call */
   SYSCALL_ID_THREAD_CREATE,
   /** @brief Thread exit system call */
   SYSCALL_ID_THREAD_EXIT,
   /** @brief Thread join system call */
   SYSCALL_ID_THREAD_JOIN,
+#if 0
   /** @brief Thread detach system call */
   SYSCALL_ID_THREAD_DETACH,
   /** @brief Thread set priority system call */
@@ -94,12 +99,20 @@ typedef enum
   SYSCALL_ID_CLOSE,
   /** @brief Read file system call */
   SYSCALL_ID_READ,
-  /** @brief Readdir file system call */
+    /** @brief Readdir file system call */
   SYSCALL_ID_READDIR,
   /** @brief Write file system call */
   SYSCALL_ID_WRITE,
   /** @brief IOCTL system call */
   SYSCALL_ID_IOCTL,
+  /** @brief Signal system call */
+  SYSCALL_ID_SIGNAL,
+  /** @brief Signal register system call */
+  SYSCALL_ID_SIGNAL_REGISTER,
+  /** @brief Signal mask system call */
+  SYSCALL_ID_SIGNAL_MASK,
+  /** @brief Signal return system call */
+  SYSCALL_ID_SIGNAL_RETURN,
   /** @brief Maximal system call ID */
   SYSCALL_ID_MAX
 } E_SyscallId;
@@ -135,23 +148,30 @@ T_SyscallHandler spSyscallHandlerTable[SYSCALL_ID_MAX] =
   [SYSCALL_ID_GETTICKS] = SyscallGetTicks,
   [SYSCALL_ID_GETCPUID] = SyscallGetCPUID,
   [SYSCALL_ID_GETPID] = SyscallGetPID,
-  [SYSCALL_ID_GETTID] = SyscallGetTID,
+  [SYSCALL_ID_THREAD_GETTID] = SyscallThreadGetTID,
+  #endif
+  [SYSCALL_ID_THREAD_GET_SELF] = SyscallThreadGetSelf,
   [SYSCALL_ID_THREAD_CREATE] = SyscallThreadCreate,
   [SYSCALL_ID_THREAD_EXIT] = SyscallThreadExit,
   [SYSCALL_ID_THREAD_JOIN] = SyscallThreadJoin,
+  #if 0
   [SYSCALL_ID_THREAD_DETACH] = SyscallThreadDetach,
   [SYSCALL_ID_THREAD_SET_PRIORITY] = SyscallThreadSetPriority,
   [SYSCALL_ID_THREAD_GET_PRIORITY] = SyscallThreadGetPriority,
   [SYSCALL_ID_THREAD_GET_NAME] = SyscallThreadGetName,
   [SYSCALL_ID_THREAD_SET_AFFINITY] = SyscallThreadSetAffinity,
   [SYSCALL_ID_THREAD_GET_AFFINITY] = SyscallThreadGetAffinity,
-#endif
+  #endif
   [SYSCALL_ID_OPEN] = SyscallVFSOpen,
   [SYSCALL_ID_CLOSE] = SyscallVFSClose,
   [SYSCALL_ID_READ] = SyscallVFSRead,
   [SYSCALL_ID_READDIR] = SyscallVFSReadDir,
   [SYSCALL_ID_WRITE] = SyscallVFSWrite,
   [SYSCALL_ID_IOCTL] = SyscallVFSIOCTL,
+  [SYSCALL_ID_SIGNAL] = SyscallSignal,
+  [SYSCALL_ID_SIGNAL_REGISTER] = SyscallSignalRegister,
+  [SYSCALL_ID_SIGNAL_MASK] = SyscallSignalMask,
+  [SYSCALL_ID_SIGNAL_RETURN] = SyscallSignalReturn,
 };
 
 /*******************************************************************************

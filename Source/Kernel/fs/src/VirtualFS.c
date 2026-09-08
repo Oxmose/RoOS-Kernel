@@ -940,7 +940,7 @@ static void* _GenericOpen(void*       pDrvCtrl,
   /* Check if this is an exact node in the mount points */
   if (kpPath[0] == 0)
   {
-    pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+    pTable = GetCurrentProcess()->pFileDescriptorTable;
 
     pDesc = KMallocUser(sizeof(S_VFSGenericFileDescriptor), pTable->pAllocPool);
     if (pDesc != NULL)
@@ -971,7 +971,7 @@ static int32_t _GenericClose(void* pDrvCtrl, void* pHandle)
   /* Check if it was correctly opened */
   if (pHandle != NULL && pHandle != (void*)-1)
   {
-    pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+    pTable = GetCurrentProcess()->pFileDescriptorTable;
 
     KFreeUser(pHandle, pTable->pAllocPool);
     retVal = 0;
@@ -1319,7 +1319,7 @@ int32_t VFSOpen(const char* kpPath, int32_t flags, int32_t mode)
   void*       pHandle;
   void*       pDriverData;
 
-  pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+  pTable = GetCurrentProcess()->pFileDescriptorTable;
 
   /* Allocate the path and clean it */
   pPath = KMallocUser(VFS_PATH_MAX_LENGTH, pTable->pAllocPool);
@@ -1415,7 +1415,7 @@ int32_t VFSClose(int32_t fd)
   E_Return          error;
   int32_t           retVal;
 
-  pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+  pTable = GetCurrentProcess()->pFileDescriptorTable;
 
   KERNEL_LOCK(pTable->lock);
 
@@ -1461,7 +1461,7 @@ ssize_t VFSRead(int32_t fd, void* pBuffer, size_t count)
   void*             pHandle;
   void*             pDriverData;
 
-  pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+  pTable = GetCurrentProcess()->pFileDescriptorTable;
 
   KERNEL_LOCK(pTable->lock);
 
@@ -1513,7 +1513,7 @@ ssize_t VFSWrite(int32_t fd, const void* kpBuffer, size_t count)
   void*             pHandle;
   void*             pDriverData;
 
-  pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+  pTable = GetCurrentProcess()->pFileDescriptorTable;
 
   KERNEL_LOCK(pTable->lock);
 
@@ -1565,7 +1565,7 @@ int32_t VFSReaddir(int32_t fd, S_DirectoryEntry* pDirEntry)
   void*             pHandle;
   void*             pDriverData;
 
-  pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+  pTable = GetCurrentProcess()->pFileDescriptorTable;
 
   KERNEL_LOCK(pTable->lock);
 
@@ -1617,7 +1617,7 @@ ssize_t VFSIOCTL(int32_t fd, uint32_t operation, void* pArgs)
   void*             pHandle;
   void*             pDriverData;
 
-  pTable = SchedulerGetCurrentProcess()->pFileDescriptorTable;
+  pTable = GetCurrentProcess()->pFileDescriptorTable;
 
   KERNEL_LOCK(pTable->lock);
 

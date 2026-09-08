@@ -792,7 +792,7 @@ void* KMallocUser(const size_t kSize, S_ProcessHeap* pHeap)
   /* Get the current process heap if none is specified */
   if (pHeap == NULL)
   {
-    pHeap = SchedulerGetCurrentProcess()->pHeap;
+    pHeap = GetCurrentProcess()->pHeap;
   }
 
   alloc = _KMalloc(kSize, pHeap);
@@ -810,7 +810,7 @@ void KFreeUser(void *ptr, S_ProcessHeap* pHeap)
   /* Get the current process heap if none is specified */
   if (pHeap == NULL)
   {
-    pHeap = SchedulerGetCurrentProcess()->pHeap;
+    pHeap = GetCurrentProcess()->pHeap;
   }
 
   _KFree(ptr, pHeap);

@@ -833,9 +833,10 @@ static inline void _SetCursor(const uint32_t kLine, const uint32_t kColumn)
 
 static void _Scroll(const E_ScrollDirection kDirection, const uint32_t kLines)
 {
-  uint8_t toScroll;
-  uint8_t i;
-  uint8_t j;
+  uint8_t   toScroll;
+  uint8_t   i;
+  uint8_t   j;
+  uint16_t* pScreenMem;
 
   if (sVGADriverCtrl.lineCount < kLines)
   {
@@ -849,6 +850,7 @@ static void _Scroll(const E_ScrollDirection kDirection, const uint32_t kLines)
   /* Select scroll direction */
   if (kDirection == SCROLL_DOWN)
   {
+    KERNEL_LOCK(sVGADriverCtrl.bufferLock);
     /* For each line scroll we want */
     for (j = 0; j < toScroll; ++j)
     {
@@ -861,13 +863,12 @@ static void _Scroll(const E_ScrollDirection kDirection, const uint32_t kLines)
       }
     }
     /* Clear last line */
-    for (i = 0; i < sVGADriverCtrl.columnCount; ++i)
-    {
-      _PrintChar(sVGADriverCtrl.lineCount - 1, i, ' ');
-    }
+    pScreenMem = GET_FRAME_BUFFER_AT(sVGADriverCtrl.lineCount - 1, 0);
+    memset(pScreenMem, 0, sizeof(uint16_t) * sVGADriverCtrl.columnCount);
 
     /* Replace cursor */
     _SetCursor(sVGADriverCtrl.lineCount - toScroll, 0);
+    KERNEL_UNLOCK(sVGADriverCtrl.bufferLock);
   }
 }
 
