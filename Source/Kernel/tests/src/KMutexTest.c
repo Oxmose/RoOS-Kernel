@@ -97,7 +97,7 @@ static void* _TestMutualExclusionRoutine(void* args)
   S_KernelThread *pThread;
 
   pMutex = (S_KernelMutex*)args;
-  pThread = SchedulerGetCurrentThread();
+  pThread = GetCurrentThread();
 
   error = NO_ERROR;
   for (i = 0; i < 100; ++i)
@@ -128,7 +128,7 @@ static void* _TestPrioMutexRoutine(void* args)
   E_Return        error1;
 
   pMutex = (S_KernelMutex*)args;
-  pThread = SchedulerGetCurrentThread();
+  pThread = GetCurrentThread();
 
   error0 = KernelMutexLock(pMutex);
   getTid = sLastTid;
@@ -164,7 +164,7 @@ static void* _TestFIFOMutexRoutine(void* args)
   E_Return        error1;
 
   pMutex = (S_KernelMutex*)args;
-  pThread = SchedulerGetCurrentThread();
+  pThread = GetCurrentThread();
 
   error0 = KernelMutexLock(pMutex);
   if (sLastTid == pThread->tid + 1)
@@ -201,7 +201,7 @@ static void* _TestTrylockMutexRoutine(void* args)
   uint32_t       initBase;
   S_KernelMutex* pMutexes;
 
-  tid = SchedulerGetCurrentThread()->tid;
+  tid = GetCurrentThread()->tid;
 
   pMutexes = (S_KernelMutex*)args;
 
@@ -265,7 +265,7 @@ static void* _TestElevationMutexRoutine(void* args)
   S_KernelMutex*  pElevationMutex;
 
   pElevationMutex = (S_KernelMutex*)args;
-  pCurThread = SchedulerGetCurrentThread();
+  pCurThread = GetCurrentThread();
   prio = pCurThread->priority;
 
 

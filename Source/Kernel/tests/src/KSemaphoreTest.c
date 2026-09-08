@@ -95,7 +95,7 @@ static void* _TestMutualExclusionRoutine(void* args)
   S_KernelThread *pThread;
 
   pSemaphore = (S_KernelSemaphore *)args;
-  pThread = SchedulerGetCurrentThread();
+  pThread = GetCurrentThread();
 
   error = NO_ERROR;
   for (i = 0; i < 100; ++i)
@@ -126,7 +126,7 @@ static void* _TestPrioSemaphoreRoutine(void* args)
   E_Return        error1;
 
   pSemaphore = (S_KernelSemaphore*)args;
-  pThread = SchedulerGetCurrentThread();
+  pThread = GetCurrentThread();
 
   error0 = KernelSemaphoreWait(pSemaphore);
   getTid = sLastTid;
@@ -162,7 +162,7 @@ static void* _TestFIFOSemaphoreRoutine(void* args)
   E_Return        error1;
 
   pSemaphore = (S_KernelSemaphore*)args;
-  pThread = SchedulerGetCurrentThread();
+  pThread = GetCurrentThread();
 
   error0 = KernelSemaphoreWait(pSemaphore);
   if (sLastTid == pThread->tid + 1)
@@ -199,7 +199,7 @@ static void* _TestTryWaitSemaphoreRoutine(void* args)
   uint32_t       initBase;
   S_KernelSemaphore* pSemaphorees;
 
-  tid = SchedulerGetCurrentThread()->tid;
+  tid = GetCurrentThread()->tid;
 
   pSemaphorees = (S_KernelSemaphore*)args;
 

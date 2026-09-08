@@ -475,14 +475,25 @@ static ssize_t _ProcFSStatusRead(void*  pExtraData,
             threadState = THREAD_STATE_ZOMBIE;
           }
         }
-        else if (pThread->currentState == THREAD_STATE_WAITING)
+        else if (pThread->currentState == THREAD_STATE_WAITING_INTERRUPTIBLE)
         {
           if (threadState != THREAD_STATE_RUNNING &&
               threadState != THREAD_STATE_SLEEPING &&
               threadState != THREAD_STATE_JOINING &&
               threadState != THREAD_STATE_ZOMBIE)
           {
-            threadState = THREAD_STATE_WAITING;
+            threadState = THREAD_STATE_WAITING_INTERRUPTIBLE;
+          }
+        }
+        else if (pThread->currentState == THREAD_STATE_WAITING_UNINTERRUPTIBLE)
+        {
+          if (threadState != THREAD_STATE_RUNNING &&
+              threadState != THREAD_STATE_SLEEPING &&
+              threadState != THREAD_STATE_JOINING &&
+              threadState != THREAD_STATE_ZOMBIE &&
+              threadState != THREAD_STATE_WAITING_INTERRUPTIBLE)
+          {
+            threadState = THREAD_STATE_WAITING_UNINTERRUPTIBLE;
           }
         }
 
@@ -628,14 +639,25 @@ static ssize_t _ProcFSSchedStatsRead(void*  pExtraData,
             threadState = THREAD_STATE_ZOMBIE;
           }
         }
-        else if (pThread->currentState == THREAD_STATE_WAITING)
+        else if (pThread->currentState == THREAD_STATE_WAITING_INTERRUPTIBLE)
         {
           if (threadState != THREAD_STATE_RUNNING &&
               threadState != THREAD_STATE_SLEEPING &&
               threadState != THREAD_STATE_JOINING &&
               threadState != THREAD_STATE_ZOMBIE)
           {
-            threadState = THREAD_STATE_WAITING;
+            threadState = THREAD_STATE_WAITING_INTERRUPTIBLE;
+          }
+        }
+        else if (pThread->currentState == THREAD_STATE_WAITING_UNINTERRUPTIBLE)
+        {
+          if (threadState != THREAD_STATE_RUNNING &&
+              threadState != THREAD_STATE_SLEEPING &&
+              threadState != THREAD_STATE_JOINING &&
+              threadState != THREAD_STATE_ZOMBIE &&
+              threadState != THREAD_STATE_WAITING_INTERRUPTIBLE)
+          {
+            threadState = THREAD_STATE_WAITING_UNINTERRUPTIBLE;
           }
         }
 

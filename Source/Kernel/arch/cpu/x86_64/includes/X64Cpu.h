@@ -34,9 +34,6 @@
 /** @brief Number of entries in the kernel's IDT. */
 #define IDT_ENTRY_COUNT 256
 
-/** @brief FX data region size, increased with padding for alignement */
-#define FXDATA_REGION_SIZE 528
-
 /** @brief Defines the division by zero exception line */
 #define DIVISION_BY_ZERO_EXC_LINE 0x00
 /** @brief Defines debug exception line */
@@ -166,6 +163,118 @@ typedef struct
   uint64_t ss;
 } __attribute__((packed)) S_InterruptContext;
 
+/** @brief Holds the signal user context */
+typedef struct
+{
+  /** @brief Indicates if the signal is from a syscall. */
+  uint64_t isFromSyscall;
+
+  /** @brief RIP of the instruction. */
+  uint64_t rip;
+
+  /** @brief RFLAGS before the signal . */
+  uint64_t rflags;
+
+  /** @brief CPU's rsp register. */
+  uint64_t rsp;
+  /** @brief CPU's rbp register. */
+  uint64_t rbp;
+
+  /** @brief CPU's user gs register. */
+  uint64_t gsbase;
+
+  /** @brief CPU's r8 register. */
+  uint64_t r8;
+  /** @brief CPU's r9 register. */
+  uint64_t r9;
+  /** @brief CPU's r10 register. */
+  uint64_t r10;
+  /** @brief CPU's r11 register. */
+  uint64_t r11;
+  /** @brief CPU's r12 register. */
+  uint64_t r12;
+  /** @brief CPU's r13 register. */
+  uint64_t r13;
+  /** @brief CPU's r14 register. */
+  uint64_t r14;
+  /** @brief CPU's r15 register. */
+  uint64_t r15;
+
+  /** @brief CPU's rdi register. */
+  uint64_t rdi;
+  /** @brief CPU's rsi register. */
+  uint64_t rsi;
+  /** @brief CPU's rdx register. */
+  uint64_t rdx;
+  /** @brief CPU's rcx register. */
+  uint64_t rcx;
+  /** @brief CPU's rbx register. */
+  uint64_t rbx;
+  /** @brief CPU's rax register. */
+  uint64_t rax;
+
+  /** @brief FXSAVE / FXRSTOR data region. */
+  uint8_t fxDataRegion[];
+} __attribute__((packed)) S_SignalInterruptContext;
+
+typedef struct
+{
+  /** @brief Indicates if the signal is from a syscall. */
+  uint64_t isFromSyscall;
+
+  /** @brief CPU's rsp register. */
+  uint64_t rsp;
+  /** @brief CPU's rbp register. */
+  uint64_t rbp;
+  /** @brief CPU's r11 register. */
+  uint64_t r11;
+  /** @brief CPU's rdi register. */
+  uint64_t rdi;
+  /** @brief CPU's rsi register. */
+  uint64_t rsi;
+  /** @brief CPU's rcx register. */
+  uint64_t rcx;
+  /** @brief CPU's rax register. */
+  uint64_t rax;
+  /** @brief CPU's r15 register. */
+  uint64_t r15;
+  /** @brief CPU's r14 register. */
+  uint64_t r14;
+  /** @brief CPU's r13 register. */
+  uint64_t r13;
+  /** @brief CPU's r12 register. */
+  uint64_t r12;
+  /** @brief CPU's rbx register. */
+  uint64_t rbx;
+} __attribute__((packed)) S_SignalSyscallContext;
+
+/** @brief Holds the syscall context */
+typedef struct
+{
+  /** @brief CPU's rax register. */
+  uint64_t rax;
+  /** @brief CPU's rbp register. */
+  uint64_t rbp;
+  /** @brief CPU's r11 register. */
+  uint64_t r11;
+  /** @brief CPU's rcx register. */
+  uint64_t rcx;
+  /** @brief CPU's rsi register. */
+  uint64_t rsi;
+  /** @brief CPU's rdi register. */
+  uint64_t rdi;
+  /** @brief CPU's r15 register. */
+  uint64_t r15;
+  /** @brief CPU's r14 register. */
+  uint64_t r14;
+  /** @brief CPU's r13 register. */
+  uint64_t r13;
+  /** @brief CPU's r12 register. */
+  uint64_t r12;
+  /** @brief CPU's rbx register. */
+  uint64_t rbx;
+} __attribute__((packed)) S_SyscallContext;
+
 /** @brief Virtual CPU structure */
 typedef struct
 {
@@ -177,8 +286,12 @@ typedef struct
   uintptr_t kernelStack;
   /** @brief Stores a copy of the user stack address */
   uintptr_t userStack;
+  /** @brief Stores the thread handle */
+  uintptr_t threadHandle;
   /** @brief FXSAVE / FXRSTOR data region (non-aligned) */
   uintptr_t fxDataRegionNonAligned;
+  /** @brief FXSAVE / FXRSTOR data region size */
+  size_t fxDataRegionSize;
 } __attribute__((packed)) S_VirtualCPU;
 
 /*******************************************************************************
@@ -362,6 +475,30 @@ void CPUSyscallHandler(const uint64_t kSyscallId,
                        void*          pParam2,
                        void*          pParam3,
                        void*          pParam4);
+
+/**
+ * @brief Returns to the regular execution flow after a signal handler has been
+ * executed. Use this function when returning from an interrupt.
+ *
+ * @details This function is called when a signal handler has finished executing
+ * and the thread needs to return to its regular execution flow. It restores the
+ * thread's context to what it was before the signal handler was invoked.
+ *
+ * @param[in] kUserContext The user context to return to.
+ */
+void CPURestoreContextFromInterruptSignal(const uintptr_t kUserContext);
+
+/**
+ * @brief Returns to the regular execution flow after a signal handler has been
+ * executed. Use this function when returning from a system call.
+ *
+ * @details This function is called when a signal handler has finished executing
+ * and the thread needs to return to its regular execution flow. It restores the
+ * thread's context to what it was before the signal handler was invoked.
+ *
+ * @param[in] kUserContext The user context to return to.
+ */
+void CPURestoreContextFromSyscallSignal(const uintptr_t kUserContext);
 
 #endif /* #ifndef __CPU_X86_64_X64_CPU_H_ */
 

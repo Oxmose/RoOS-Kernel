@@ -407,6 +407,62 @@ E_Return CPUCreateTLS(S_KernelThread* pThread);
  */
 void CPUDestroyTLS(S_KernelThread* pThread);
 
+/**
+ * @brief Prepares a thread to handle a signal when returning from an interrupt.
+ *
+ * @details Prepares a thread to handle a signal. This function will setup the
+ * thread's stack and registers to handle the signal. The thread will be
+ * restored at the next instruction after this call.
+ *
+ * @param[in, out] pThread The thread to prepare for signal handling.
+ * @param[in] handler The address of the signal handler to call.
+ * @param[in] kSignal The signal number to handle.
+ */
+void CPUThreadSignalFromInt(S_KernelThread* pThread,
+                            const uintptr_t handler,
+                            const uint32_t  kSignal);
+
+/**
+ * @brief Prepares a thread to handle a signal when returning from an system
+ * call.
+ *
+ * @details Prepares a thread to handle a signal. This function will setup the
+ * thread's stack and registers to handle the signal. The thread will be
+ * restored at the next instruction after this call.
+ *
+ * @param[in, out] pThread The thread to prepare for signal handling.
+ * @param[in] handler The address of the signal handler to call.
+ * @param[in] kSignal The signal number to handle.
+ */
+void CPUThreadSignalFromSyscall(S_KernelThread* pThread,
+                                const uintptr_t handler,
+                                const uint32_t  kSignal);
+
+/**
+ * @brief Returns to the regular execution flow after a signal handler has been
+ * executed.
+ *
+ * @details This function is called when a signal handler has finished executing
+ * and the thread needs to return to its regular execution flow. It restores the
+ * thread's context to what it was before the signal handler was invoked.
+ *
+ * @param[in] pUserContext The user context to return to.
+ */
+void CPUThreadSignalReturn(void* pUserContext);
+
+/**
+ * @brief Checks if a thread is returning to user mode.
+ *
+ * @details This function checks if the provided thread is currently in the
+ * process of returning to user mode.
+ *
+ * @param[in] kpThread The thread to check.
+ *
+ * @return True is returned if the thread is returning to user mode. False
+ * otherwise.
+ */
+bool CPUIsReturningToUser(const S_KernelThread* kpThread);
+
 #endif /* #ifndef __CPU_CPU_H_ */
 
 /************************************ EOF *************************************/

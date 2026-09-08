@@ -205,7 +205,7 @@ void X64KernelEntry(void)
   KERNEL_SUCCESS("User space initialized.\n");
 
   /* Initialize the kernel shell */
-  KernelShellInit();
+  //KernelShellInit();
 #endif
 
   /* Perform first schedule */

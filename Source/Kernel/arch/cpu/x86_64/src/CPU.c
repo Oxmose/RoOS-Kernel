@@ -191,6 +191,10 @@
 #define MXCSR_PRECISION_EXC_MASK 0x00001000
 /** @brief CPU WP bit in CR0 */
 #define CPU_WP_BIT_CR0 0x10000
+/** @brief CPU MXCSR default value */
+#define FX_DATA_MXCSR_VALUE 0x1F80
+/** @brief Offset of the MXCSR in the Fx data region */
+#define FX_DATA_MXCSR_OFFSET 24
 
 /** @brief Thread's initial EFLAGS register value. */
 #define KERNEL_THREAD_INIT_RFLAGS 0x202 /* INT | PARITY */
@@ -1452,6 +1456,7 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
   size_t              fxDataSize;
   S_InterruptContext* pIntContext;
   S_CPUState*         pCPUState;
+  uint64_t*           pMXCSR;
 
   /* Allocate the new VCPU */
   pVCpu = KMallocUser(sizeof(S_VirtualCPU), pThread->pProcess->pHeap);
@@ -1459,6 +1464,7 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
   {
     /* Setup the FX Data and align */
     fxDataSize = spCPUConfiguration[0]->cpuInfo.fxStateSize + ALIGN_64_BYTES;
+    pVCpu->fxDataRegionSize = fxDataSize;
     pVCpu->fxDataRegionNonAligned = (uintptr_t)KMallocUser(fxDataSize,
                                                  pThread->pProcess->pHeap);
 
@@ -1468,16 +1474,24 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
       pVCpu->fxDataRegion = ALIGN_UP(pVCpu->fxDataRegionNonAligned,
                                      ALIGN_64_BYTES);
 
+      /* Set MXCSR */
+      pMXCSR = (uint64_t*)(pVCpu->fxDataRegion + FX_DATA_MXCSR_OFFSET);
+      *pMXCSR = FX_DATA_MXCSR_VALUE;
+      *(pMXCSR + 1) = 0;
+
+      /* Setup the virtual CPU context */
       stack = pThread->kernelStackEnd;
 
       /* Setup the context */
       stack          = ALIGN_DOWN(stack - ALIGN_8_BYTES, ALIGN_8_BYTES);
-      pIntContext    = (S_InterruptContext*)(stack - sizeof(S_InterruptContext));
+      pIntContext    = (S_InterruptContext*)
+                        (stack - sizeof(S_InterruptContext));
       pCPUState      = (S_CPUState*)((uintptr_t)pIntContext -
                                      sizeof(S_CPUState));
 
-      pVCpu->context     = (uintptr_t)pCPUState;
-      pVCpu->kernelStack = stack;
+      pVCpu->context      = (uintptr_t)pCPUState;
+      pVCpu->kernelStack  = stack;
+      pVCpu->threadHandle = (uintptr_t)pThread;
 
       /* Setup the interrupt context, thread always start in kernel mode */
       pIntContext->intId     = 0;
@@ -2356,6 +2370,158 @@ void CPUDestroyTLS(S_KernelThread* pThread)
                "Failed to release thread local storage.",
                error);
   }
+}
+
+void CPUThreadSignalFromInt(S_KernelThread* pThread,
+                            const uintptr_t handler,
+                            const uint32_t  kSignal)
+{
+  S_VirtualCPU*              pVCpu;
+  size_t                     signalContextSize;
+  S_InterruptContext*        pIntContext;
+  S_CPUState*                pCPUState;
+  S_SignalInterruptContext*  pSignalContext;
+
+  /* Get the thread's context */
+  pVCpu = pThread->pVCpu;
+  pIntContext = (S_InterruptContext*)(pVCpu->context + sizeof(S_CPUState));
+  pCPUState = (S_CPUState*)pVCpu->context;
+
+  /* Create the signal user context on the user stack */
+  signalContextSize = sizeof(S_SignalInterruptContext) +
+                      pVCpu->fxDataRegionSize;
+  pSignalContext = (S_SignalInterruptContext*)(pIntContext->rsp -
+                                               signalContextSize -
+                                               8);
+  if (pThread->stackEnd - pThread->stackSize < (uintptr_t)pSignalContext)
+  {
+    pSignalContext->isFromSyscall = 0;
+
+    /* Copy the user context */
+    pSignalContext->rip    = pIntContext->rip;
+    pSignalContext->rflags = pIntContext->rflags;
+    pSignalContext->rsp    = pIntContext->rsp;
+    pSignalContext->rbp    = pCPUState->rbp;
+    pSignalContext->gsbase = pCPUState->gsbase;
+    pSignalContext->r8     = pCPUState->r8;
+    pSignalContext->r9     = pCPUState->r9;
+    pSignalContext->r10    = pCPUState->r10;
+    pSignalContext->r11    = pCPUState->r11;
+    pSignalContext->r12    = pCPUState->r12;
+    pSignalContext->r13    = pCPUState->r13;
+    pSignalContext->r14    = pCPUState->r14;
+    pSignalContext->r15    = pCPUState->r15;
+    pSignalContext->rdi    = pCPUState->rdi;
+    pSignalContext->rsi    = pCPUState->rsi;
+    pSignalContext->rdx    = pCPUState->rdx;
+    pSignalContext->rcx    = pCPUState->rcx;
+    pSignalContext->rax    = pCPUState->rax;
+    memcpy(pSignalContext->fxDataRegion,
+           (void*)pVCpu->fxDataRegionNonAligned,
+           pVCpu->fxDataRegionSize);
+
+    /* Update the interrupt context to execute the signal handler */
+    pIntContext->rip = handler;
+    pIntContext->rsp = (uintptr_t)pSignalContext;
+    pCPUState->rdi   = kSignal;
+    pCPUState->rsi   = (uintptr_t)pSignalContext;
+  }
+  else
+  {
+    /* Not enough stack space, kill the current thread */
+    KillCurrentThread();
+  }
+}
+
+void CPUThreadSignalFromSyscall(S_KernelThread* pThread,
+                                const uintptr_t handler,
+                                const uint32_t  kSignal)
+{
+  S_VirtualCPU*           pVCpu;
+  size_t                  signalContextSize;
+  S_SignalSyscallContext* pSignalContext;
+  S_SyscallContext*       pSyscallContext;
+
+  /* Get the thread's context */
+  pVCpu = pThread->pVCpu;
+
+  /* Create the signal user context on the user stack */
+  signalContextSize = sizeof(S_SignalSyscallContext);
+  pSignalContext = (S_SignalSyscallContext*)(pVCpu->userStack -
+                                             signalContextSize -
+                                             8);
+  if (pThread->stackEnd - pThread->stackSize < (uintptr_t)pSignalContext)
+  {
+    pSyscallContext = (S_SyscallContext*)(ALIGN_DOWN(pVCpu->kernelStack,
+                                                    ALIGN_16_BYTES) -
+                                                    sizeof(S_SyscallContext));
+
+    pSignalContext->isFromSyscall = 1;
+
+    /* Copy the user context */
+    pSignalContext->rsp = pVCpu->userStack;
+    pSignalContext->rbp = pSyscallContext->rbp;
+    pSignalContext->r11 = pSyscallContext->r11;
+    pSignalContext->rdi = pSyscallContext->rdi;
+    pSignalContext->rsi = pSyscallContext->rsi;
+    pSignalContext->rcx = pSyscallContext->rcx;
+    pSignalContext->rax = pSyscallContext->rax;
+    pSignalContext->r15 = pSyscallContext->r15;
+    pSignalContext->r14 = pSyscallContext->r14;
+    pSignalContext->r13 = pSyscallContext->r13;
+    pSignalContext->r12 = pSyscallContext->r12;
+    pSignalContext->rbx = pSyscallContext->rbx;
+
+    /* Update the context to execute the signal handler */
+    pSyscallContext->rcx = handler;
+    pSyscallContext->rdi = kSignal;
+    pSyscallContext->rsi = (uintptr_t)pSignalContext;
+
+    /* Update user stack */
+    pVCpu->userStack = (uintptr_t)pSignalContext;
+  }
+  else
+  {
+    /* Not enough stack space, kill the current thread */
+    KillCurrentThread();
+  }
+}
+
+void CPUThreadSignalReturn(void* pUserContext)
+{
+  uint64_t* isFromSyscall;
+  uintptr_t userContext;
+  uint32_t  intState;
+
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+
+  /* Skip the origin flag */
+  userContext   = (uintptr_t)pUserContext + 8;
+  isFromSyscall = (uint64_t*)pUserContext;
+  if (*isFromSyscall == 0)
+  {
+    CPURestoreContextFromInterruptSignal(userContext);
+  }
+  else
+  {
+    CPURestoreContextFromSyscallSignal(userContext);
+  }
+
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
+}
+
+bool CPUIsReturningToUser(const S_KernelThread* kpThread)
+{
+  const S_VirtualCPU*       kpVCpu;
+  const S_InterruptContext* kpIntContext;
+  bool                      isReturning;
+
+  kpVCpu       = kpThread->pVCpu;
+  kpIntContext = (S_InterruptContext*)(kpVCpu->context + sizeof(S_CPUState));
+
+  isReturning = ((kpIntContext->cs & 0xFFFC) == USER_CS_64);
+
+  return isReturning;
 }
 
 /* Stack protection support */

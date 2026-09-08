@@ -154,30 +154,31 @@ E_Return KernelSemaphoreWait(S_KernelSemaphore* pSemaphore)
   KERNEL_ENTER_CRITICAL_LOCAL(intState);
   KERNEL_LOCK(pSemaphore->lock);
 
-  pCurThread = SchedulerGetCurrentThread();
+  pCurThread = GetCurrentThread();
 
   if (pSemaphore->lockState == 0)
   {
-    /* Set thread to waiting */
-    SchedulerSetCurrentThreadToWaiting();
-
-    /* Add to list */
-    if ((pSemaphore->flags & KSEMAPHORE_FLAG_QUEUING_FIFO) ==
-        KSEMAPHORE_FLAG_QUEUING_FIFO)
+    do
     {
-      KQueuePush(pCurThread->pThreadNode, pSemaphore->pWaitingList);
-    }
-    else
-    {
-      KQueuePushPrio(pCurThread->pThreadNode,
-                     pSemaphore->pWaitingList,
-                     pCurThread->priority);
-    }
+      /* Add to list */
+      if ((pSemaphore->flags & KSEMAPHORE_FLAG_QUEUING_FIFO) ==
+          KSEMAPHORE_FLAG_QUEUING_FIFO)
+      {
+        SetCurrentThreadToWaiting(pSemaphore->pWaitingList, false);
+      }
+      else
+      {
+        SetCurrentThreadToWaitingWithPriority(pSemaphore->pWaitingList,
+                                              pCurThread->priority,
+                                              false);
+      }
 
-    /* Unlock semaphore and schedule */
+      /* Unlock semaphore and schedule */
+      KERNEL_UNLOCK(pSemaphore->lock);
+      CPUSaveContextAndSchedule(pCurThread->pVCpu);
+      KERNEL_LOCK(pSemaphore->lock);
+    } while (pCurThread->pThreadNode->pQueuePtr != NULL);
     KERNEL_UNLOCK(pSemaphore->lock);
-    CPUSaveContextAndSchedule(pCurThread->pVCpu);
-
   }
   else
   {
@@ -211,7 +212,7 @@ E_Return KernelSemaphorePost(S_KernelSemaphore* pSemaphore)
       pReleasedThread = pNode->pData;
 
       /* Release the thread */
-      SchedulerSetThreadToReady(pReleasedThread);
+      SetThreadToReady(pReleasedThread);
     }
     else
     {

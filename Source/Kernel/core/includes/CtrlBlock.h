@@ -60,8 +60,10 @@ typedef enum
   THREAD_STATE_ZOMBIE,
   /** @brief Thread's scheduling state: joining. */
   THREAD_STATE_JOINING,
-  /** @brief Thread's scheduling state: waiting. */
-  THREAD_STATE_WAITING,
+  /** @brief Thread's scheduling state: waiting interruptible. */
+  THREAD_STATE_WAITING_INTERRUPTIBLE,
+  /** @brief Thread's scheduling state: waiting un-interruptible. */
+  THREAD_STATE_WAITING_UNINTERRUPTIBLE
 } E_ThreadState;
 
 /**
@@ -254,6 +256,18 @@ typedef struct S_KernelThread
   struct S_KernelProcess* pProcess;
   /** @brief Stores the thread that is currently joining this thread */
   struct S_KernelThread* pJoiningThread;
+
+  /**************************************
+   * Signal management
+   *************************************/
+  /** @brief The set of pending signals for the thread */
+  uint64_t pendingSignals;
+  /** @brief The set of blocked signals for the thread */
+  uint64_t blockedSignals;
+  /** @brief The set of signal handlers for the thread */
+  void* signalHandlers[THREAD_MAX_SIGNALS];
+  /** @brief Signal lock */
+  S_KernelSpinlock signalLock;
 
   /**************************************
    * Resources management

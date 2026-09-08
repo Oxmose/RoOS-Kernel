@@ -76,7 +76,6 @@ static void TestCreateInvalid(void);
 static void TestCreateValid(void);
 static void TestSleep(void);
 static void TestJoin(void);
-static void TestErrored(void);
 static void TestGetters(void);
 static void TestPriority(void);
 static void TestMappedCore(void);
@@ -94,7 +93,6 @@ static void* TestRoutine(void* args)
 
   TestSleep();
   TestJoin();
-  TestErrored();
   TestGetters();
   TestPriority();
   TestMappedCore();
@@ -129,20 +127,6 @@ static void* TestJoinRoutine(void* args)
   {
     return (void*)0xD00D;
   }
-}
-
-static void* TestErroredRoutine(void* args)
-{
-  (void)args;
-  SchedulerSetCurrentThreadErrored();
-
-  TEST_POINT_ASSERT_UBYTE(SCHED_TEST_ERROR_THREAD_ID(3),
-                          false,
-                          false,
-                          true,
-                          TEST_SCHEDULER_ENABLED);
-
-  return (void*)-1;
 }
 
 static void* TestPriorityRoutine(void* args)
@@ -512,7 +496,7 @@ static void TestJoin(void)
 
 
   /* Join self */
-  pSelf = SchedulerGetCurrentThread();
+  pSelf = GetCurrentThread();
   returnValue = (void*)0xDEAD;
   error = JoinThread(pSelf, &returnValue);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_JOIN_THREAD_ID(6),
@@ -569,53 +553,13 @@ static void TestJoin(void)
 
 }
 
-static void TestErrored(void)
-{
-  S_KernelThread* pTestThread;
-  E_Return        error;
-  S_CPUMask       cpuMask;
-  void*           returnValue;
-  char            name[32] = "TEST_THREAD_JOIN\0";
-
-  CPU_MASK_RESET(cpuMask);
-  CPU_MASK_SET(cpuMask, 0);
-
-  /* Join after end */
-  error = CreateThread(&pTestThread,
-                       true,
-                       20,
-                       name,
-                       0x1000,
-                       cpuMask,
-                       TestErroredRoutine,
-                       (void*)0,
-                         NULL);
-  TEST_POINT_ASSERT_RCODE(SCHED_TEST_ERROR_THREAD_ID(0),
-                          error == NO_ERROR,
-                          NO_ERROR,
-                          error,
-                          TEST_SCHEDULER_ENABLED);
-  returnValue = NULL;
-  error = JoinThread(pTestThread, &returnValue);
-  TEST_POINT_ASSERT_RCODE(SCHED_TEST_ERROR_THREAD_ID(1),
-                          error == NO_ERROR,
-                          NO_ERROR,
-                          error,
-                          TEST_SCHEDULER_ENABLED);
-  TEST_POINT_ASSERT_POINTER(SCHED_TEST_ERROR_THREAD_ID(2),
-                            returnValue == (void*)NULL,
-                            ((uintptr_t)NULL),
-                            (uintptr_t)returnValue,
-                            TEST_SCHEDULER_ENABLED);
-}
-
 static void TestGetters(void)
 {
   S_KernelThread* pSelf;
   S_KernelProcess* pSelfProcess;
 
   /* Get current thread */
-  pSelf = SchedulerGetCurrentThread();
+  pSelf = GetCurrentThread();
   TEST_POINT_ASSERT_POINTER(SCHED_TEST_GETTER_ID(0),
                             spTestThread == pSelf,
                             ((uintptr_t)spTestThread),
@@ -623,7 +567,7 @@ static void TestGetters(void)
                             TEST_SCHEDULER_ENABLED);
 
   /* Get current process */
-  pSelfProcess = SchedulerGetCurrentProcess();
+  pSelfProcess = GetCurrentProcess();
   TEST_POINT_ASSERT_POINTER(SCHED_TEST_GETTER_ID(1),
                             spTestThread->pProcess == pSelfProcess,
                             ((uintptr_t)spTestThread->pProcess),

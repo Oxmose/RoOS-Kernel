@@ -24,6 +24,7 @@
 #include <Panic.h>
 #include <X64Cpu.h>
 #include <stdbool.h>
+#include <Signals.h>
 #include <CtrlBlock.h>
 #include <Scheduler.h>
 
@@ -285,15 +286,14 @@ static bool _FPExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = DIVISION_BY_ZERO_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGFPE);
 
-  return true;
+  return false;
 }
 
 static bool _InvalidInstructionHandler(void)
@@ -301,15 +301,14 @@ static bool _InvalidInstructionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = INVALID_INSTRUCTION_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGILL);
 
-  return true;
+  return false;
 }
 
 static bool _DebugExceptionHandler(void)
@@ -317,15 +316,14 @@ static bool _DebugExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = DEBUG_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGTRAP);
 
-  return true;
+  return false;
 }
 
 static bool _BreakpointExceptionHandler(void)
@@ -333,15 +331,14 @@ static bool _BreakpointExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = BREAKPOINT_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGTRAP);
 
-  return true;
+  return false;
 }
 
 static bool _OverflowExceptionHandler(void)
@@ -349,15 +346,14 @@ static bool _OverflowExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = OVERFLOW_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGSEGV);
 
-  return true;
+  return false;
 }
 
 static bool _BoundRangeExceptionHandler(void)
@@ -365,15 +361,14 @@ static bool _BoundRangeExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = BOUND_RANGE_EXCEEDED_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGSEGV);
 
-  return true;
+  return false;
 }
 
 static bool _DeviceNotAvailableExceptionHandler(void)
@@ -381,15 +376,14 @@ static bool _DeviceNotAvailableExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = DEVICE_NOT_AVAILABLE_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGFPE);
 
-  return true;
+  return false;
 }
 
 static bool _DoubleFaultHandler(void)
@@ -406,32 +400,22 @@ static bool _DoubleFaultHandler(void)
 
 static bool _CoprocSegmentOverrunExceptionHandler(void)
 {
-  S_KernelThread* pCurrThread;
-
-  /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
-  pCurrThread->errorTable.exceptionId = COPROC_SEGMENT_OVERRUN_EXC_LINE;
-  pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
-  pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
-
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "Co-processor segment overrun detected",
+        true,
+        false);
 
   return true;
 }
 
 static bool _InvalidTSSExceptionHandler(void)
 {
-  S_KernelThread* pCurrThread;
-
-  /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
-  pCurrThread->errorTable.exceptionId = INVALID_TSS_EXC_LINE;
-  pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
-  pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
-
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "Invalid TSS detected",
+        true,
+        false);
 
   return true;
 }
@@ -441,13 +425,12 @@ static bool _SegmentNotPresentExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = SEGMENT_NOT_PRESENT_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGBUS);
 
   return true;
 }
@@ -457,13 +440,12 @@ static bool _StackSegmentFaultExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = STACK_SEGMENT_FAULT_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGSEGV);
 
   return true;
 }
@@ -473,13 +455,12 @@ static bool _GeneralProtectionExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = GENERAL_PROTECTION_FAULT_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGSEGV);
 
   return true;
 }
@@ -489,13 +470,12 @@ static bool _AlignementCheckExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = ALIGNEMENT_CHECK_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGBUS);
 
   return true;
 }
@@ -505,13 +485,12 @@ static bool _MachineCheckExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = MACHINE_CHECK_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGBUS);
 
   return true;
 }
@@ -521,93 +500,67 @@ static bool _SIMDFPExceptionHandler(void)
   S_KernelThread* pCurrThread;
 
   /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
+  pCurrThread = GetCurrentThread();
   pCurrThread->errorTable.exceptionId = SIMD_FLOATING_POINT_EXC_LINE;
   pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
   pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
 
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  SignalThread(pCurrThread, THREAD_SIGFPE);
 
   return true;
 }
 
 static bool _VirtualizationExceptionHandler(void)
 {
-  S_KernelThread* pCurrThread;
-
-  /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
-  pCurrThread->errorTable.exceptionId = VIRTUALIZATION_EXC_LINE;
-  pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
-  pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
-
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "Virtualization exception detected",
+        true,
+        false);
 
   return true;
 }
 
 static bool _ControlProtectionExceptionHandler(void)
 {
-  S_KernelThread* pCurrThread;
-
-  /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
-  pCurrThread->errorTable.exceptionId = CONTROL_PROTECTION_EXC_LINE;
-  pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
-  pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
-
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "Control protection exception detected",
+        true,
+        false);
 
   return true;
 }
 
 static bool _HypervisorInjectionExceptionHandler(void)
 {
-  S_KernelThread* pCurrThread;
-
-  /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
-  pCurrThread->errorTable.exceptionId = HYPERVISOR_INJECTION_EXC_LINE;
-  pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
-  pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
-
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "Hypervisor injection exception detected",
+        true,
+        false);
 
   return true;
 }
 
 static bool _VMMCommunicationExceptionHandler(void)
 {
-  S_KernelThread* pCurrThread;
-
-  /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
-  pCurrThread->errorTable.exceptionId = VMM_COMMUNICATION_EXC_LINE;
-  pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
-  pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
-
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "VMM communication exception detected",
+        true,
+        false);
 
   return true;
 }
 
 static bool _SecurityExceptionHandler(void)
 {
-  S_KernelThread* pCurrThread;
-
-  /* Fill the thread error table */
-  pCurrThread = SchedulerGetCurrentThread();
-  pCurrThread->errorTable.exceptionId = SECURITY_EXC_LINE;
-  pCurrThread->errorTable.instAddr    = CPUGetContextIP(pCurrThread);
-  pCurrThread->errorTable.pExecVCpu   = pCurrThread->pVCpu;
-
-  /* Set the thread to non executable */
-  SchedulerSetCurrentThreadErrored();
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "Security exception detected",
+        true,
+        false);
 
   return true;
 }

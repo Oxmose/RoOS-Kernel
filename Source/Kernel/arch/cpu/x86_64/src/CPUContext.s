@@ -28,10 +28,45 @@
 %define VCPU_OFF_CTX 0x0
 %define VCPU_OFF_FXD 0x8
 %define VCPU_OFF_KERNEL_STACK 0x10
+
 %define USER_DS_64 0x18
 %define USER_CS_64 0x20
+
 %define KERNEL_CS_64 0x08
+
 %define USER_THREAD_INIT_RFLAGS 0x202
+
+%define SIG_SYSCALL_CTX_OFF_RSP 0x0
+%define SIG_SYSCALL_CTX_OFF_RBP 0x8
+%define SIG_SYSCALL_CTX_OFF_R11 0x10
+%define SIG_SYSCALL_CTX_OFF_RCX 0x28
+%define SIG_SYSCALL_CTX_OFF_RAX 0x30
+%define SIG_SYSCALL_CTX_OFF_R15 0x38
+%define SIG_SYSCALL_CTX_OFF_R14 0x40
+%define SIG_SYSCALL_CTX_OFF_R13 0x48
+%define SIG_SYSCALL_CTX_OFF_R12 0x50
+%define SIG_SYSCALL_CTX_OFF_RBX 0x58
+
+%define SIG_INTERRUPT_CTX_OFF_RIP 0x0
+%define SIG_INTERRUPT_CTX_OFF_RFLAGS 0x8
+%define SIG_INTERRUPT_CTX_OFF_RSP 0x10
+%define SIG_INTERRUPT_CTX_OFF_RBP 0x18
+%define SIG_INTERRUPT_CTX_OFF_GSBASE 0x20
+%define SIG_INTERRUPT_CTX_OFF_R8 0x28
+%define SIG_INTERRUPT_CTX_OFF_R9 0x30
+%define SIG_INTERRUPT_CTX_OFF_R10 0x38
+%define SIG_INTERRUPT_CTX_OFF_R11 0x40
+%define SIG_INTERRUPT_CTX_OFF_R12 0x48
+%define SIG_INTERRUPT_CTX_OFF_R13 0x50
+%define SIG_INTERRUPT_CTX_OFF_R14 0x58
+%define SIG_INTERRUPT_CTX_OFF_R15 0x60
+%define SIG_INTERRUPT_CTX_OFF_RDI 0x68
+%define SIG_INTERRUPT_CTX_OFF_RSI 0x70
+%define SIG_INTERRUPT_CTX_OFF_RDX 0x78
+%define SIG_INTERRUPT_CTX_OFF_RCX 0x80
+%define SIG_INTERRUPT_CTX_OFF_RBX 0x88
+%define SIG_INTERRUPT_CTX_OFF_RAX 0x90
+%define SIG_INTERRUPT_CTX_OFF_FXDATA 0x98
 
 ;-------------------------------------------------------------------------------
 ; MACRO DEFINE
@@ -56,6 +91,8 @@ global CPUSaveContext
 global CPURestoreContext
 global CPUSaveContextAndSchedule
 global CPUEnterUserSpace
+global CPURestoreContextFromInterruptSignal
+global CPURestoreContextFromSyscallSignal
 
 ;-------------------------------------------------------------------------------
 ; EXPORTED DATA
@@ -325,6 +362,95 @@ CPUEnterUserSpace:
   ; Return to user space
   iretq
 
+;-------------------------------------------------------------------------------
+; Returns to the regular execution flow after a signal handler has been
+; executed. Use this function when returning from an interrupt.
+;
+; Param:
+;     RDI - The user context to return to.
+CPURestoreContextFromInterruptSignal:
+  ; Restore the FxData
+  mov rsi, rdi
+  add rsi, SIG_INTERRUPT_CTX_OFF_FXDATA
+  add rsi, 0x3F
+  and rsi, 0xFFFFFFFFFFFFFFC0
+  mov rax, 0xFFFFFFFFFFFFFFFF
+  mov rdx, 0xFFFFFFFFFFFFFFFF
+  xrstor64 [rsi]
+
+  ; Restore user GS that is swapped to kernel now
+  mov rax, [rdi + SIG_INTERRUPT_CTX_OFF_GSBASE]
+  mov rdx, rax
+  shr rdx, 32
+  mov ecx, 0xC0000102
+  wrmsr
+
+  ; Prepare the return stack SS:RSP
+  mov  rax, USER_DS_64
+  or   rax, 0x3
+  push rax
+  mov rax, [rdi + SIG_INTERRUPT_CTX_OFF_RSP]
+  push rax
+
+  ; Prepare the return stack RFLAGS
+  mov rax, [rdi + SIG_INTERRUPT_CTX_OFF_RFLAGS]
+  push rax
+
+  ; Prepare the return stack CS:RIP
+  mov  rax, USER_CS_64
+  or   rax, 0x3
+  push rax
+  mov rax, [rdi + SIG_INTERRUPT_CTX_OFF_RIP]
+  push rax
+
+  ; Restore the rest of the registers
+  mov rbp, [rdi + SIG_INTERRUPT_CTX_OFF_RBP]
+  mov r8,  [rdi + SIG_INTERRUPT_CTX_OFF_R8]
+  mov r9,  [rdi + SIG_INTERRUPT_CTX_OFF_R9]
+  mov r10, [rdi + SIG_INTERRUPT_CTX_OFF_R10]
+  mov r11, [rdi + SIG_INTERRUPT_CTX_OFF_R11]
+  mov r12, [rdi + SIG_INTERRUPT_CTX_OFF_R12]
+  mov r13, [rdi + SIG_INTERRUPT_CTX_OFF_R13]
+  mov r14, [rdi + SIG_INTERRUPT_CTX_OFF_R14]
+  mov r15, [rdi + SIG_INTERRUPT_CTX_OFF_R15]
+
+  mov rsi, [rdi + SIG_INTERRUPT_CTX_OFF_RSI]
+  mov rdx, [rdi + SIG_INTERRUPT_CTX_OFF_RDX]
+  mov rcx, [rdi + SIG_INTERRUPT_CTX_OFF_RCX]
+  mov rbx, [rdi + SIG_INTERRUPT_CTX_OFF_RBX]
+  mov rax, [rdi + SIG_INTERRUPT_CTX_OFF_RAX]
+  mov rdi, [rdi + SIG_INTERRUPT_CTX_OFF_RDI]
+
+  ; Swap GS
+  swapgs
+
+  ; Return to user space
+  iretq
+
+;-------------------------------------------------------------------------------
+; Returns to the regular execution flow after a signal handler has been
+; executed. Use this function when returning from a system call.
+;
+; Param:
+;     RDI - The user context to return to.
+CPURestoreContextFromSyscallSignal:
+  ; Restore the user context
+  mov rsp, [rdi + SIG_SYSCALL_CTX_OFF_RSP]
+  mov rbp, [rdi + SIG_SYSCALL_CTX_OFF_RBP]
+  mov r11, [rdi + SIG_SYSCALL_CTX_OFF_R11]
+  mov rcx, [rdi + SIG_SYSCALL_CTX_OFF_RCX]
+  mov rax, [rdi + SIG_SYSCALL_CTX_OFF_RAX]
+  mov r15, [rdi + SIG_SYSCALL_CTX_OFF_R15]
+  mov r14, [rdi + SIG_SYSCALL_CTX_OFF_R14]
+  mov r13, [rdi + SIG_SYSCALL_CTX_OFF_R13]
+  mov r12, [rdi + SIG_SYSCALL_CTX_OFF_R12]
+  mov rbx, [rdi + SIG_SYSCALL_CTX_OFF_RBX]
+
+  ; Swap GS
+  swapgs
+
+  ; Return to user space
+  o64 sysret
 
 ;-------------------------------------------------------------------------------
 ; DATA

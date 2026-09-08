@@ -29,7 +29,12 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/* None */
+/* TODO: Move */
+#define SOC_MAX_CPU_COUNT 64
+#define THREAD_NAME_MAX_LENGTH 32
+/** @brief Defines the table size for a CPU bitmask. */
+#define CPU_MASK_TABLE_SIZE \
+  (SOC_MAX_CPU_COUNT / 64ULL + ((SOC_MAX_CPU_COUNT % 64ULL != 0) ? 1 : 0))
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -50,13 +55,17 @@ typedef enum
   /** @brief Get PID system call */
   SYSCALL_ID_GETPID,
   /** @brief Get TID system call */
-  SYSCALL_ID_GETTID,
+  SYSCALL_ID_THREAD_GETTID,
+#endif
+  /** @brief Get self system call */
+  SYSCALL_ID_THREAD_GET_SELF,
   /** @brief Thread create system call */
   SYSCALL_ID_THREAD_CREATE,
   /** @brief Thread exit system call */
   SYSCALL_ID_THREAD_EXIT,
   /** @brief Thread join system call */
   SYSCALL_ID_THREAD_JOIN,
+#if 0
   /** @brief Thread detach system call */
   SYSCALL_ID_THREAD_DETACH,
   /** @brief Thread set priority system call */
@@ -82,9 +91,35 @@ typedef enum
   SYSCALL_ID_WRITE,
   /** @brief IOCTL system call */
   SYSCALL_ID_IOCTL,
+  /** @brief Signal system call */
+  SYSCALL_ID_SIGNAL,
+  /** @brief Signal register system call */
+  SYSCALL_ID_SIGNAL_REGISTER,
+  /** @brief Signal mask system call */
+  SYSCALL_ID_SIGNAL_MASK,
+  /** @brief Signal return system call */
+  SYSCALL_ID_SIGNAL_RETURN,
   /** @brief Maximal system call ID */
   SYSCALL_ID_MAX
 } E_SyscallId;
+
+/* TODO: Move once the system call interface is stable */
+/** @brief Defines a CPU mask. */
+typedef struct
+{
+  /** @brief The CPU mask table. */
+  unsigned long long mask[CPU_MASK_TABLE_SIZE];
+} S_CPUMask;
+
+/** @brief Thread attributes for syscall */
+typedef struct
+{
+  /** @brief Thread priority */
+  unsigned char   priority;
+  char      name[THREAD_NAME_MAX_LENGTH];
+  unsigned long long stackSize;
+  S_CPUMask mappedCPUs;
+} S_ThreadAttr;
 
 /*******************************************************************************
  * MACROS

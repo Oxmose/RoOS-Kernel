@@ -178,7 +178,7 @@ void InterruptMainHandler(void)
   bool               schedule;
 
   /* Get the current thread */
-  pCurrentThread = SchedulerGetCurrentThread();
+  pCurrentThread = GetCurrentThread();
   intId          = CPUGetContextInterruptNumber(pCurrentThread);
 
   /* Check for spurious interrupt */
@@ -216,7 +216,7 @@ void InterruptMainHandler(void)
   }
   else
   {
-    CPURestoreContext(pCurrentThread);
+    SchedulerRestoreThread(pCurrentThread);
   }
 
   PANIC(ERR_UNAUTHORIZED_ACTION,
