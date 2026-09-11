@@ -74,18 +74,24 @@
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-void SignalInitinitalize(S_KernelThread* pThread)
+void SignalInitinitalize(S_KernelThread* pThread,
+                         S_KernelThread* pCurrentThread)
 {
   uint32_t i;
 
-  /* Initialize the signal table with default handlers */
-  for (i = 0; i < THREAD_MAX_SIGNALS; i++)
+  if (pCurrentThread != NULL)
   {
-    pThread->signalHandlers[i] = NULL;
+    /* Inherit the signal mask from the current thread */
+    pThread->blockedSignals = pCurrentThread->blockedSignals;
   }
+  else
+  {
+    /* Reset the signal mask */
+    pThread->blockedSignals = 0;
+  }
+
   /* Clear the signal queue and mask */
   pThread->pendingSignals = 0;
-  pThread->blockedSignals = 0;
 
   /* Initialize the signal lock */
   KERNEL_SPINLOCK_INIT(pThread->signalLock);
@@ -95,7 +101,8 @@ E_Return RegisterSignalHandler(const THREAD_SIGNAL_E kSignal,
                                T_SignalHandler       handler,
                                S_KernelThread*       pThread)
 {
-  E_Return error;
+  E_Return         error;
+  S_KernelProcess* pProcess;
 
   if (pThread->type == THREAD_TYPE_USER)
   {
@@ -104,7 +111,10 @@ E_Return RegisterSignalHandler(const THREAD_SIGNAL_E kSignal,
         kSignal != THREAD_SIGKILL &&
         kSignal != THREAD_SIGSTOP)
     {
-      pThread->signalHandlers[kSignal] = (void*)handler;
+      pProcess = pThread->pProcess;
+      KERNEL_LOCK(pProcess->signalLock);
+      pProcess->signalHandlers[kSignal] = (void*)handler;
+      KERNEL_UNLOCK(pProcess->signalLock);
       error = NO_ERROR;
     }
     else
@@ -195,9 +205,10 @@ E_Return SignalThread(S_KernelThread* pThread, const THREAD_SIGNAL_E kSignal)
 
 void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
 {
-  uint32_t i;
-  void*    handler;
-  bool     isReturningToUser;
+  uint32_t         i;
+  void*            handler;
+  bool             isReturningToUser;
+  S_KernelProcess* pProcess;
 
   isReturningToUser = kIsSyscall || CPUIsReturningToUser(pThread);
 
@@ -234,10 +245,15 @@ void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
             /* Clear the pending signal */
             pThread->pendingSignals &= ~(1 << i);
 
-            if (pThread->signalHandlers[i] != NULL)
+            pProcess = pThread->pProcess;
+
+            KERNEL_LOCK(pProcess->signalLock);
+            if (pProcess->signalHandlers[i] != NULL)
             {
               /* Get the handler and request the signal to be handled */
-              handler = pThread->signalHandlers[i];
+              handler = pProcess->signalHandlers[i];
+
+              KERNEL_UNLOCK(pProcess->signalLock);
               if (kIsSyscall == true)
               {
                 CPUThreadSignalFromSyscall(pThread, (uintptr_t)handler, i);
@@ -250,6 +266,7 @@ void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
             else
             {
               /* No handler, kill the thread */
+              KERNEL_UNLOCK(pProcess->signalLock);
               KillCurrentThread();
             }
 
@@ -275,17 +292,15 @@ void* SyscallSignal(void* pParam0,
   void*           returnValue;
   THREAD_SIGNAL_E signal;
   S_KernelThread* pThread;
-  S_KernelThread* pThreadValid;
 
   (void)pParam2;
   (void)pParam3;
   (void)pParam4;
 
   signal = (THREAD_SIGNAL_E)(uintptr_t)pParam0;
-  pThread = (S_KernelThread*)pParam1; // TOdo check accessiblity
+  pThread = (S_KernelThread*)pParam1;
 
-  pThreadValid = GetThreadById(pThread->tid);
-  if (pThread == pThreadValid)
+  if (IsThreadValid(pThread) == true)
   {
     retCode = SignalThread(pThread, signal);
     if (retCode == NO_ERROR)
@@ -328,19 +343,26 @@ void* SyscallSignalRegister(void* pParam0,
   signal  = (THREAD_SIGNAL_E)(uintptr_t)pParam0;
   handler = (T_SignalHandler)(uintptr_t)pParam1;
 
-  pThread = GetCurrentThread();
-  retCode = RegisterSignalHandler(signal, handler, pThread);
-  if (retCode == NO_ERROR)
+  if (MemoryIsMappedForUser(handler) == true)
   {
-    returnValue = (void*)0;
-  }
-  else if (retCode == ERR_INVALID_PARAMETER)
-  {
-    returnValue = (void*)-EINVAL;
+    pThread = GetCurrentThread();
+    retCode = RegisterSignalHandler(signal, handler, pThread);
+    if (retCode == NO_ERROR)
+    {
+      returnValue = (void*)0;
+    }
+    else if (retCode == ERR_INVALID_PARAMETER)
+    {
+      returnValue = (void*)-EINVAL;
+    }
+    else
+    {
+      returnValue = (void*)-EPERM;
+    }
   }
   else
   {
-    returnValue = (void*)-EPERM;
+    returnValue = (void*)-EINVAL;
   }
 
   return returnValue;
@@ -397,10 +419,9 @@ void* SyscallSignalReturn(void* pParam0,
   (void)pParam4;
 
   pUserContext = (void*)(uintptr_t)pParam0;
-
   CPUThreadSignalReturn(pUserContext);
 
-  return (void*)0;
+  return (void*)-EFAULT;
 }
 
 /************************************ EOF *************************************/

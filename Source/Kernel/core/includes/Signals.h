@@ -135,8 +135,10 @@ typedef enum
  * default handlers and the signal mask reset.
  *
  * @param[in, out] pThread The thread to initialize.
+ * @param[in] pCurrentThread The current thread.
  */
-void SignalInitinitalize(S_KernelThread* pThread);
+void SignalInitinitalize(S_KernelThread* pThread,
+                         S_KernelThread* pCurrentThread);
 
 /**
  * @brief Registers a new signal handler for the current thread.

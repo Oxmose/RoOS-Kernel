@@ -530,6 +530,11 @@ static void _CreateMainProcess(void)
                retCode,
                false);
 
+  memset(spMainProcess->signalHandlers,
+         0,
+         sizeof(spMainProcess->signalHandlers));
+  KERNEL_SPINLOCK_INIT(spMainProcess->signalLock);
+
   KERNEL_SPINLOCK_INIT(spMainProcess->lock);
 }
 
@@ -627,7 +632,7 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
                retCode,
                false);
 
-  SignalInitinitalize(pIdle);
+  SignalInitinitalize(pIdle, NULL);
 }
 
 static S_KernelThread* _ElectNextThread(S_ScheduleContext* pContext)
@@ -1459,7 +1464,7 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                     KERNEL_UNLOCK(pCurrentProcess->lock);
 
                     /* Init signals */
-                    SignalInitinitalize(pThread);
+                    SignalInitinitalize(pThread, GetCUrrentThread());
 
                     /* Put the thread in the scheduler context */
                     pContext = _SelectNextContext(pThread);
@@ -1778,6 +1783,11 @@ E_Return CreateInitProcess(S_KernelProcess** ppProcess)
                 KQueuePush(pNode, pProcess->pParent->pChildren);
                 KERNEL_UNLOCK(pProcess->pParent->lock);
 
+                memset(pProcess->signalHandlers,
+                       0,
+                       sizeof(pProcess->signalHandlers));
+                KERNEL_SPINLOCK_INIT(pProcess->signalLock);
+
                 *ppProcess = pProcess;
               }
               else
@@ -1872,7 +1882,7 @@ void* SyscallThreadCreate(void* pParam0,
                           void* pParam3,
                           void* pParam4)
 {
-  S_KernelThread** pThread;
+  S_KernelThread** ppThread;
   S_ThreadAttr*    pAttr;
   E_Return         error;
   T_ThreadRoutine  routine;
@@ -1881,36 +1891,46 @@ void* SyscallThreadCreate(void* pParam0,
 
   (void)pParam4;
 
-  pThread = (S_KernelThread**)pParam0;
+  ppThread = (S_KernelThread**)pParam0;
   pAttr   = (S_ThreadAttr*)pParam1;
   routine = (T_ThreadRoutine)pParam2;
   args    = (void*)pParam3;
 
-  error = CreateThread(pThread,
-                       false,
-                       pAttr->priority,
-                       pAttr->name,
-                       pAttr->stackSize,
-                       pAttr->mappedCPUs,
-                       routine,
-                       args,
-                       NULL);
+  if (MemoryIsMappedForUser(pAttr) == true &&
+      MemoryIsMappedForUser(ppThread) == true &&
+      MemoryIsMappedForUser(routine) == true &&
+      MemoryIsMappedForUser(args) == true)
+  {
+    error = CreateThread(ppThread,
+                         false,
+                         pAttr->priority,
+                         pAttr->name,
+                         pAttr->stackSize,
+                         pAttr->mappedCPUs,
+                         routine,
+                         args,
+                         NULL);
 
-  if (error == NO_ERROR)
-  {
-    retCode = (void*)0;
-  }
-  else if (error == ERR_NO_MEMORY)
-  {
-    retCode = (void*)-ENOMEM;
-  }
-  else if (error == ERR_INVALID_PARAMETER)
-  {
-    retCode = (void*)-EINVAL;
+    if (error == NO_ERROR)
+    {
+      retCode = (void*)0;
+    }
+    else if (error == ERR_NO_MEMORY)
+    {
+      retCode = (void*)-ENOMEM;
+    }
+    else if (error == ERR_INVALID_PARAMETER)
+    {
+      retCode = (void*)-EINVAL;
+    }
+    else
+    {
+      retCode = (void*)-EFAULT;
+    }
   }
   else
   {
-    retCode = (void*)-EFAULT;
+    retCode = (void*)-EINVAL;
   }
 
   return retCode;
@@ -1934,14 +1954,22 @@ void* SyscallThreadJoin(void* pParam0,
   pThread = (S_KernelThread*)pParam0;
   returnValue = (void**)pParam1;
 
-  error = JoinThread(pThread, returnValue);
-  if (error == NO_ERROR)
+  if (SchedulerIsThreadValid(pThread) == true &&
+      MemoryIsMappedForUser(returnValue) == true)
   {
-    retCode = (void*)0;
-  }
-  else if (error == ERR_UNAUTHORIZED_ACTION)
-  {
-    retCode = (void*)-EPERM;
+    error = JoinThread(pThread, returnValue);
+    if (error == NO_ERROR)
+    {
+      retCode = (void*)0;
+    }
+    else if (error == ERR_UNAUTHORIZED_ACTION)
+    {
+      retCode = (void*)-EPERM;
+    }
+    else
+    {
+      retCode = (void*)-EINVAL;
+    }
   }
   else
   {
@@ -1980,6 +2008,7 @@ void* SyscallThreadGetSelf(void* pParam0,
                            void* pParam4)
 {
   void** ppThread;
+  void*  retCode;
 
   (void)pParam1;
   (void)pParam2;
@@ -1987,9 +2016,18 @@ void* SyscallThreadGetSelf(void* pParam0,
   (void)pParam4;
 
   ppThread = (void**)pParam0;
-  *ppThread = GetCurrentThread();
 
-  return (void*)0;
+  if (MemoryIsMappedForUser(ppThread) == true)
+  {
+    *ppThread = GetCurrentThread();
+    retCode = (void*)0;
+  }
+  else
+  {
+    retCode = (void*)-EINVAL;
+  }
+
+  return retCode;
 }
 
 /************************************ EOF *************************************/
