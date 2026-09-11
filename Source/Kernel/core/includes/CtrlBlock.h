@@ -130,6 +130,14 @@ typedef struct S_KernelProcess
   S_ProcessHeap* pHeap;
 
   /**************************************
+   * Signal management
+   *************************************/
+  /** @brief The set of signal handlers for the thread */
+  void* signalHandlers[THREAD_MAX_SIGNALS];
+  /** @brief Signal lock */
+  S_KernelSpinlock signalLock;
+
+  /**************************************
    * Thread Local Storage management
    *************************************/
   /** @brief Stores the main TLS size */
@@ -264,8 +272,6 @@ typedef struct S_KernelThread
   uint64_t pendingSignals;
   /** @brief The set of blocked signals for the thread */
   uint64_t blockedSignals;
-  /** @brief The set of signal handlers for the thread */
-  void* signalHandlers[THREAD_MAX_SIGNALS];
   /** @brief Signal lock */
   S_KernelSpinlock signalLock;
 
