@@ -1838,6 +1838,56 @@ S_KernelThread* GetThreadById(const int32_t kThreadId)
   return pThread;
 }
 
+bool IsThreadValid(const S_KernelThread* kpThread)
+{
+  S_KernelThread* pThread;
+  E_Return        error;
+  bool            valid;
+
+  if (MemoryIsMappedWithFlags(kpThread,
+                              sizeof(S_KernelThread),
+                              MEMMGR_MAP_RW | MEMMGR_MAP_KERNEL) == true)
+  {
+    error = UHashtableGet(spThreadsTable, kpThread->tid, (void**)&pThread);
+    if (error != NO_ERROR || pThread != kpThread)
+    {
+      valid = false;
+    }
+    else
+    {
+      valid = true;
+    }
+  }
+  else
+  {
+    valid = false;
+  }
+
+  return valid;
+}
+
+bool IsThreadJoinable(const S_KernelThread* kpThread)
+{
+  bool             joinable;
+  S_KernelProcess* pProcess;
+
+
+  pProcess = GetCurrentProcess();
+
+  if (IsThreadValid(kpThread) == true &&
+      kpThread->pJoiningThread == NULL &&
+      kpThread->pProcess == pProcess)
+  {
+    joinable = true;
+  }
+  else
+  {
+    joinable = false;
+  }
+
+  return joinable;
+}
+
 /*******************************************************************************
  * SYSCALL HANDLERS
  ******************************************************************************/
@@ -1964,10 +2014,7 @@ void* SyscallThreadJoin(void* pParam0,
   pThread = (S_KernelThread*)pParam0;
   returnValue = (void**)pParam1;
 
-  if (MemoryIsMappedWithFlags(pThread,
-                              sizeof(S_KernelThread),
-                              MEMMGR_MAP_RW | MEMMGR_MAP_KERNEL) == true &&
-      SchedulerIsThreadJoinable(pThread) == true &&
+  if (IsThreadJoinable(pThread) == true &&
       MemoryIsMappedWithFlags(returnValue,
                               sizeof(void*),
                               MEMMGR_MAP_RW |

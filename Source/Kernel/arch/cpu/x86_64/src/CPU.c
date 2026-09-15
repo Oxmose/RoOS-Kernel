@@ -210,6 +210,11 @@
 /** @brief Size in number of elements of the IPI queues */
 #define IPI_QUEUE_SIZE 50
 
+/** @brief Magic values for signaling from syscall */
+#define SIGNAL_FROM_SYSCALL_MAGIC 0xA5A5AD00D1FCA110
+/** @brief Magic value for signaling from interrupt */
+#define SIGNAL_FROM_INTERRUPT_MAGIC 0x5A5A1000BEEFCAFE
+
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
@@ -2395,7 +2400,7 @@ void CPUThreadSignalFromInt(S_KernelThread* pThread,
                                                8);
   if (pThread->stackEnd - pThread->stackSize < (uintptr_t)pSignalContext)
   {
-    pSignalContext->isFromSyscall = 0;
+    pSignalContext->isFromSyscall = SIGNAL_FROM_INTERRUPT_MAGIC;
 
     /* Copy the user context */
     pSignalContext->rip    = pIntContext->rip;
@@ -2456,7 +2461,7 @@ void CPUThreadSignalFromSyscall(S_KernelThread* pThread,
                                                     ALIGN_16_BYTES) -
                                                     sizeof(S_SyscallContext));
 
-    pSignalContext->isFromSyscall = 1;
+    pSignalContext->isFromSyscall = SIGNAL_FROM_SYSCALL_MAGIC;
 
     /* Copy the user context */
     pSignalContext->rsp = pVCpu->userStack;
@@ -2498,11 +2503,11 @@ void CPUThreadSignalReturn(void* pUserContext)
   /* Skip the origin flag */
   userContext   = (uintptr_t)pUserContext + 8;
   isFromSyscall = (uint64_t*)pUserContext;
-  if (*isFromSyscall == 0)
+  if (*isFromSyscall == SIGNAL_FROM_INTERRUPT_MAGIC)
   {
     CPURestoreContextFromInterruptSignal(userContext);
   }
-  else
+  else if (*isFromSyscall == SIGNAL_FROM_SYSCALL_MAGIC)
   {
     CPURestoreContextFromSyscallSignal(userContext);
   }

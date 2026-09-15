@@ -350,6 +350,31 @@ void SchedulerRestoreThread(S_KernelThread* pThread);
  */
 S_KernelThread* GetThreadById(const int32_t kThreadId);
 
+/**
+ * @brief Tells if a thread is valid.
+ *
+ * @details Tells if a thread is valid. A thread is considered valid if it is
+ * not NULL and has a valid state.
+ *
+ * @param[in] kpThread The thread to check.
+ *
+ * @return The function returns true if the thread is valid, false otherwise.
+ */
+bool IsThreadValid(const S_KernelThread* kpThread);
+
+/**
+ * @brief Tells if a thread is joinable.
+ *
+ * @details Tells if a thread is joinable. A thread is considered joinable if it
+ * is in a state that allows another thread to wait for its completion and
+ * retrieve its return value.
+ *
+ * @param[in] kpThread The thread to check.
+ *
+ * @return The function returns true if the thread is joinable, false otherwise.
+ */
+bool IsThreadJoinable(const S_KernelThread* kpThread);
+
 /*******************************************************************************
  * SYSCALL HANDLERS
  ******************************************************************************/

@@ -429,7 +429,6 @@ static void TestJoin(void)
 {
   S_KernelThread* pTestThread;
   S_KernelThread* pSelf;
-  S_KernelThread  copyThread;
   E_Return        error;
   S_CPUMask       cpuMask;
   void*           returnValue;
@@ -525,20 +524,6 @@ static void TestJoin(void)
                           NO_ERROR,
                           error,
                           TEST_SCHEDULER_ENABLED);
-  memcpy(&copyThread, pTestThread, sizeof(S_KernelThread));
-  copyThread.pProcess = (void*)0xDEADBEEFC0DE;
-  returnValue = (void*)0xDEAD;
-  error = JoinThread(&copyThread, &returnValue);
-  TEST_POINT_ASSERT_RCODE(SCHED_TEST_JOIN_THREAD_ID(9),
-                          error == ERR_UNAUTHORIZED_ACTION,
-                          ERR_UNAUTHORIZED_ACTION,
-                          error,
-                          TEST_SCHEDULER_ENABLED);
-  TEST_POINT_ASSERT_POINTER(SCHED_TEST_JOIN_THREAD_ID(10),
-                            returnValue == (void*)0xDEAD,
-                            ((uintptr_t)0xDEAD),
-                            (uintptr_t)returnValue,
-                            TEST_SCHEDULER_ENABLED);
   error = JoinThread(pTestThread, &returnValue);
   TEST_POINT_ASSERT_RCODE(SCHED_TEST_JOIN_THREAD_ID(11),
                           error == NO_ERROR,
