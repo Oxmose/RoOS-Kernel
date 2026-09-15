@@ -24,6 +24,7 @@
 #include <CPU.h>
 #include <errno.h>
 #include <stdint.h>
+#include <Memory.h>
 #include <Critical.h>
 #include <CtrlBlock.h>
 #include <Scheduler.h>
@@ -343,7 +344,11 @@ void* SyscallSignalRegister(void* pParam0,
   signal  = (THREAD_SIGNAL_E)(uintptr_t)pParam0;
   handler = (T_SignalHandler)(uintptr_t)pParam1;
 
-  if (MemoryIsMappedForUser(handler) == true)
+  if (MemoryIsMappedWithFlags(handler,
+                              sizeof(uintptr_t),
+                              MEMMGR_MAP_USER |
+                              MEMMGR_MAP_RO |
+                              MEMMGR_MAP_EXEC) == true)
   {
     pThread = GetCurrentThread();
     retCode = RegisterSignalHandler(signal, handler, pThread);

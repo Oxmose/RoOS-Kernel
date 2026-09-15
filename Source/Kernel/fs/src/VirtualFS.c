@@ -27,6 +27,8 @@
 #include <Vector.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <errno.h>
+#include <Memory.h>
 #include <Critical.h>
 #include <CtrlBlock.h>
 #include <Scheduler.h>
@@ -1835,11 +1837,19 @@ void* SyscallVFSOpen(void* pParam0,
   (void)pParam3;
   (void)pParam4;
 
-  kpPath = pParam0;
-  flags  = (int32_t)(uintptr_t)pParam1;
-  mode   = (int32_t)(uintptr_t)pParam2;
+  if (MemoryStringIsMappedForUser(kpPath, VFS_PATH_MAX_LENGTH) == true)
+  {
 
-  retCode = (void*)(uintptr_t)VFSOpen(kpPath, flags, mode);
+    kpPath = pParam0;
+    flags  = (int32_t)(uintptr_t)pParam1;
+    mode   = (int32_t)(uintptr_t)pParam2;
+
+    retCode = (void*)(uintptr_t)VFSOpen(kpPath, flags, mode);
+  }
+  else
+  {
+    retCode = (void*)(uintptr_t)-EINVAL;
+  }
 
   return retCode;
 }
@@ -1881,7 +1891,18 @@ void* SyscallVFSRead(void* pParam0,
   fd    = (int32_t)(uintptr_t)pParam0;
   count = (size_t)(uintptr_t)pParam2;
 
-  retCode = (void*)(uintptr_t)VFSRead(fd, pParam1, count);
+  if (MemoryIsMappedWithFlags(pParam1,
+                              count,
+                              MEMMGR_MAP_USER |
+                              MEMMGR_MAP_KERNEL |
+                              MEMMGR_MAP_RW) == true)
+  {
+    retCode = (void*)(uintptr_t)VFSRead(fd, pParam1, count);
+  }
+  else
+  {
+    retCode = (void*)(uintptr_t)-EINVAL;
+  }
 
   return retCode;
 }
@@ -1903,7 +1924,18 @@ void* SyscallVFSReadDir(void* pParam0,
   fd        = (int32_t)(uintptr_t)pParam0;
   pDirEntry = (S_DirectoryEntry*)pParam1;
 
-  retCode = (void*)(uintptr_t)VFSReaddir(fd, pDirEntry);
+  if (MemoryIsMappedWithFlags(pDirEntry,
+                              sizeof(S_DirectoryEntry),
+                              MEMMGR_MAP_USER |
+                              MEMMGR_MAP_KERNEL |
+                              MEMMGR_MAP_RW) == true)
+  {
+    retCode = (void*)(uintptr_t)VFSReaddir(fd, pDirEntry);
+  }
+  else
+  {
+    retCode = (void*)(uintptr_t)-EINVAL;
+  }
 
   return retCode;
 }
@@ -1924,7 +1956,18 @@ void* SyscallVFSWrite(void* pParam0,
   fd    = (int32_t)(uintptr_t)pParam0;
   count = (size_t)(uintptr_t)pParam2;
 
-  retCode = (void*)(uintptr_t)VFSWrite(fd, pParam1, count);
+  if (MemoryIsMappedWithFlags(pParam1,
+                              count,
+                              MEMMGR_MAP_USER |
+                              MEMMGR_MAP_KERNEL |
+                              MEMMGR_MAP_RW) == true)
+  {
+    retCode = (void*)(uintptr_t)VFSWrite(fd, pParam1, count);
+  }
+  else
+  {
+    retCode = (void*)(uintptr_t)-EINVAL;
+  }
 
   return retCode;
 }

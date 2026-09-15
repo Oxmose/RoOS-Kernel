@@ -1464,7 +1464,7 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                     KERNEL_UNLOCK(pCurrentProcess->lock);
 
                     /* Init signals */
-                    SignalInitinitalize(pThread, GetCUrrentThread());
+                    SignalInitinitalize(pThread, GetCurrentThread());
 
                     /* Put the thread in the scheduler context */
                     pContext = _SelectNextContext(pThread);
@@ -1598,8 +1598,7 @@ E_Return JoinThread(S_KernelThread* pThread,
   pCurrentThread = GetCurrentThread();
 
   /* Ensure we are allowed to join the thread */
-  if (pThread->pProcess == pCurrentThread->pProcess &&
-      pThread != pCurrentThread &&
+  if (pThread != pCurrentThread &&
       pThread != pThread->pProcess->pMainThread)
   {
     KERNEL_LOCK(pThread->lock);
@@ -1896,10 +1895,21 @@ void* SyscallThreadCreate(void* pParam0,
   routine = (T_ThreadRoutine)pParam2;
   args    = (void*)pParam3;
 
-  if (MemoryIsMappedForUser(pAttr) == true &&
-      MemoryIsMappedForUser(ppThread) == true &&
-      MemoryIsMappedForUser(routine) == true &&
-      MemoryIsMappedForUser(args) == true)
+  if (MemoryIsMappedWithFlags(pAttr,
+                              sizeof(S_ThreadAttr),
+                              MEMMGR_MAP_KERNEL |
+                              MEMMGR_MAP_USER |
+                              MEMMGR_MAP_RO) == true &&
+      MemoryIsMappedWithFlags(ppThread,
+                              sizeof(S_KernelThread*),
+                              MEMMGR_MAP_KERNEL |
+                              MEMMGR_MAP_USER |
+                              MEMMGR_MAP_RW) == true &&
+      MemoryIsMappedWithFlags(routine,
+                              sizeof(uintptr_t),
+                              MEMMGR_MAP_USER |
+                              MEMMGR_MAP_RO |
+                              MEMMGR_MAP_EXEC) == true)
   {
     error = CreateThread(ppThread,
                          false,
@@ -1954,8 +1964,15 @@ void* SyscallThreadJoin(void* pParam0,
   pThread = (S_KernelThread*)pParam0;
   returnValue = (void**)pParam1;
 
-  if (SchedulerIsThreadValid(pThread) == true &&
-      MemoryIsMappedForUser(returnValue) == true)
+  if (MemoryIsMappedWithFlags(pThread,
+                              sizeof(S_KernelThread),
+                              MEMMGR_MAP_RW | MEMMGR_MAP_KERNEL) == true &&
+      SchedulerIsThreadJoinable(pThread) == true &&
+      MemoryIsMappedWithFlags(returnValue,
+                              sizeof(void*),
+                              MEMMGR_MAP_RW |
+                              MEMMGR_MAP_KERNEL |
+                              MEMMGR_MAP_USER) == true)
   {
     error = JoinThread(pThread, returnValue);
     if (error == NO_ERROR)
@@ -2017,7 +2034,11 @@ void* SyscallThreadGetSelf(void* pParam0,
 
   ppThread = (void**)pParam0;
 
-  if (MemoryIsMappedForUser(ppThread) == true)
+  if (MemoryIsMappedWithFlags(ppThread,
+                              sizeof(S_KernelThread*),
+                              MEMMGR_MAP_RW |
+                              MEMMGR_MAP_KERNEL |
+                              MEMMGR_MAP_USER) == true)
   {
     *ppThread = GetCurrentThread();
     retCode = (void*)0;

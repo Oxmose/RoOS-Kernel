@@ -1343,9 +1343,10 @@ static void _ReleaseKernelPages(const uintptr_t kBaseAddress,
 }
 
 static bool _IsMapped(const uintptr_t kVirtualAddress,
-                               size_t          pageCount,
-                               const uintptr_t kPageDir,
-                               const bool      kCheckFull)
+                      size_t          pageCount,
+                      const uintptr_t kPageDir,
+                      const bool      kCheckFull,
+                      const uint32_t  kFlags)
 {
   uintptr_t  currVirtAddr;
   uintptr_t  nextPtable;
@@ -1354,6 +1355,9 @@ static bool _IsMapped(const uintptr_t kVirtualAddress,
   int8_t     j;
   size_t     stride;
   bool       mapped;
+  uint64_t   checkFlags;
+
+  checkFlags = _TranslateFlags(kFlags) | PAGE_FLAG_PRESENT;
 
   MEM_ASSERT((kVirtualAddress & PAGE_SIZE_MASK) == 0,
              "Checking mapping for non aligned address",
@@ -1363,7 +1367,7 @@ static bool _IsMapped(const uintptr_t kVirtualAddress,
   mapped = false;
   if (pageCount != 0)
   {
-
+    mapped = true;
     currVirtAddr = kVirtualAddress;
     do
     {
@@ -1445,11 +1449,11 @@ static bool _IsMapped(const uintptr_t kVirtualAddress,
         {
           do
           {
-            if ((pPageTable[j][pmlEntry[j]] & PAGE_FLAG_PRESENT) == 0)
+            if ((pPageTable[j][pmlEntry[j]] & checkFlags) != checkFlags)
             {
               /* If the check is a full check and we have an unmapped
-                * region, return false
-                */
+               * region, return false
+               */
               if (kCheckFull == true)
               {
                 mapped    = false;
@@ -4012,28 +4016,6 @@ E_Return MemoryUserFree(const void*      kVirtualAddress,
     return error;
 }
 
-bool MemoryIsMapped(const uintptr_t  kVirtualAddress,
-                    const size_t     size,
-                    S_KernelProcess* pProcess,
-                    const bool       kCheckFull)
-{
-  uintptr_t pgdir;
-  uintptr_t address;
-  size_t    pageCount;
-  size_t    alignedSize;
-
-  address = ALIGN_DOWN(kVirtualAddress, KERNEL_PAGE_SIZE);
-  alignedSize = size + (kVirtualAddress - address);
-  pageCount = alignedSize / KERNEL_PAGE_SIZE;
-  if (alignedSize % KERNEL_PAGE_SIZE != 0)
-  {
-    pageCount += 1;
-  }
-
-  pgdir = ((S_ProcessMemoryMetadata*)pProcess->pMemoryData)->PDPhysAddress;
-  return _IsMapped(address, pageCount, pgdir, kCheckFull);
-}
-
 size_t MemoryGetProcessAllocatedMemory(const S_KernelProcess* kpProcess)
 {
   S_ProcessMemoryMetadata* pMemInfo;
@@ -4042,4 +4024,75 @@ size_t MemoryGetProcessAllocatedMemory(const S_KernelProcess* kpProcess)
 
   return pMemInfo->allocatedMemory;
 }
+
+bool MemoryIsMappedWithFlags(const void*    kVirtualAddress,
+                             const size_t   kSize,
+                             const uint32_t kFlags)
+{
+  uintptr_t                alignedAddress;
+  size_t                   alignedSize;
+  size_t                   pageCount;
+  S_KernelProcess*         pProcess;
+  S_ProcessMemoryMetadata* pMemData;
+  bool                     isMapped;
+
+  /* Align address to page boundary */
+  alignedAddress = ALIGN_DOWN((uintptr_t)kVirtualAddress, KERNEL_PAGE_SIZE);
+  alignedSize = kSize + ((uintptr_t)kVirtualAddress - alignedAddress);
+  pageCount = alignedSize / KERNEL_PAGE_SIZE;
+
+  if (alignedSize % KERNEL_PAGE_SIZE != 0)
+  {
+    ++pageCount;
+  }
+
+  pProcess = GetCurrentProcess();
+  pMemData =
+  pMemData = (S_ProcessMemoryMetadata*)pProcess->pMemoryData;
+  isMapped = _IsMapped(alignedAddress,
+                       pageCount,
+                       pMemData->PDPhysAddress,
+                       true,
+                       kFlags);
+  return isMapped;
+}
+
+bool MemoryStringIsMapped(const char*    kString,
+                                 const size_t   kMaxLength,
+                                 const uint32_t kFlags)
+{
+  size_t i;
+  size_t j;
+  size_t alignedSize;
+  size_t offset;
+  char*  alignedAddress;
+  alignedSize = kMaxLength +
+                (KERNEL_PAGE_SIZE - ((uintptr_t)kString & PAGE_SIZE_MASK));
+  alignedAddress = (void*)ALIGN_DOWN((uintptr_t)kString, KERNEL_PAGE_SIZE);
+  offset = (uintptr_t)kString - (uintptr_t)alignedAddress;
+
+  /* Try to read the string until we reach the page limit */
+  for (i = 0; i < alignedSize; i +=  KERNEL_PAGE_SIZE)
+  {
+    if (MemoryIsMappedWithFlags(alignedAddress,
+                                KERNEL_PAGE_SIZE,
+                                kFlags) == false)
+    {
+      break;
+    }
+
+    for (j = offset; j < MIN(KERNEL_PAGE_SIZE, alignedSize - i); ++j)
+    {
+      if (alignedAddress[j] == '\0')
+      {
+        alignedSize = i;
+        break;
+      }
+    }
+    alignedAddress += KERNEL_PAGE_SIZE;
+    offset = 0;
+  }
+  return (i <= alignedSize);
+}
+
 /************************************ EOF *************************************/
