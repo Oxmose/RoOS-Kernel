@@ -456,24 +456,6 @@ E_Return MemoryUserFree(const void*      kVirtualAddress,
                         S_KernelProcess* pProcess);
 
 /**
- * @brief Tells if a memory region is already mapped.
- *
- * @details Tells if a memory region is already mapped.
- * Returns false if the region is not mapped, true otherwise.
- *
- * @param[in] kVirtualAddress The base virtual address to check for mapping.
- * @param[in] kPageCount The number of pages to check for mapping.
- * @param[in] pProcess The process whose page directory to use for the search.
- * @param[in] kCheckFull Tells if the full range shall be mapped to return true.
- *
- * @return Returns false if the region is not mapped, true otherwise.
- */
-bool MemoryIsMapped(const uintptr_t  kVirtualAddress,
-                    const size_t     kPageCount,
-                    S_KernelProcess* pProcess,
-                    const bool       kCheckFull);
-
-/**
  * @brief Returns the amount of memory allocated by a process.
  *
  * @details Returns the amount of memory allocated by a process. This function
@@ -486,6 +468,38 @@ bool MemoryIsMapped(const uintptr_t  kVirtualAddress,
  * @return The amount of memory allocated by the process in bytes.
  */
 size_t MemoryGetProcessAllocatedMemory(const S_KernelProcess* kpProcess);
+
+/**
+ * @brief Tells if a memory region is already mapped with the provided flags.
+ *
+ * @details Tells if a memory region is already mapped with the provided flags.
+ * Returns false if the region is not mapped, true otherwise.
+ *
+ * @param[in] kVirtualAddress The base virtual address to check for mapping.
+ * @param[in] kSize The size of the region to check for mapping.
+ * @param[in] kFlags The flags to check for mapping.
+ *
+ * @return Returns false if the region is not mapped, true otherwise.
+ */
+bool MemoryIsMappedWithFlags(const void*    kVirtualAddress,
+                             const size_t   kSize,
+                             const uint32_t kFlags);
+
+/**
+ * @brief Tells if a string is already mapped with the provided flags.
+ *
+ * @details Tells if a string is already mapped with the provided flags. Returns
+ * false if the string is not mapped, true otherwise.
+ *
+ * @param[in] kString The string to check for mapping.
+ * @param[in] kMaxLength The maximum length of the string.
+ * @param[in] kFlags The flags to check for mapping.
+ *
+ * @return Returns false if the string is not mapped, true otherwise.
+ */
+bool MemoryStringIsMapped(const char*    kString,
+                          const size_t   kMaxLength,
+                          const uint32_t kFlags);
 
 #endif /* #ifndef __CPU_MEMORY_H_ */
 
