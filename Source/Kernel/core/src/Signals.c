@@ -78,8 +78,6 @@
 void SignalInitinitalize(S_KernelThread* pThread,
                          S_KernelThread* pCurrentThread)
 {
-  uint32_t i;
-
   if (pCurrentThread != NULL)
   {
     /* Inherit the signal mask from the current thread */

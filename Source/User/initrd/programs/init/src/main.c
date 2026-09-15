@@ -87,10 +87,10 @@ void handler2(int signum, void* uContext)
   string[3] = '0' + nestedTest;
   Syscall(SYSCALL_ID_WRITE, (void*)(unsigned long long)consoleFd, (void*)string, (void*)4, (void*)0, (void*)0);
 
-  if (signum == 1 && nestedTest < 3)
+  if (signum == 2 && nestedTest < 3)
   {
     nestedTest++;
-    Syscall(SYSCALL_ID_SIGNAL, (void*)1, pThread, (void*)0, (void*)0, (void*)0);
+    Syscall(SYSCALL_ID_SIGNAL, (void*)2, pThread, (void*)0, (void*)0, (void*)0);
     --nestedTest;
   }
 
@@ -177,7 +177,7 @@ void* threadRoutine(void* pParam)
   Syscall(SYSCALL_ID_WRITE, (void*)(unsigned long long)consoleFd, (void*)string, (void*)3, (void*)0, (void*)0);
 
   Syscall(SYSCALL_ID_WRITE, (void*)(unsigned long long)consoleFd, (void*)"Registering signal handler 1: ", (void*)30, (void*)0, (void*)0);
-  retVal = Syscall(SYSCALL_ID_SIGNAL_REGISTER, (void*)1, (void*)handler2, (void*)0, (void*)0, (void*)0);
+  retVal = Syscall(SYSCALL_ID_SIGNAL_REGISTER, (void*)2, (void*)handler2, (void*)0, (void*)0, (void*)0);
   string[0] = '0' - retVal;
   string[1] = '0' + errno;
   string[2] = '\n';
@@ -202,7 +202,7 @@ void testSignalInterrupt(void)
 
   Syscall(SYSCALL_ID_THREAD_GET_SELF, &pThreadMain, (void*)0, (void*)0, (void*)0, (void*)0);
 
-  threadAttr.mappedCPUs.mask[0] = 1;
+  threadAttr.mappedCPUs.mask[0] = 0xF;
   threadAttr.stackSize = 0x1000;
   threadAttr.priority = 20;
   threadAttr.name[0] = 'T';
@@ -237,7 +237,7 @@ void testSignalInterrupt(void)
 
   /* Signal the thread */
   Syscall(SYSCALL_ID_WRITE, (void*)(unsigned long long)consoleFd, (void*)"=> Send 1\n", (void*)10, (void*)0, (void*)0);
-  retVal = Syscall(SYSCALL_ID_SIGNAL, (void*)1, pThread, (void*)0, (void*)0, (void*)0);
+  retVal = Syscall(SYSCALL_ID_SIGNAL, (void*)2, pThread, (void*)0, (void*)0, (void*)0);
   Syscall(SYSCALL_ID_WRITE, (void*)(unsigned long long)consoleFd, (void*)"=> Send 1 Returned: ", (void*)20, (void*)0, (void*)0);
   string[0] = '0' - retVal;
   string[1] = '0' + errno;
@@ -282,15 +282,6 @@ void* PingPongRoutine(void* pParam)
   struct timespec remainingTime;
   value = (int)(unsigned long long)pParam;
 
-  if (value == 0)
-  {
-    Syscall(SYSCALL_ID_SIGNAL_REGISTER, (void*)1, (void*)handlerPing, (void*)0, (void*)0, (void*)0);
-  }
-  else
-  {
-    Syscall(SYSCALL_ID_SIGNAL_REGISTER, (void*)1, (void*)handlerPong, (void*)0, (void*)0, (void*)0);
-  }
-
   while(1)
   {
     if (value == 0)
@@ -323,7 +314,7 @@ void* PingPongRoutine(void* pParam)
       string[17] = '0' + remainingTime.tv_nsec % 10;
       string[18] = '\n';
       Syscall(SYSCALL_ID_WRITE, (void*)(unsigned long long)consoleFd, (void*)string, (void*)19, (void*)0, (void*)0);
-      sleepTime.tv_nsec = 5000;
+      sleepTime.tv_nsec = 5000000;
       sleepTime.tv_sec  = 0;
       retVal = nanosleep(&sleepTime, &remainingTime);
       if (retVal != 0)
@@ -331,7 +322,7 @@ void* PingPongRoutine(void* pParam)
         Syscall(SYSCALL_ID_WRITE, (void*)(unsigned long long)consoleFd, (void*)"Ping thread sleep failed\n", (void*)27, (void*)0, (void*)0);
       }
 
-      Syscall(SYSCALL_ID_SIGNAL, (void*)1, (void*)pThread2, (void*)0, (void*)0, (void*)0);
+      Syscall(SYSCALL_ID_SIGNAL, (void*)2, (void*)pThread2, (void*)0, (void*)0, (void*)0);
     }
     else
     {
@@ -365,7 +356,7 @@ void* PingPongRoutine(void* pParam)
       string[17] = '0' + remainingTime.tv_nsec % 10;
       string[18] = '\n';
       Syscall(SYSCALL_ID_WRITE, (void*)(unsigned long long)consoleFd, (void*)string, (void*)19, (void*)0, (void*)0);
-      sleepTime.tv_nsec = 500;
+      sleepTime.tv_nsec = 5000000;
       sleepTime.tv_sec  = 0;
       retVal = nanosleep(&sleepTime, &remainingTime);
       if (retVal != 0)
@@ -382,7 +373,10 @@ void testPingPong(void)
 {
   S_ThreadAttr    threadAttr;
 
-  threadAttr.mappedCPUs.mask[0] = 1;
+  Syscall(SYSCALL_ID_SIGNAL_REGISTER, (void*)1, (void*)handlerPing, (void*)0, (void*)0, (void*)0);
+  Syscall(SYSCALL_ID_SIGNAL_REGISTER, (void*)2, (void*)handlerPong, (void*)0, (void*)0, (void*)0);
+
+  threadAttr.mappedCPUs.mask[0] = 0xF;
   threadAttr.stackSize = 0x1000;
   threadAttr.priority = 20;
   threadAttr.name[0] = 'P';
@@ -412,6 +406,7 @@ int main(void)
 
   testSignalSyscall(pThread);
   testSignalInterrupt();
+  sleep(5);
   testPingPong();
 
   while(1)

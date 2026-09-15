@@ -1837,10 +1837,12 @@ void* SyscallVFSOpen(void* pParam0,
   (void)pParam3;
   (void)pParam4;
 
-  if (MemoryStringIsMappedForUser(kpPath, VFS_PATH_MAX_LENGTH) == true)
-  {
+  kpPath = pParam0;
 
-    kpPath = pParam0;
+  if (MemoryStringIsMapped(kpPath,
+                           VFS_PATH_MAX_LENGTH,
+                           MEMMGR_MAP_USER | MEMMGR_MAP_RW) == true)
+  {
     flags  = (int32_t)(uintptr_t)pParam1;
     mode   = (int32_t)(uintptr_t)pParam2;
 

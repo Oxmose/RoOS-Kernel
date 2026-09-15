@@ -408,7 +408,6 @@ static void _PrintStackTrace(const S_VirtualCPU* kpVCpu)
 {
   size_t                  i;
   uintptr_t               callAddr;
-  S_KernelProcess         dummyProcess;
   S_ProcessMemoryMetadata metadata;
   bool                    isMapped;
   const S_CPUState*       kpCPUState;
@@ -425,10 +424,9 @@ static void _PrintStackTrace(const S_VirtualCPU* kpVCpu)
 
   _PanicPrintf("                              ==== Stack Trace ====");
 
-  dummyProcess.pMemoryData = &metadata;
-  isMapped = MemoryIsMappedWithFlags((uintptr_t)lastRBP,
-                                      2 * sizeof(uintptr_t),
-                                      MEMMGR_MAP_RW | MEMMGR_MAP_KERNEL);
+  isMapped = MemoryIsMappedWithFlags(lastRBP,
+                                     2 * sizeof(uintptr_t),
+                                     MEMMGR_MAP_RW | MEMMGR_MAP_KERNEL);
   for (i = 0; i < STACK_TRACE_SIZE && isMapped == true; ++i)
   {
     callAddr = *(lastRBP + 1);
@@ -446,9 +444,9 @@ static void _PrintStackTrace(const S_VirtualCPU* kpVCpu)
 
     _PanicPrintf("[%u] 0x%p", i, callAddr);
     lastRBP  = (uintptr_t*)*lastRBP;
-    isMapped = MemoryIsMappedWithFlags((uintptr_t)lastRBP,
-                                        2 * sizeof(uintptr_t),
-                                        MEMMGR_MAP_RW | MEMMGR_MAP_KERNEL);
+    isMapped = MemoryIsMappedWithFlags(lastRBP,
+                                       2 * sizeof(uintptr_t),
+                                       MEMMGR_MAP_RW | MEMMGR_MAP_KERNEL);
   }
 }
 
