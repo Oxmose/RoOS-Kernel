@@ -1,39 +1,44 @@
 /*******************************************************************************
- * @file UserKernelLib.h
+ * @file memcpy.c
  *
- * @see UserKernelLib.c
+ * @see string.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 03/10/2017
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief memcpy function. To be used with string.h header.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details memcpy function. To be used with string.h header.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
-#ifndef __LIB_USER_KERNEL_LIB_H_
-#define __LIB_USER_KERNEL_LIB_H_
-
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
+
+/* Included headers */
+#include <stddef.h> /* Standard definitions */
+
+/* Configuration files */
 /* None */
+
+/* Header file */
+#include <string.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
+
 /* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
+
 /* None */
 
 /*******************************************************************************
@@ -56,35 +61,37 @@
 /* None */
 
 /*******************************************************************************
+ * STATIC FUNCTIONS DECLARATIONS
+ ******************************************************************************/
+
+/* None */
+
+/*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-/**
- * @brief Performs a system call.
- *
- * @details Performs a system call. The underlying CPU system call facility will
- * be called to perform the required operation and issue the system call.
- * The parameters for input and output are provided by the pParams parameter.
- *
- * @param[in] kSyscallId The system call identifier to use.
- * @param[in, out] pParam0 The first parameter to pass to the system call.
- * @param[in, out] pParam1 The second parameter to pass to the system call.
- * @param[in, out] pParam2 The third parameter to pass to the system call.
- * @param[in, out] pParam3 The fourth parameter to pass to the system call.
- * @param[in, out] pParam4 The fifth parameter to pass to the system call.
- *
- * @return The result of the system call.
- */
-void* Syscall(const unsigned long long kSyscallId,
-              void*                    pParam0,
-              void*                    pParam1,
-              void*                    pParam2,
-              void*                    pParam3,
-              void*                    pParam4);
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void);
+void *memcpy(void *dst, const void *src, size_t n)
+{
+    const char *p = src;
+    char *q = dst;
+#if defined(__i386__)
+    size_t nl = n >> 2;
+    __asm__ __volatile__ ("cld ; rep ; movsl ; movl %3,%0 ; rep ; movsb":"+c"
+              (nl),
+              "+S"(p), "+D"(q)
+              :"r"(n & 3));
+#elif defined(__x86_64__)
+    size_t nq = n >> 3;
+    __asm__ __volatile__ ("cld ; rep ; movsq ; movl %3,%%ecx ; rep ; movsb":"+c"
+              (nq), "+S"(p), "+D"(q)
+              :"r"((uint32_t) (n & 7)));
+#else
+    while (n--) {
+        *q++ = *p++;
+    }
 #endif
 
-#endif /* #ifndef __LIB_USER_KERNEL_LIB_H_ */
+    return dst;
+}
 
 /************************************ EOF *************************************/

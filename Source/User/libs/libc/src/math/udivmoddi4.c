@@ -1,39 +1,44 @@
 /*******************************************************************************
- * @file UserKernelLib.h
+ * @file udivmoddi4.c
  *
- * @see UserKernelLib.c
+ * @see stdlib.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 03/10/2017
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief __udivmoddi4 function. To be used with stdlib.h header.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details __udivmoddi4 function. To be used with stdlib.h header.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
-#ifndef __LIB_USER_KERNEL_LIB_H_
-#define __LIB_USER_KERNEL_LIB_H_
-
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
+
+/* Included headers */
+#include <stdint.h> /* Generic int types */
+
+/* Configuration files */
 /* None */
+
+/* Header file */
+#include <stdlib.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
+
 /* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
+
 /* None */
 
 /*******************************************************************************
@@ -56,35 +61,60 @@
 /* None */
 
 /*******************************************************************************
+ * STATIC FUNCTIONS DECLARATIONS
+ ******************************************************************************/
+
+/**
+ * @brief This function returns the quotient of the unsigned division of num
+ * and den.
+ *
+ * @param[in] num The numerator.
+ * @param[in] den The denominator.
+ * @param[out] rem_p The reminder buffer.
+ *
+ * @return The quotient of the unsigned division of num and den is returned.
+ */
+uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t* rem_p);
+
+/*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-/**
- * @brief Performs a system call.
- *
- * @details Performs a system call. The underlying CPU system call facility will
- * be called to perform the required operation and issue the system call.
- * The parameters for input and output are provided by the pParams parameter.
- *
- * @param[in] kSyscallId The system call identifier to use.
- * @param[in, out] pParam0 The first parameter to pass to the system call.
- * @param[in, out] pParam1 The second parameter to pass to the system call.
- * @param[in, out] pParam2 The third parameter to pass to the system call.
- * @param[in, out] pParam3 The fourth parameter to pass to the system call.
- * @param[in, out] pParam4 The fifth parameter to pass to the system call.
- *
- * @return The result of the system call.
- */
-void* Syscall(const unsigned long long kSyscallId,
-              void*                    pParam0,
-              void*                    pParam1,
-              void*                    pParam2,
-              void*                    pParam3,
-              void*                    pParam4);
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void);
-#endif
+uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t* rem_p)
+{
+    uint64_t quot = 0;
+    uint64_t qbit = 1;
 
-#endif /* #ifndef __LIB_USER_KERNEL_LIB_H_ */
+    if (den == 0)
+    {
+        /* Force divide by 0 */
+        return 1 / ((unsigned)den);
+    }
+
+    /* Left-justify denominator and count shift */
+    while ((int64_t)den >= 0)
+    {
+        den <<= 1;
+        qbit <<= 1;
+    }
+
+    while (qbit)
+    {
+        if (den <= num)
+        {
+            num -= den;
+            quot += qbit;
+        }
+        den >>= 1;
+        qbit >>= 1;
+    }
+
+    if (rem_p)
+    {
+        *rem_p = num;
+    }
+
+    return quot;
+}
 
 /************************************ EOF *************************************/

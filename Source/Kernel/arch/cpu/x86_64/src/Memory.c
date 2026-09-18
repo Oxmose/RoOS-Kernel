@@ -23,6 +23,7 @@
 /* Included headers */
 #include <CPU.h>
 #include <Panic.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <X64Cpu.h>
@@ -131,6 +132,15 @@
 #define USER_MEMORY_START 0x0000000000100000ULL
 /** @brief User total memory end. */
 #define USER_MEMORY_END 0xFFFFFF0000000000ULL
+
+/** @brief Memory protection flag for read access. */
+#define PROT_READ  0x1
+/** @brief Memory protection flag for write access. */
+#define PROT_WRITE 0x2
+/** @brief Memory protection flag for execute access. */
+#define PROT_EXEC  0x4
+/** @brief Memory protection flag for no access. */
+#define PROT_NONE  0x8
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -1344,14 +1354,14 @@ static bool _IsMapped(const uintptr_t kVirtualAddress,
                       const bool kCheckFull,
                       const uint32_t kFlags)
 {
-  uintptr_t currVirtAddr;
-  uintptr_t nextPtable;
-  uintptr_t *pPageTable[4];
-  uint16_t pmlEntry[4];
-  int8_t j;
-  size_t stride;
-  bool mapped;
-  uint64_t checkFlags;
+  uintptr_t  currVirtAddr;
+  uintptr_t  nextPtable;
+  uintptr_t* pPageTable[4];
+  uint16_t   pmlEntry[4];
+  int8_t     j;
+  size_t     stride;
+  bool       mapped;
+  uint64_t   checkFlags;
 
   checkFlags = _TranslateFlags(kFlags) | PAGE_FLAG_PRESENT;
 
@@ -4015,23 +4025,23 @@ E_Return MemoryUserFree(const void *kVirtualAddress,
 
 size_t MemoryGetProcessAllocatedMemory(const S_KernelProcess *kpProcess)
 {
-  S_ProcessMemoryMetadata *pMemInfo;
+  S_ProcessMemoryMetadata* pMemInfo;
 
   pMemInfo = kpProcess->pMemoryData;
 
   return pMemInfo->allocatedMemory;
 }
 
-bool MemoryIsMappedWithFlags(const void *kVirtualAddress,
-                             const size_t kSize,
+bool MemoryIsMappedWithFlags(const void*    kVirtualAddress,
+                             const size_t   kSize,
                              const uint32_t kFlags)
 {
-  uintptr_t alignedAddress;
-  size_t alignedSize;
-  size_t pageCount;
-  S_KernelProcess *pProcess;
-  S_ProcessMemoryMetadata *pMemData;
-  bool isMapped;
+  uintptr_t                alignedAddress;
+  size_t                   alignedSize;
+  size_t                   pageCount;
+  S_KernelProcess*         pProcess;
+  S_ProcessMemoryMetadata* pMemData;
+  bool                     isMapped;
 
   /* Align address to page boundary */
   alignedAddress = ALIGN_DOWN((uintptr_t)kVirtualAddress, KERNEL_PAGE_SIZE);
@@ -4053,15 +4063,15 @@ bool MemoryIsMappedWithFlags(const void *kVirtualAddress,
   return isMapped;
 }
 
-bool MemoryStringIsMapped(const char *kString,
-                          const size_t kMaxLength,
+bool MemoryStringIsMapped(const char*    kString,
+                          const size_t   kMaxLength,
                           const uint32_t kFlags)
 {
   size_t i;
   size_t j;
   size_t alignedSize;
   size_t offset;
-  char *alignedAddress;
+  char*  alignedAddress;
   alignedSize = kMaxLength +
                 (KERNEL_PAGE_SIZE - ((uintptr_t)kString & PAGE_SIZE_MASK));
   alignedAddress = (void *)ALIGN_DOWN((uintptr_t)kString, KERNEL_PAGE_SIZE);
@@ -4094,4 +4104,123 @@ bool MemoryStringIsMapped(const char *kString,
   }
   return (i <= alignedSize);
 }
+
+/*******************************************************************************
+ * SYSCALL HANDLERS
+ ******************************************************************************/
+void* SyscallMemoryMap(void* pParam0,
+                       void* pParam1,
+                       void* pParam2,
+                       void* pParam3,
+                       void* pParam4)
+{
+  void*    mapped;
+  E_Return error;
+  void**   addr;
+  size_t   length;
+  int32_t  prot;
+  int32_t  flags;
+  int32_t  fd;
+  size_t   offset;
+  uint32_t transFlags;
+
+  addr   = (void**)pParam0;
+  length = (size_t)pParam1;
+  prot   = (int32_t)(uintptr_t)pParam2;
+  flags  = ((int64_t)(uintptr_t)pParam2 >> 32) & 0xFFFFFFFF;
+  fd     = (int32_t)(uintptr_t)pParam3;
+  offset = (size_t)pParam4;
+
+  /* Translate the flags to the internal format */
+  transFlags = 0;
+  if (prot & PROT_READ)
+  {
+    transFlags |= MEMMGR_MAP_RO;
+  }
+  if (prot & PROT_WRITE)
+  {
+    transFlags |= MEMMGR_MAP_RW;
+  }
+  if (prot & PROT_EXEC)
+  {
+    transFlags |= MEMMGR_MAP_EXEC;
+  }
+  if (flags & PROT_NONE)
+  {
+    transFlags |= MEMMGR_MAP_KERNEL;
+  }
+  else
+  {
+    transFlags |= MEMMGR_MAP_USER;
+  }
+
+  /* TODO: Ignore the flags that are not supported */
+  (void)flags;
+  (void)offset;
+  (void)fd;
+
+  mapped = MemoryUserAllocate(length, transFlags, GetCurrentProcess(), &error);
+  if (mapped == NULL || error != NO_ERROR)
+  {
+    mapped = (void*)-1;
+    if (error == ERR_NO_MEMORY)
+    {
+      *addr = (void*)(-ENOMEM);
+    }
+    else if (error == ERR_INVALID_PARAMETER)
+    {
+      *addr = (void*)(-EINVAL);
+    }
+    else if (error == ERR_UNAUTHORIZED_ACTION)
+    {
+      *addr = (void*)(-EPERM);
+    }
+    else
+    {
+      *addr = (void*)(-EFAULT);
+    }
+  }
+  else
+  {
+    *addr = NULL;
+  }
+
+  return mapped;
+}
+
+void* SyscallMemoryUnmap(void* pParam0,
+                         void* pParam1,
+                         void* pParam2,
+                         void* pParam3,
+                         void* pParam4)
+{
+  E_Return error;
+  void*    retVal;
+
+  (void)pParam2;
+  (void)pParam3;
+  (void)pParam4;
+
+  error = MemoryUserFree(pParam0, (size_t)pParam1, GetCurrentProcess());
+
+  if (error == NO_ERROR)
+  {
+    retVal = (void*)0;
+  }
+  else if (error == ERR_INVALID_PARAMETER)
+  {
+    retVal = (void*)(-EINVAL);
+  }
+  else if (error == ERR_UNAUTHORIZED_ACTION)
+  {
+    retVal = (void*)(-EPERM);
+  }
+  else
+  {
+    retVal = (void*)(-EFAULT);
+  }
+
+  return retVal;
+}
+
 /************************************ EOF *************************************/

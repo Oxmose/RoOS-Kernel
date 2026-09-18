@@ -46,13 +46,13 @@
             reg = <0x0 0xffe1000 0x0 0x2000>;
         };
         reservedramdisk: res-ramdisk@3FD000 {
-            reg = <0x0 0x003FD000 0x0 131072>;
+            reg = <0x0 0x00FD000 0x0 0x80000>;
         };
     };
 
     ramdisk@3FD000 {
         compatible = "roOs,roOs-ramdisk";
-        reg = <0x0 0x003FD000 0x0 131072>;
+        reg = <0x0 0x003FD000 0x0 0x80000>;
         device = "/dev/storage/ramdisk0";
     };
 

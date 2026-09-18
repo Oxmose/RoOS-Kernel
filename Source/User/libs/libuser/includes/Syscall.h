@@ -99,6 +99,10 @@ typedef enum
   SYSCALL_ID_SIGNAL_MASK,
   /** @brief Signal return system call */
   SYSCALL_ID_SIGNAL_RETURN,
+  /** @brief Mmap system call */
+  SYSCALL_ID_MMAP,
+  /** @brief Munmap system call */
+  SYSCALL_ID_MUNMAP,
   /** @brief Maximal system call ID */
   SYSCALL_ID_MAX
 } E_SyscallId;
@@ -159,12 +163,12 @@ typedef struct
  *
  * @return The result of the system call.
  */
-int Syscall(const unsigned long long kSyscallId,
-            void*                    pParam0,
-            void*                    pParam1,
-            void*                    pParam2,
-            void*                    pParam3,
-            void*                    pParam4);
+void* Syscall(const unsigned long long kSyscallId,
+              void*                    pParam0,
+              void*                    pParam1,
+              void*                    pParam2,
+              void*                    pParam3,
+              void*                    pParam4);
 
 #endif /* #ifndef __LIB_SYSCALL_H_ */
 

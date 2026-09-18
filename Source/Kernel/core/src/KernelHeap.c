@@ -108,7 +108,7 @@ __extension__                                      \
 ({                                                 \
   __typeof__(**h) **h_ = h;                        \
   S_List* head = &(*h_)->l;                        \
-  S_List* res = _pop(&head);                       \
+  S_List* res = _Pop(&head);                       \
   if (head == NULL)                                \
   {                                                \
     *h_ = NULL;                                    \
@@ -220,7 +220,7 @@ static inline void _Push(S_List** ppList, S_List* pNode);
  *
  * @return The node poped from the list is returned.
  */
-static inline S_List* _pop(S_List** ppList);
+static inline S_List* _Pop(S_List** ppList);
 
 /**
  * @brief Removes a node from the list.
@@ -396,7 +396,7 @@ static inline void _Push(S_List** ppList, S_List* pNode)
   *ppList = pNode;
 }
 
-static inline S_List* _pop(S_List** ppList)
+static inline S_List* _Pop(S_List** ppList)
 {
 
   S_List* top = *ppList;
@@ -420,7 +420,7 @@ static inline void _RemoveFrom(S_List** ppList, S_List* pNode)
 {
   if (*ppList == pNode)
   {
-    _pop(ppList);
+    _Pop(ppList);
   }
   else
   {
@@ -659,9 +659,6 @@ void KernelHeapInit(void)
   sKernelHeap.sMemUsed     = 0;
   sKernelHeap.sMemFree     = 0;
   sKernelHeap.sMemMeta     = 0;
-  sKernelHeap.spFirstChunk = NULL;
-  sKernelHeap.spLastChunk  = NULL;
-
   sKernelHeap.spFirstChunk = (S_Chunk*)pMemStart;
   sKernelHeap.spLastChunk  = ((S_Chunk*)pMemEnd) - 1;
   pSecond                  = sKernelHeap.spFirstChunk + 1;
@@ -723,8 +720,6 @@ E_Return CreateProcessHeap(S_ProcessHeap** ppHeap)
     pHeap->sMemUsed     = 0;
     pHeap->sMemFree     = 0;
     pHeap->sMemMeta     = 0;
-    pHeap->spFirstChunk = NULL;
-    pHeap->spLastChunk  = NULL;
 
     pHeap->spFirstChunk = (S_Chunk*)pMemStart;
     pHeap->spLastChunk  = ((S_Chunk*)pMemEnd) - 1;

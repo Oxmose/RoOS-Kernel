@@ -1,39 +1,45 @@
 /*******************************************************************************
- * @file UserKernelLib.h
+ * @file uiota.c
  *
- * @see UserKernelLib.c
+ * @see stdlib.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 08/01/2018
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief uitoa function. To be used with stdlib.h header.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details uitoa function. To be used with stdlib.h header.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
-#ifndef __LIB_USER_KERNEL_LIB_H_
-#define __LIB_USER_KERNEL_LIB_H_
 
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
+
+/* Included headers */
+#include <stdint.h> /* Generic integer types */
+
+/* Configuration files */
 /* None */
+
+/* Header file */
+#include <stdlib.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
+
 /* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
+
 /* None */
 
 /*******************************************************************************
@@ -53,38 +59,54 @@
 /* None */
 
 /************************** Static global variables ***************************/
+
+/**
+ * @brief Hexadecimal characters table.
+ */
+static char hex_table[] =
+     {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+
+/*******************************************************************************
+ * STATIC FUNCTIONS DECLARATIONS
+ ******************************************************************************/
+
 /* None */
 
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-/**
- * @brief Performs a system call.
- *
- * @details Performs a system call. The underlying CPU system call facility will
- * be called to perform the required operation and issue the system call.
- * The parameters for input and output are provided by the pParams parameter.
- *
- * @param[in] kSyscallId The system call identifier to use.
- * @param[in, out] pParam0 The first parameter to pass to the system call.
- * @param[in, out] pParam1 The second parameter to pass to the system call.
- * @param[in, out] pParam2 The third parameter to pass to the system call.
- * @param[in, out] pParam3 The fourth parameter to pass to the system call.
- * @param[in, out] pParam4 The fifth parameter to pass to the system call.
- *
- * @return The result of the system call.
- */
-void* Syscall(const unsigned long long kSyscallId,
-              void*                    pParam0,
-              void*                    pParam1,
-              void*                    pParam2,
-              void*                    pParam3,
-              void*                    pParam4);
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void);
-#endif
+void uitoa(uint64_t i, char* buf, uint32_t base)
+{
+    char tmp[128];
 
-#endif /* #ifndef __LIB_USER_KERNEL_LIB_H_ */
+    uint32_t pos  = 0;
+    uint32_t opos = 0;
+    uint32_t top  = 0;
+
+    if (i == 0 || base > 16)
+    {
+        *buf++ = '0';
+        *buf = '\0';
+        return;
+    }
+
+    /* Fill temp buffer */
+    while (i != 0)
+    {
+        tmp[pos++] = hex_table[i % base];
+        i /= base;
+    }
+
+    top = pos--;
+    /* Fill buffer */
+    for (opos = 0; opos < top; --pos, ++opos)
+    {
+        buf[opos] = tmp[pos];
+    }
+
+    /* Null termitate */
+    buf[opos] = 0;
+}
 
 /************************************ EOF *************************************/

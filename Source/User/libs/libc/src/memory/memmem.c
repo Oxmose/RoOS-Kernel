@@ -1,39 +1,44 @@
 /*******************************************************************************
- * @file UserKernelLib.h
+ * @file memmem.c
  *
- * @see UserKernelLib.c
+ * @see string.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 03/10/2017
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief memmem function. To be used with string.h header.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details memmem function. To be used with string.h header.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
-#ifndef __LIB_USER_KERNEL_LIB_H_
-#define __LIB_USER_KERNEL_LIB_H_
-
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
+
+/* Included headers */
+#include <stddef.h> /* Standard definitions */
+
+/* Configuration files */
 /* None */
+
+/* Header file */
+#include <string.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
+
 /* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
+
 /* None */
 
 /*******************************************************************************
@@ -56,35 +61,53 @@
 /* None */
 
 /*******************************************************************************
+ * STATIC FUNCTIONS DECLARATIONS
+ ******************************************************************************/
+
+/* None */
+
+/*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-/**
- * @brief Performs a system call.
- *
- * @details Performs a system call. The underlying CPU system call facility will
- * be called to perform the required operation and issue the system call.
- * The parameters for input and output are provided by the pParams parameter.
- *
- * @param[in] kSyscallId The system call identifier to use.
- * @param[in, out] pParam0 The first parameter to pass to the system call.
- * @param[in, out] pParam1 The second parameter to pass to the system call.
- * @param[in, out] pParam2 The third parameter to pass to the system call.
- * @param[in, out] pParam3 The fourth parameter to pass to the system call.
- * @param[in, out] pParam4 The fifth parameter to pass to the system call.
- *
- * @return The result of the system call.
- */
-void* Syscall(const unsigned long long kSyscallId,
-              void*                    pParam0,
-              void*                    pParam1,
-              void*                    pParam2,
-              void*                    pParam3,
-              void*                    pParam4);
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void);
-#endif
+void *memmem(const void *haystack, size_t n, const void *needle, size_t m)
+{
+    const unsigned char *y = (const unsigned char *)haystack;
+    const unsigned char *x = (const unsigned char *)needle;
 
-#endif /* #ifndef __LIB_USER_KERNEL_LIB_H_ */
+    if (m > n || !m || !n)
+        return NULL;
+
+    if (1 != m) {
+        size_t j, k, l;
+
+        if (x[0] == x[1]) {
+            k = 2;
+            l = 1;
+        } else {
+            k = 1;
+            l = 2;
+        }
+
+        j = 0;
+        while (j <= n - m) {
+            if (x[1] != y[j + 1]) {
+                j += k;
+            } else {
+                if (!memcmp(x + 2, y + j + 2, m - 2)
+                    && x[0] == y[j])
+                    return (void *)&y[j];
+                j += l;
+            }
+        }
+    } else
+        do {
+            if (*y == *x)
+                return (void *)y;
+            y++;
+        }while (--n);
+
+    return NULL;
+}
 
 /************************************ EOF *************************************/

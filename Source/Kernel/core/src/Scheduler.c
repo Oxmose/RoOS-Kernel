@@ -1947,12 +1947,10 @@ void* SyscallThreadCreate(void* pParam0,
 
   if (MemoryIsMappedWithFlags(pAttr,
                               sizeof(S_ThreadAttr),
-                              MEMMGR_MAP_KERNEL |
                               MEMMGR_MAP_USER |
-                              MEMMGR_MAP_RO) == true &&
+                              MEMMGR_MAP_RW) == true &&
       MemoryIsMappedWithFlags(ppThread,
                               sizeof(S_KernelThread*),
-                              MEMMGR_MAP_KERNEL |
                               MEMMGR_MAP_USER |
                               MEMMGR_MAP_RW) == true &&
       MemoryIsMappedWithFlags(routine,
@@ -2017,9 +2015,7 @@ void* SyscallThreadJoin(void* pParam0,
   if (IsThreadJoinable(pThread) == true &&
       MemoryIsMappedWithFlags(returnValue,
                               sizeof(void*),
-                              MEMMGR_MAP_RW |
-                              MEMMGR_MAP_KERNEL |
-                              MEMMGR_MAP_USER) == true)
+                              MEMMGR_MAP_RW | MEMMGR_MAP_USER) == true)
   {
     error = JoinThread(pThread, returnValue);
     if (error == NO_ERROR)
@@ -2083,9 +2079,7 @@ void* SyscallThreadGetSelf(void* pParam0,
 
   if (MemoryIsMappedWithFlags(ppThread,
                               sizeof(S_KernelThread*),
-                              MEMMGR_MAP_RW |
-                              MEMMGR_MAP_KERNEL |
-                              MEMMGR_MAP_USER) == true)
+                              MEMMGR_MAP_RW | MEMMGR_MAP_USER) == true)
   {
     *ppThread = GetCurrentThread();
     retCode = (void*)0;
