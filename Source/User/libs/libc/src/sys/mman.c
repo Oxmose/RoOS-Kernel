@@ -1,30 +1,34 @@
 /*******************************************************************************
- * @file UserKernelLib.h
+ * @file mman.c
  *
- * @see UserKernelLib.c
+ * @see mman.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 16/09/2026
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief Memory management functions for the roOs kernel.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details Memory management functions for the roOs kernel. Those functions
+ * might rely on system calls to perform kernel-space operations.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
-#ifndef __LIB_USER_KERNEL_LIB_H_
-#define __LIB_USER_KERNEL_LIB_H_
-
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
-/* None */
+/* Included headers */
+#include <errno.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <Syscall.h>
+#include <sys/types.h>
+
+/* Header file */
+#include <sys/mman.h>
 
 /*******************************************************************************
  * CONSTANTS
@@ -39,7 +43,6 @@
 /*******************************************************************************
  * MACROS
  ******************************************************************************/
-
 /* None */
 
 /*******************************************************************************
@@ -56,35 +59,58 @@
 /* None */
 
 /*******************************************************************************
+ * STATIC FUNCTIONS DECLARATIONS
+ ******************************************************************************/
+/* None */
+
+/*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-/**
- * @brief Performs a system call.
- *
- * @details Performs a system call. The underlying CPU system call facility will
- * be called to perform the required operation and issue the system call.
- * The parameters for input and output are provided by the pParams parameter.
- *
- * @param[in] kSyscallId The system call identifier to use.
- * @param[in, out] pParam0 The first parameter to pass to the system call.
- * @param[in, out] pParam1 The second parameter to pass to the system call.
- * @param[in, out] pParam2 The third parameter to pass to the system call.
- * @param[in, out] pParam3 The fourth parameter to pass to the system call.
- * @param[in, out] pParam4 The fifth parameter to pass to the system call.
- *
- * @return The result of the system call.
- */
-void* Syscall(const unsigned long long kSyscallId,
-              void*                    pParam0,
-              void*                    pParam1,
-              void*                    pParam2,
-              void*                    pParam3,
-              void*                    pParam4);
+void *mmap(void*  addr,
+           size_t length,
+           int    prot,
+           int    flags,
+           int    fd,
+           off_t  offset)
+{
+  void*    mapped;
+  void*    addrRectified;
+  uint64_t parameters;
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void);
-#endif
+  parameters = (uint64_t)prot | ((uint64_t)flags << 32);
+  addrRectified = addr;
+  mapped = Syscall(SYSCALL_ID_MMAP,
+                   &addrRectified,
+                   (void*)length,
+                   (void*)parameters,
+                   (void*)(uintptr_t)fd,
+                   (void*)offset);
+  if (mapped == MAP_FAILED)
+  {
+    errno = -((uintptr_t)addrRectified);
+    mapped = MAP_FAILED;
+  }
 
-#endif /* #ifndef __LIB_USER_KERNEL_LIB_H_ */
+  return mapped;
+}
+
+int munmap(void* addr, size_t length)
+{
+  int retVal;
+
+  retVal = (int)(uintptr_t)Syscall(SYSCALL_ID_MUNMAP,
+                                   addr,
+                                   (void*)length,
+                                   NULL,
+                                   NULL,
+                                   NULL);
+  if (retVal != 0)
+  {
+    errno  = -retVal;
+    retVal = -1;
+  }
+
+  return retVal;
+}
 
 /************************************ EOF *************************************/

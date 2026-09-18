@@ -501,6 +501,63 @@ bool MemoryStringIsMapped(const char*    kString,
                           const size_t   kMaxLength,
                           const uint32_t kFlags);
 
+/*******************************************************************************
+ * SYSCALL HANDLERS
+ ******************************************************************************/
+/**
+ * @brief Syscall handler for memory mapping.
+ *
+ * @details Syscall handler for memory mapping. This function is called by the
+ * syscall dispatcher when a memory mapping syscall is invoked. It handles the
+ * parameters passed to the syscall and performs the memory mapping operation.
+ *
+ * @param[in] pParam0 The first parameter passed to the syscall, which is a
+ * pointer to the address where the mapped memory will be stored.
+ * @param[in] pParam1 The second parameter passed to the syscall, which is the
+ * size of the memory to be mapped.
+ * @param[in] pParam2 The third parameter passed to the syscall, which is the
+ * protection flags for the memory mapping.
+ * @param[in] pParam3 The fourth parameter passed to the syscall, which is the
+ * file descriptor for the memory mapping.
+ * @param[in] pParam4 The fifth parameter passed to the syscall, which is the
+ * offset for the memory mapping.
+ *
+ * @return The function returns the address of the mapped memory region on
+ * success, or (void*)-1 on failure. The error code is stored in the address
+ * pointed to by pParam0.
+ */
+void* SyscallMemoryMap(void* pParam0,
+                       void* pParam1,
+                       void* pParam2,
+                       void* pParam3,
+                       void* pParam4);
+/**
+ * @brief Syscall handler for memory unmapping.
+ *
+ * @details Syscall handler for memory unmapping. This function is called by the
+ * syscall dispatcher when a memory unmapping syscall is invoked. It handles the
+ * parameters passed to the syscall and performs the memory unmapping operation.
+ *
+ * @param[in] pParam0 The first parameter passed to the syscall, which is the
+ * address of the memory to be unmapped.
+ * @param[in] pParam1 The second parameter passed to the syscall, which is the
+ * size of the memory to be unmapped.
+ * @param[in] pParam2 The third parameter passed to the syscall, which is the
+ * protection flags for the memory mapping.
+ * @param[in] pParam3 The fourth parameter passed to the syscall, which is the
+ * file descriptor for the memory mapping.
+ * @param[in] pParam4 The fifth parameter passed to the syscall, which is the
+ * offset for the memory mapping.
+ *
+ * @return void* The function returns 0 on success, or and error code on
+ * failure.
+ */
+void* SyscallMemoryUnmap(void* pParam0,
+                         void* pParam1,
+                         void* pParam2,
+                         void* pParam3,
+                         void* pParam4);
+
 #endif /* #ifndef __CPU_MEMORY_H_ */
 
 /************************************ EOF *************************************/

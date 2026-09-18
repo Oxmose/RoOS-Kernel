@@ -34,6 +34,12 @@
 /** @brief Type for useconds */
 typedef unsigned long useconds_t;
 
+/** @brief Type for file offsets */
+typedef unsigned long long off_t;
+
+/** @brief Type for file modes */
+typedef unsigned int mode_t;
+
 /*******************************************************************************
  * MACROS
  ******************************************************************************/

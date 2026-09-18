@@ -1,35 +1,37 @@
 /*******************************************************************************
- * @file UserKernelLib.h
- *
- * @see UserKernelLib.c
+ * @file fcntl.h
  *
  * @author Alexy Torres Aurora Dugo
  *
- * @date 16/06/2024
+ * @date 21/10/2024
  *
  * @version 1.0
  *
- * @brief User kernel library.
+ * @brief File control functions for roOs.
  *
- * @details User kernel library. This library provides non standard link
- * between the user and the kernel space.
- *
+ * @details File control functions for roOs. This port is not inteded to be
+ * complete and provides API for roOs.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
-#ifndef __LIB_USER_KERNEL_LIB_H_
-#define __LIB_USER_KERNEL_LIB_H_
+#ifndef __LIB_FCNTL_H_
+#define __LIB_FCNTL_H_
 
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
-/* None */
+#include <sys/types.h>
 
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/* None */
+/** @brief Open for reading only. */
+#define O_RDONLY 0x4
+/** @brief Open for writing only. */
+#define O_WRONLY 0x2
+/** @brief Open for reading and writing. */
+#define O_RDWR (O_RDONLY | O_WRONLY)
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -39,7 +41,6 @@
 /*******************************************************************************
  * MACROS
  ******************************************************************************/
-
 /* None */
 
 /*******************************************************************************
@@ -59,32 +60,20 @@
  * FUNCTIONS
  ******************************************************************************/
 /**
- * @brief Performs a system call.
+ * @brief Opens a file descriptor.
  *
- * @details Performs a system call. The underlying CPU system call facility will
- * be called to perform the required operation and issue the system call.
- * The parameters for input and output are provided by the pParams parameter.
+ * @details Opens a file descriptor for the file specified by pathname. The
+ * flags argument specifies how the file should be opened, and the mode argument
+ * specifies the permissions to use in case a new file is created.
  *
- * @param[in] kSyscallId The system call identifier to use.
- * @param[in, out] pParam0 The first parameter to pass to the system call.
- * @param[in, out] pParam1 The second parameter to pass to the system call.
- * @param[in, out] pParam2 The third parameter to pass to the system call.
- * @param[in, out] pParam3 The fourth parameter to pass to the system call.
- * @param[in, out] pParam4 The fifth parameter to pass to the system call.
+ * @param[in] pathname The path to the file to open.
+ * @param[in] flags The flags that specify how the file should be opened.
+ * @param[in] mode The permissions to use in case a new file is created.
  *
- * @return The result of the system call.
+ * @return Returns the file descriptor on success, or -1 on error.
  */
-void* Syscall(const unsigned long long kSyscallId,
-              void*                    pParam0,
-              void*                    pParam1,
-              void*                    pParam2,
-              void*                    pParam3,
-              void*                    pParam4);
+int open(const char *pathname, int flags, mode_t mode);
 
-#ifdef _STACK_PROT
-__attribute__((noreturn)) void __stack_chk_fail(void);
-#endif
-
-#endif /* #ifndef __LIB_USER_KERNEL_LIB_H_ */
+#endif /* #ifndef __LIB_FCNTL_H_ */
 
 /************************************ EOF *************************************/

@@ -7,10 +7,10 @@
  *
  * @version 1.0
  *
- * @brief Unistd port for roOs.
+ * @brief File control functions for roOs.
  *
- * @details Unistd port for roOs. This port is not inteded to be conplete and
- * provides API for roOs.
+ * @details File control functions for roOs. This port is not inteded to be
+ * complete and provides API for roOs.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
@@ -81,6 +81,46 @@ unsigned int sleep(unsigned int seconds);
  * returned, with errno set to indicate the error.
  */
 int usleep(useconds_t usec);
+
+/**
+ * @brief Write to a file descriptor.
+ *
+ * @details Write up to count bytes from the buffer starting at buf to the file
+ * referred to by the file descriptor fd.
+ *
+ * @param[in] fd The file descriptor to write to.
+ * @param[in] buf The buffer to write from.
+ * @param[in] count The number of bytes to write.
+ *
+ * @return ssize_t The number of bytes written, or -1 on error.
+ */
+ssize_t write(int fd, const void *buf, size_t count);
+
+/**
+ * @brief Read from a file descriptor.
+ *
+ * @details Read up to count bytes from the file referred to by the file
+ * descriptor fd into the buffer starting at buf.
+ *
+ * @param[in] fd The file descriptor to read from.
+ * @param[out] buf The buffer to read into.
+ * @param[in] count The number of bytes to read.
+ *
+ * @return ssize_t The number of bytes read, or -1 on error.
+ */
+ssize_t read(int fd, void *buf, size_t count);
+
+/**
+ * @brief Close a file descriptor.
+ *
+ * @details Closes the file descriptor fd, so that it no longer refers to any
+ * file or other resource.
+ *
+ * @param[in] fd The file descriptor to close.
+ *
+ * @return int Returns 0 on success, or -1 on error.
+ */
+int close(int fd);
 
 #endif /* #ifndef __LIB_UNISTD_H_ */
 

@@ -23,6 +23,7 @@
 /* Included headers */
 #include <errno.h>
 #include <stdint.h>
+#include <Memory.h>
 #include <Signals.h>
 #include <Scheduler.h>
 #include <VirtualFS.h>
@@ -113,6 +114,10 @@ typedef enum
   SYSCALL_ID_SIGNAL_MASK,
   /** @brief Signal return system call */
   SYSCALL_ID_SIGNAL_RETURN,
+  /** @brief Mmap system call */
+  SYSCALL_ID_MMAP,
+  /** @brief Munmap system call */
+  SYSCALL_ID_MUNMAP,
   /** @brief Maximal system call ID */
   SYSCALL_ID_MAX
 } E_SyscallId;
@@ -172,6 +177,8 @@ T_SyscallHandler spSyscallHandlerTable[SYSCALL_ID_MAX] =
   [SYSCALL_ID_SIGNAL_REGISTER] = SyscallSignalRegister,
   [SYSCALL_ID_SIGNAL_MASK] = SyscallSignalMask,
   [SYSCALL_ID_SIGNAL_RETURN] = SyscallSignalReturn,
+  [SYSCALL_ID_MMAP] = SyscallMemoryMap,
+  [SYSCALL_ID_MUNMAP] = SyscallMemoryUnmap
 };
 
 /*******************************************************************************

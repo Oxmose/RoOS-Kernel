@@ -1841,7 +1841,7 @@ void* SyscallVFSOpen(void* pParam0,
 
   if (MemoryStringIsMapped(kpPath,
                            VFS_PATH_MAX_LENGTH,
-                           MEMMGR_MAP_USER | MEMMGR_MAP_RW) == true)
+                           MEMMGR_MAP_USER | MEMMGR_MAP_RO) == true)
   {
     flags  = (int32_t)(uintptr_t)pParam1;
     mode   = (int32_t)(uintptr_t)pParam2;
@@ -1960,9 +1960,7 @@ void* SyscallVFSWrite(void* pParam0,
 
   if (MemoryIsMappedWithFlags(pParam1,
                               count,
-                              MEMMGR_MAP_USER |
-                              MEMMGR_MAP_KERNEL |
-                              MEMMGR_MAP_RW) == true)
+                              MEMMGR_MAP_USER | MEMMGR_MAP_RO) == true)
   {
     retCode = (void*)(uintptr_t)VFSWrite(fd, pParam1, count);
   }

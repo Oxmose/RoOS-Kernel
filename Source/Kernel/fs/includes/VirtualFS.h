@@ -51,6 +51,8 @@
 #define VFS_PERMISSION_EXEC 1
 /** @brief Defines the VFS access permissions for read only */
 #define O_RDONLY VFS_PERMISSION_READ
+/** @brief Defines the VFS access permissions for write only */
+#define O_WRONLY VFS_PERMISSION_WRITE
 /** @brief Defines the VFS access permissions for read / write */
 #define O_RDWR (VFS_PERMISSION_READ | VFS_PERMISSION_WRITE)
 
