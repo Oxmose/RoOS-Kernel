@@ -1,5 +1,5 @@
 /*******************************************************************************
- * @file types.h
+ * @file ioctl.h
  *
  * @author Alexy Torres Aurora Dugo
  *
@@ -7,15 +7,15 @@
  *
  * @version 1.0
  *
- * @brief Lib C types for roOs.
+ * @brief Lib C IOCTL operations for roOs.
  *
- * @details Lib C types for roOs.
+ * @details Lib C IOCTL operations for roOs.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
 
-#ifndef __LIB_SYS_TYPES_H_
-#define __LIB_SYS_TYPES_H_
+#ifndef __LIB_SYS_IOCTL_H_
+#define __LIB_SYS_IOCTL_H_
 
 /*******************************************************************************
  * INCLUDES
@@ -26,20 +26,12 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/** @brief Defines the maximal length of a name */
-#define NAME_MAX 256
+/* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/** @brief Type for useconds */
-typedef unsigned long useconds_t;
-
-/** @brief Type for file offsets */
-typedef unsigned long long off_t;
-
-/** @brief Type for file modes */
-typedef unsigned int mode_t;
+/* None */
 
 /*******************************************************************************
  * MACROS
@@ -62,8 +54,20 @@ typedef unsigned int mode_t;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-/* None */
+/**
+ * @brief Performs an IOCTL operation on a file descriptor.
+ *
+ * @details Performs an IOCTL operation on a file descriptor. The function sends
+ * the IOCTL to the underlying driver to be processed.
+ *
+ * @param[in] fd The file descriptor of the file to use.
+ * @param[in] op The IOCTL operation to perform.
+ * @param[in, out] pArgs The arguments for the IOCTL operation.
+ *
+ * @return The function returns the value returned by the IOCTL operation.
+ */
+int ioctl(int fd, unsigned long op, void* pArgs);
 
-#endif /* #ifndef __LIB_SYS_TYPES_H_ */
+#endif /* #ifndef __LIB_SYS_IOCTL_H_ */
 
 /************************************ EOF *************************************/

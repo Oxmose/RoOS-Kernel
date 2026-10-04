@@ -126,8 +126,6 @@ void* threadRoutine(void* pParam)
 
   while (sigRecv != 1) {}
 
-  printf("Thread exiting with arg: %d\n", value);
-
   Syscall(SYSCALL_ID_THREAD_EXIT, (void*)28, (void*)0, (void*)0, (void*)0, (void*)0);
 
   printf("Thread returned: %d\n", value);
@@ -274,8 +272,6 @@ int main(void)
   consoleFd = open("/dev/vga-text", O_RDWR, 0);
   write(consoleFd, "Opened console\n", 16);
   close(consoleFd);
-
-  printf("Current thread is 0x%p\n", pThread);
 
   printf("Starting signal test with System Calls\n");
   testSignalSyscall(pThread);
