@@ -31,6 +31,8 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <sys/ioctl.h>
 
 /*******************************************************************************
  * CONSTANTS
@@ -108,6 +110,62 @@ ssize_t read(int fd, void *buf, size_t count)
                                          (void*)count,
                                          NULL,
                                          NULL);
+    if (retVal < 0)
+    {
+      errno = -retVal;
+      retVal = -1;
+    }
+  }
+  else
+  {
+    errno  = EBADF;
+    retVal = -1;
+  }
+
+  return retVal;
+}
+
+int readdir(int fd,
+            struct dirent *pDirent,
+            unsigned int count)
+{
+  int retVal;
+
+  if (fd >= 0)
+  {
+    retVal = (int)(uintptr_t)Syscall(SYSCALL_ID_READDIR,
+                                     (void*)(uintptr_t)fd,
+                                     (void*)pDirent,
+                                     (void*)(uintptr_t)count,
+                                     NULL,
+                                     NULL);
+    if (retVal < 0)
+    {
+      errno = -retVal;
+      retVal = -1;
+    }
+  }
+  else
+  {
+    errno  = EBADF;
+    retVal = -1;
+  }
+
+  return retVal;
+}
+
+int ioctl(int fd, unsigned long op, void* pArgs)
+{
+  int retVal;
+
+  if (fd >= 0)
+  {
+    retVal = (int)(uintptr_t)Syscall(SYSCALL_ID_IOCTL,
+                                     (void*)(uintptr_t)fd,
+                                     (void*)(uintptr_t)op,
+                                     (void*)(uintptr_t)pArgs,
+                                     NULL,
+                                     NULL);
     if (retVal < 0)
     {
       errno = -retVal;

@@ -75,7 +75,7 @@ typedef struct
   /** @brief Directory entry name  */
   char pName[VFS_FILENAME_MAX_LENGTH + 1];
   /** @brief File entry name length */
-  uint8_t filenameLength;
+  uint16_t filenameLength;
   /** @brief Directory entry type */
   E_VFSFileType type;
 } S_DirectoryEntry;
