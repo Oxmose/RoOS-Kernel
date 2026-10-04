@@ -203,14 +203,14 @@ void* PingPongRoutine(void* pParam)
     if (value == 0)
     {
       sleepTime.tv_nsec = 0;
-      sleepTime.tv_sec  = 100;
+      sleepTime.tv_sec  = 5;
       retVal = nanosleep(&sleepTime, &remainingTime);
       if (retVal >= 0 || errno != EINTR)
       {
         printf("Ping thread intr sleep failed %d %d\n", retVal, errno);
       }
 
-      printf("ng %ul\n", remainingTime.tv_sec * 1000000000 + remainingTime.tv_nsec);
+      printf("ng %lu\n", remainingTime.tv_sec * 1000000000 + remainingTime.tv_nsec);
       sleepTime.tv_nsec = 5000000;
       sleepTime.tv_sec  = 0;
       retVal = nanosleep(&sleepTime, &remainingTime);
@@ -226,14 +226,14 @@ void* PingPongRoutine(void* pParam)
       Syscall(SYSCALL_ID_SIGNAL, (void*)1, (void*)pThread1, (void*)0, (void*)0, (void*)0);
 
       sleepTime.tv_nsec = 0;
-      sleepTime.tv_sec  = 100;
+      sleepTime.tv_sec  = 5;
       retVal = nanosleep(&sleepTime, &remainingTime);
       if (retVal >= 0 || errno != EINTR)
       {
-        printf("Ping thread intr sleep failed %d %d\n", retVal, errno);
+        printf("Pong thread intr sleep failed %d %d\n", retVal, errno);
       }
 
-      printf("ng %ul\n", remainingTime.tv_sec * 1000000000 + remainingTime.tv_nsec);
+      printf("ng %lu\n", remainingTime.tv_sec * 1000000000 + remainingTime.tv_nsec);
       sleepTime.tv_nsec = 5000000;
       sleepTime.tv_sec  = 0;
       retVal = nanosleep(&sleepTime, &remainingTime);
@@ -285,6 +285,11 @@ int main(void)
 
   sleep(5);
   testPingPong();
+
+  while (1)
+  {
+    sleep(1);
+  }
 
 
   return 0;

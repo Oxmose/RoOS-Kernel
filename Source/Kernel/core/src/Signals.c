@@ -208,25 +208,28 @@ void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
   void*            handler;
   bool             isReturningToUser;
   S_KernelProcess* pProcess;
+  uint64_t         pendingSignals;
 
   isReturningToUser = kIsSyscall || CPUIsReturningToUser(pThread);
 
   if (isReturningToUser == true)
   {
     KERNEL_LOCK(pThread->signalLock);
-    if (pThread->pendingSignals != 0)
+    pendingSignals = pThread->pendingSignals;
+    KERNEL_UNLOCK(pThread->signalLock);
+    if (pendingSignals != 0)
     {
       /* Get the next signal */
       for (i = 0; i < THREAD_SIG_MAX_VALUE; i++)
       {
-        if ((pThread->pendingSignals & (1 << i)) != 0)
+        if ((pendingSignals & (1 << i)) != 0)
         {
 
           /* Manage specific cases */
           if (i == THREAD_SIGKILL)
           {
             /* Clear the pending signal */
-            pThread->pendingSignals &= ~(1 << i);
+            pendingSignals &= ~(1 << i);
 
             /* Kill the thread */
             KillCurrentThread();
@@ -234,7 +237,7 @@ void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
           else if (i == THREAD_SIGSTOP)
           {
             /* Clear the pending signal */
-            pThread->pendingSignals &= ~(1 << i);
+            pendingSignals &= ~(1 << i);
 
             /* Stop the thread */
             SetCurrentThreadToWaiting(NULL, true);
@@ -242,17 +245,18 @@ void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
           else if ((pThread->blockedSignals & (1 << i)) == 0)
           {
             /* Clear the pending signal */
+            KERNEL_LOCK(pThread->signalLock);
             pThread->pendingSignals &= ~(1 << i);
+            KERNEL_UNLOCK(pThread->signalLock);
 
             pProcess = pThread->pProcess;
 
             KERNEL_LOCK(pProcess->signalLock);
-            if (pProcess->signalHandlers[i] != NULL)
-            {
-              /* Get the handler and request the signal to be handled */
-              handler = pProcess->signalHandlers[i];
+            handler = pProcess->signalHandlers[i];
+            KERNEL_UNLOCK(pProcess->signalLock);
 
-              KERNEL_UNLOCK(pProcess->signalLock);
+            if (handler != NULL)
+            {
               if (kIsSyscall == true)
               {
                 CPUThreadSignalFromSyscall(pThread, (uintptr_t)handler, i);
@@ -265,7 +269,6 @@ void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
             else
             {
               /* No handler, kill the thread */
-              KERNEL_UNLOCK(pProcess->signalLock);
               KillCurrentThread();
             }
 
@@ -274,7 +277,6 @@ void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
         }
       }
     }
-    KERNEL_UNLOCK(pThread->signalLock);
   }
 }
 
