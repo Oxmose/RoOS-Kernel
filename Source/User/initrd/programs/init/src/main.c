@@ -41,7 +41,7 @@ void handlerSyscallTest(int signum, void* uContext)
 
     if (nestedTest == 0)
     {
-      printf("\n", signum, nestedTest);
+      printf("\n");
     }
   }
   else
@@ -76,7 +76,7 @@ void HandlerInt0(int signum, void* uContext)
 
   if (nestedTest == 0)
   {
-    printf("\n", signum, nestedTest);
+    printf("\n"d);
     Syscall(SYSCALL_ID_SIGNAL, (void*)1, pThreadMain, (void*)0, (void*)0, (void*)0);
     sigRecv = 1;
   }
