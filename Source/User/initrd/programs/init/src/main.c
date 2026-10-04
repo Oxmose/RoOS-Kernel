@@ -76,7 +76,7 @@ void HandlerInt0(int signum, void* uContext)
 
   if (nestedTest == 0)
   {
-    printf("\n"d);
+    printf("\n");
     Syscall(SYSCALL_ID_SIGNAL, (void*)1, pThreadMain, (void*)0, (void*)0, (void*)0);
     sigRecv = 1;
   }
