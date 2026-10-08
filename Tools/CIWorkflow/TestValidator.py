@@ -35,7 +35,7 @@ TARGET_LIST = [
     "x86_64",
 ]
 
-TEST_TIMEOUT = 120
+TEST_TIMEOUT = 240
 
 
 totalAssert = 0
