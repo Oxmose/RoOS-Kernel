@@ -117,9 +117,6 @@ CPUSyscallHandler:
   mov [rax + VCPU_OFF_USER_STACK], rsp
   mov rsp, [rax + VCPU_OFF_KERNEL_STACK]
 
-  ; Ensure stack is aligned
-  and rsp, 0xFFFFFFFFFFFFFFF0
-
   ; Create stack frame
   push rbx
   push r12

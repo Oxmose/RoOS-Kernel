@@ -269,7 +269,7 @@ int main(void)
 
   Syscall(SYSCALL_ID_THREAD_GET_SELF, &pThread, (void*)0, (void*)0, (void*)0, (void*)0);
 
-  consoleFd = open("/dev/vga-text", O_RDWR, 0);
+  consoleFd = open("/dev/vesa", O_RDWR, 0);
   write(consoleFd, "Opened console\n", 16);
   close(consoleFd);
 

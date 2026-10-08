@@ -206,7 +206,7 @@ void X64KernelEntry(void)
 
   /* Initialize the kernel shell */
   //KernelShellInit();
-#endif
+  #endif
 
   /* Perform first schedule */
   SchedulerSchedule();

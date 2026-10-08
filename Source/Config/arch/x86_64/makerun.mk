@@ -9,7 +9,7 @@
 # virtualbox.
 ################################################################################
 
-QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 256M \
+QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 256M -vga std -global VGA.vgamem_mb=16\
            -smp 4 -serial stdio -drive format=raw,file=../Peripherals/hdd_primary_master.img
 
 QEMUOPTSTEST = -cpu EPYC -rtc base=localtime -m 256M \

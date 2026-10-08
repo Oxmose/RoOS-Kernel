@@ -51,7 +51,8 @@
  * Set to 0 to disable debug output for a specific module
  * Set to 1 to enable debug output for a specific module
  ******************************************************************************/
-#define ACPI_DRIVER_DEBUG_ENABLED 1
-#define DRIVER_MGR_DEBUG_ENABLED 1
+#define ACPI_DRIVER_DEBUG_ENABLED 0
+#define DRIVER_MGR_DEBUG_ENABLED 0
+#define VESA_DERIVER_DEBUG_ENABLED 0
 
 #endif /* ifndef __GLOBAL_CONFIG_H_ */

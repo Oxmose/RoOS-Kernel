@@ -624,9 +624,6 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
           CPU_MASK_SET(cpuMask, i);
         }
 
-
-
-
         if (sVGADriverCtrl.frameRate > 0)
         {
           retCode = CreateThread(&sVGADriverCtrl.pDisplayThread,
@@ -785,7 +782,7 @@ static void _ProcessChar(const char kCharacter)
         /* Clear all screen */
         _FastFill((uintptr_t)sVGADriverCtrl.pInternalBuffer,
                   0,
-                  sVGADriverCtrl.framebufferSize/ sizeof(uint16_t));
+                  sVGADriverCtrl.framebufferSize / sizeof(uint16_t));
         break;
       /* Line return */
       case '\r':
@@ -804,7 +801,7 @@ static void _ClearFramebuffer(void)
   /* Clear all screen */
   _FastFill((uintptr_t)sVGADriverCtrl.pInternalBuffer,
             0,
-            sVGADriverCtrl.framebufferSize/ sizeof(uint16_t));
+            sVGADriverCtrl.framebufferSize / sizeof(uint16_t));
   KERNEL_UNLOCK(sVGADriverCtrl.bufferLock);
 }
 
@@ -1273,31 +1270,31 @@ static ssize_t _VFSIOCTL(void*    pDriverData,
     retVal = 0;
     switch(operation)
     {
-        case VFS_IOCTL_CONS_RESTORE_CURSOR:
-            _SetCursorDirect(pArgs);
-            break;
-        case VFS_IOCTL_CONS_SAVE_CURSOR:
-            _GetCursor(pArgs);
-            break;
-        case VFS_IOCTL_CONS_SCROLL:
-            pScrollArgs = pArgs;
-            _Scroll(pScrollArgs->direction,
-                    pScrollArgs->lineCount);
-            break;
-        case VFS_IOCTL_CONS_SET_COLORSCHEME:
-            _SetScheme(pArgs);
-            break;
-        case VFS_IOCTL_CONS_SAVE_COLORSCHEME:
-            _GetScheme(pArgs);
-            break;
-        case VFS_IOCTL_CONS_CLEAR:
-            _ClearFramebuffer();
-            break;
-        case VFS_IOCTL_CONS_FLUSH:
-            _Flush();
-            break;
-        default:
-            retVal = -1;
+      case VFS_IOCTL_CONS_RESTORE_CURSOR:
+        _SetCursorDirect(pArgs);
+        break;
+      case VFS_IOCTL_CONS_SAVE_CURSOR:
+        _GetCursor(pArgs);
+        break;
+      case VFS_IOCTL_CONS_SCROLL:
+        pScrollArgs = pArgs;
+        _Scroll(pScrollArgs->direction,
+                pScrollArgs->lineCount);
+        break;
+      case VFS_IOCTL_CONS_SET_COLORSCHEME:
+        _SetScheme(pArgs);
+        break;
+      case VFS_IOCTL_CONS_SAVE_COLORSCHEME:
+        _GetScheme(pArgs);
+        break;
+      case VFS_IOCTL_CONS_CLEAR:
+        _ClearFramebuffer();
+        break;
+      case VFS_IOCTL_CONS_FLUSH:
+        _Flush();
+        break;
+      default:
+        retVal = -1;
     }
   }
   else

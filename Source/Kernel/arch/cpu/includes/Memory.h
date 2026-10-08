@@ -175,6 +175,40 @@ void* MemoryKernelMap(const void*    kPhysicalAddress,
                       E_Return*      pError);
 
 /**
+ * @brief Maps a physical region (memory or hardware) in the kernel address
+ * space.
+ *
+ * @details Maps a kernel virtual memory region to a memory region. The function
+ * does not check if the physical region is already mapped and will create a
+ * new mapping. The physical address and the size must be aligned on page
+ * boundaries. If not, the mapping fails and NULL is returned.
+ *
+ * @param[in] kPhysicalAddress The physical address to map. Must be aligned on
+ * page boundaries.
+ * @param[in] kVirtualAddress The virtual address to map. Must be aligned on
+ * page boundaries.
+ * @param[in] kSize The size of the region to map in bytes. Must be aligned on
+ * page boundaries.
+ * @param[in] kFlags The mapping flags, see the MEM_MGR flags for more
+ * infomation.
+ * @param[out] pError The error buffer to store the operation's result. If NULL,
+ * does not set the error value.
+ *
+ * @return The function returns the virtual base address of the mapped region.
+ * NULL is returned on error.
+ *
+ * @warning The mapping does not remove the physical address from the free
+ * free memory. Thus, if the user wants to ensure this memory region not to be
+ * used later (or already used) memoryAllocFrames must be used to get a free
+ * physical memory region. This does not apply to hardware mapping.
+ */
+void* MemoryKernelMapDirect(const void*    kPhysicalAddress,
+                            const void*    kVirtualAddress,
+                            const size_t   kSize,
+                            const uint32_t kFlags,
+                            E_Return*      pError);
+
+/**
  * @brief Unmaps a virtual region (memory or hardware) from the kernel address
  * space.
  *

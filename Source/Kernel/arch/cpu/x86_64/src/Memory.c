@@ -251,7 +251,7 @@ static bool _PageFaultHandler(void);
  * @return The canonical address is returned;
  */
 static inline uintptr_t _MakeCanonical(const uintptr_t kAddress,
-                                       const bool kIsPhysical);
+                                       const bool      kIsPhysical);
 
 /**
  * @brief Adds a free memory block to a memory list.
@@ -263,9 +263,9 @@ static inline uintptr_t _MakeCanonical(const uintptr_t kAddress,
  * @param[in] kBaseAddress The first address of the memory block to add.
  * @param[in] kLength The size, in bytes of the memory region to add.
  */
-static void _AddBlock(S_MemoryList *pList,
+static void _AddBlock(S_MemoryList*   pList,
                       const uintptr_t kBaseAddress,
-                      const size_t kLength);
+                      const size_t    kLength);
 
 /**
  * @brief Removes a memory block to a memory list.
@@ -277,9 +277,9 @@ static void _AddBlock(S_MemoryList *pList,
  * @param[in] kBaseAddress The first address of the memory block to remove.
  * @param[in] kLength The size, in bytes of the memory region to remove.
  */
-static void _RemoveBlock(S_MemoryList *pList,
+static void _RemoveBlock(S_MemoryList*   pList,
                          const uintptr_t kBaseAddress,
-                         const size_t kLength);
+                         const size_t    kLength);
 
 /**
  * @brief Returns a block for a memory list and removes it.
@@ -290,7 +290,7 @@ static void _RemoveBlock(S_MemoryList *pList,
  * @param[out] pList The memory list to get the block from.
  * @param[in] kLength The size, in bytes of the memory region to get.
  */
-static uintptr_t _GetBlock(S_MemoryList *pList, const size_t kLength);
+static uintptr_t _GetBlock(S_MemoryList* pList, const size_t kLength);
 
 /**
  * @brief Returns a block from the end of a memory list and removes it.
@@ -301,7 +301,7 @@ static uintptr_t _GetBlock(S_MemoryList *pList, const size_t kLength);
  * @param[out] pList The memory list to get the block from.
  * @param[in] kLength The size, in bytes of the memory region to get.
  */
-static uintptr_t _GetBlockFromEnd(S_MemoryList *pList, const size_t kLength);
+static uintptr_t _GetBlockFromEnd(S_MemoryList* pList, const size_t kLength);
 
 /**
  * @brief Kernel memory frame allocation.
@@ -328,7 +328,7 @@ static uintptr_t _AllocateFrames(const size_t kFrameCount);
  * @param[in] kFrameCount The number of desired frames to release.
  */
 static void _ReleaseFrames(const uintptr_t kBaseAddress,
-                           const size_t kFrameCount);
+                           const size_t    kFrameCount);
 
 /**
  * @brief Kernel memory pages allocation.
@@ -355,7 +355,7 @@ static uintptr_t _AllocateKernelPages(const size_t kPageCount);
  * @param[in] kPageCount The number of desired pages to release.
  */
 static void _ReleaseKernelPages(const uintptr_t kBaseAddress,
-                                const size_t kPageCount);
+                                const size_t    kPageCount);
 
 /**
  * @brief Tells if a memory region is already mapped in the a page table.
@@ -373,10 +373,10 @@ static void _ReleaseKernelPages(const uintptr_t kBaseAddress,
  * @return Returns false if the region is not mapped, true otherwise.
  */
 static bool _IsMapped(const uintptr_t kVirtualAddress,
-                      size_t pageCount,
+                      size_t          pageCount,
                       const uintptr_t kPageDir,
-                      const bool kCheckFull,
-                      const uint32_t kFlags);
+                      const bool      kCheckFull,
+                      const uint32_t  kFlags);
 
 /**
  * @brief Maps the virtual address to the physical address in a page directory.
@@ -397,8 +397,8 @@ static bool _IsMapped(const uintptr_t kVirtualAddress,
  */
 static E_Return _MemoryMap(const uintptr_t kVirtualAddress,
                            const uintptr_t kPhysicalAddress,
-                           const size_t kPageCount,
-                           const uint32_t kFlags,
+                           const size_t    kPageCount,
+                           const uint32_t  kFlags,
                            const uintptr_t kPageDir);
 
 /**
@@ -412,7 +412,7 @@ static E_Return _MemoryMap(const uintptr_t kVirtualAddress,
  * @param[in] kPageDir The page directory to use.
  */
 static E_Return _MemoryUnmap(const uintptr_t kVirtualAddress,
-                             const size_t kPageCount,
+                             const size_t    kPageCount,
                              const uintptr_t kPageDir);
 
 /**
@@ -431,7 +431,7 @@ static E_Return _MemoryUnmap(const uintptr_t kVirtualAddress,
  */
 static uintptr_t _GetPhysAddr(const uintptr_t kVirtualAddress,
                               const uintptr_t kPageDir,
-                              uint32_t *pFlags);
+                              uint32_t*       pFlags);
 
 /**
  * @brief Detects the hardware memory presents in the system.
@@ -494,11 +494,11 @@ static void _InitKernelFreePages(void);
  * @param[in] kRegionEndAddr End virtual address of the section to map.
  * @param[in] kFlags Mapping flags.
  */
-static void _MapKernelRegion(uintptr_t *pLastSectionStart,
-                             uintptr_t *pLastSectionEnd,
+static void _MapKernelRegion(uintptr_t*      pLastSectionStart,
+                             uintptr_t*      pLastSectionEnd,
                              const uintptr_t kRegionStartAddr,
                              const uintptr_t kRegionEndAddr,
-                             const uint32_t kFlags);
+                             const uint32_t  Flags);
 
 /**
  * @brief Initializes paging structures for the kernel.
@@ -524,7 +524,7 @@ static void _MapKernel(void);
  */
 static void _ReleasePageDir(const uintptr_t kPhysTable,
                             const uintptr_t kBaseVirtAddr,
-                            const uint8_t kLevel);
+                            const uint8_t   kLevel);
 
 /**
  * @brief User memory pages allocation.
@@ -540,9 +540,9 @@ static void _ReleasePageDir(const uintptr_t kPhysTable,
  * @return The bottom address of the first page of the contiguous block is
  * returned.
  */
-static uintptr_t _AllocateUserPages(const size_t kPageCount,
+static uintptr_t _AllocateUserPages(const size_t           kPageCount,
                                     const S_KernelProcess *kpProcess,
-                                    const bool kFromTop);
+                                    const bool             kFromTop);
 
 /**
  * @brief User memory page release.
@@ -557,8 +557,8 @@ static uintptr_t _AllocateUserPages(const size_t kPageCount,
  * @param[in] kpProcess The process to which the pages should be released.
  *
  */
-static void _ReleaseUserPages(const uintptr_t kBaseAddress,
-                              const size_t kPageCount,
+static void _ReleaseUserPages(const uintptr_t        kBaseAddress,
+                              const size_t           kPageCount,
                               const S_KernelProcess *kpProcess);
 
 /**
@@ -594,11 +594,11 @@ static inline uintptr_t _TranslateFlags(const uint32_t kFlags);
  *
  * @return The function returns the success or error status.
  */
-static E_Return _MemoryMapUser(uintptr_t *pTableLevel,
-                               uintptr_t *pVirtAddress,
-                               uintptr_t *pPhysicalAddress,
-                               size_t *pPageCount,
-                               const uint8_t kLevel,
+static E_Return _MemoryMapUser(uintptr_t*     pTableLevel,
+                               uintptr_t*     pVirtAddress,
+                               uintptr_t*     pPhysicalAddress,
+                               size_t*        pPageCount,
+                               const uint8_t  kLevel,
                                const uint64_t kPageFlags);
 
 /**
@@ -617,9 +617,9 @@ static E_Return _MemoryMapUser(uintptr_t *pTableLevel,
  *
  * @return The function returns the success or error status.
  */
-static E_Return _MemoryUnmapUser(uintptr_t *pTableLevel,
-                                 uintptr_t *pVirtAddress,
-                                 size_t *pPageCount,
+static E_Return _MemoryUnmapUser(uintptr_t*    pTableLevel,
+                                 uintptr_t*    pVirtAddress,
+                                 size_t*       pPageCount,
                                  const uint8_t kLevel);
 
 /**
@@ -636,9 +636,9 @@ static E_Return _MemoryUnmapUser(uintptr_t *pTableLevel,
  * @param[out] pEntryIdx The buffer that is filled with the entry index in the
  * frame metadata table that corresponds to the physical address.
  */
-static inline void _GetReferenceIndexTable(const uintptr_t kPhysAddr,
-                                           S_FrameMetadataTable **ppTable,
-                                           size_t *pEntryIdx);
+static inline void _GetReferenceIndexTable(const uintptr_t        kPhysAddr,
+                                           S_FrameMetadataTable** ppTable,
+                                           size_t*                pEntryIdx);
 
 /**
  * @brief Get the reference counter pointer for a given physical address and
@@ -772,68 +772,16 @@ static bool sCpu1GBPageSupport = 0;
 static bool _PageFaultHandler(void)
 {
   uintptr_t faultAddress;
-  uintptr_t physAddr;
-  uint32_t errorCode;
-  uint32_t flags;
   bool staleEntry;
   S_KernelThread *pCurrentThread;
-  S_ProcessMemoryMetadata *pProcData;
-  S_InterruptContext *pIntContext;
 
   pCurrentThread = GetCurrentThread();
-  pProcData = (S_ProcessMemoryMetadata *)pCurrentThread->pProcess->pMemoryData;
 
   /* Get the fault address and error code */
   __asm__ __volatile__("mov %%cr2, %0" : "=r"(faultAddress));
 
-  pIntContext = (void *)((uintptr_t)(((S_VirtualCPU *)pCurrentThread->pVCpu)->context) +
-                         sizeof(S_CPUState));
-  errorCode = pIntContext->errorCode;
-
   /* Check if the fault occured because we hit a stale TLB entry */
-  physAddr = _GetPhysAddr(faultAddress, pProcData->PDPhysAddress, &flags);
   staleEntry = false;
-  if (physAddr != MEMMGR_PHYS_ADDR_ERROR)
-  {
-    staleEntry = true;
-    if ((errorCode & PAGE_FAULT_ERROR_PROT_VIOLATION) ==
-        PAGE_FAULT_ERROR_PROT_VIOLATION)
-    {
-      /* Check the privilege level */
-      if ((errorCode & PAGE_FAULT_ERROR_USER) == PAGE_FAULT_ERROR_USER &&
-          (flags & MEMMGR_MAP_USER) != MEMMGR_MAP_USER)
-      {
-        staleEntry = false;
-      }
-
-      /* Check if execution is allowed */
-      if ((errorCode & PAGE_FAULT_ERROR_EXEC) == PAGE_FAULT_ERROR_EXEC &&
-          (flags & MEMMGR_MAP_EXEC) != MEMMGR_MAP_EXEC)
-      {
-        staleEntry = false;
-      }
-
-      /* Check the access rights */
-      if ((errorCode & PAGE_FAULT_ERROR_WRITE) == PAGE_FAULT_ERROR_WRITE)
-      {
-        /* Check if the entry is set as COW */
-        if ((flags & MEMMGR_MAP_COW) == MEMMGR_MAP_COW)
-        {
-          /* TODO */
-          staleEntry = false;
-        }
-        /* Check if the error is due to a stale entry */
-        else if ((flags & MEMMGR_MAP_RW) != MEMMGR_MAP_RW)
-        {
-          staleEntry = false;
-        }
-      }
-    }
-    else if (errorCode != 0)
-    {
-      staleEntry = false;
-    }
-  }
 
   if (staleEntry != true)
   {
@@ -856,7 +804,7 @@ static bool _PageFaultHandler(void)
 }
 
 static inline uintptr_t _MakeCanonical(const uintptr_t kAddress,
-                                       const bool kIsPhysical)
+                                       const bool      kIsPhysical)
 {
   if (kIsPhysical == false)
   {
@@ -875,9 +823,9 @@ static inline uintptr_t _MakeCanonical(const uintptr_t kAddress,
   }
 }
 
-static void _AddBlock(S_MemoryList *pList,
-                      uintptr_t baseAddress,
-                      const size_t kLength)
+static void _AddBlock(S_MemoryList* pList,
+                      uintptr_t     baseAddress,
+                      const size_t  kLength)
 {
   S_KernelQueueNode *pCursor;
   S_KernelQueueNode *pNewNode;
@@ -1022,9 +970,9 @@ static void _AddBlock(S_MemoryList *pList,
   KERNEL_UNLOCK(pList->lock);
 }
 
-static void _RemoveBlock(S_MemoryList *pList,
-                         uintptr_t baseAddress,
-                         const size_t kLength)
+static void _RemoveBlock(S_MemoryList* pList,
+                         uintptr_t     baseAddress,
+                         const size_t  kLength)
 {
   S_KernelQueueNode *pCursor;
   S_KernelQueueNode *pNewNode;
@@ -1154,7 +1102,7 @@ static void _RemoveBlock(S_MemoryList *pList,
   KERNEL_UNLOCK(pList->lock);
 }
 
-static uintptr_t _GetBlock(S_MemoryList *pList, const size_t kLength)
+static uintptr_t _GetBlock(S_MemoryList* pList, const size_t kLength)
 {
   uintptr_t retBlock;
   S_KernelQueueNode *pCursor;
@@ -1211,7 +1159,7 @@ static uintptr_t _GetBlock(S_MemoryList *pList, const size_t kLength)
   return retBlock;
 }
 
-static uintptr_t _GetBlockFromEnd(S_MemoryList *pList, const size_t kLength)
+static uintptr_t _GetBlockFromEnd(S_MemoryList* pList, const size_t kLength)
 {
   uintptr_t retBlock;
   S_KernelQueueNode *pCursor;
@@ -1302,7 +1250,7 @@ static uintptr_t _AllocateFrames(const size_t kFrameCount)
 }
 
 static void _ReleaseFrames(const uintptr_t kBaseAddress,
-                           const size_t kFrameCount)
+                           const size_t    kFrameCount)
 {
   uintptr_t physAddr;
   uintptr_t i;
@@ -1343,16 +1291,16 @@ static uintptr_t _AllocateKernelPages(const size_t kPageCount)
 }
 
 static void _ReleaseKernelPages(const uintptr_t kBaseAddress,
-                                const size_t kPageCount)
+                                const size_t    kPageCount)
 {
   _AddBlock(&sKernelFreePagesList, kBaseAddress, kPageCount * KERNEL_PAGE_SIZE);
 }
 
 static bool _IsMapped(const uintptr_t kVirtualAddress,
-                      size_t pageCount,
+                      size_t          pageCount,
                       const uintptr_t kPageDir,
-                      const bool kCheckFull,
-                      const uint32_t kFlags)
+                      const bool      kCheckFull,
+                      const uint32_t   kFlags)
 {
   uintptr_t  currVirtAddr;
   uintptr_t  nextPtable;
@@ -1495,8 +1443,8 @@ static bool _IsMapped(const uintptr_t kVirtualAddress,
 
 static E_Return _MemoryMap(const uintptr_t kVirtualAddress,
                            const uintptr_t kPhysicalAddress,
-                           const size_t kPageCount,
-                           const uint32_t kFlags,
+                           const size_t    kPageCount,
+                           const uint32_t  kFlags,
                            const uintptr_t kPageDir)
 {
   size_t toMap;
@@ -1591,7 +1539,7 @@ static E_Return _MemoryMap(const uintptr_t kVirtualAddress,
                                      mapPgdirFlags;
 
         /* Zeroise the page */
-        memset((void *)GET_VIRT_MEM_ADDR(newPgTableFrame), 0, KERNEL_PAGE_SIZE);
+        memset((void* )GET_VIRT_MEM_ADDR(newPgTableFrame), 0, KERNEL_PAGE_SIZE);
       }
       else if (j == 0)
       {
@@ -1616,7 +1564,7 @@ static E_Return _MemoryMap(const uintptr_t kVirtualAddress,
 }
 
 static E_Return _MemoryUnmap(const uintptr_t kVirtualAddress,
-                             const size_t kPageCount,
+                             const size_t    kPageCount,
                              const uintptr_t kPageDir)
 {
   size_t toUnmap;
@@ -1705,7 +1653,7 @@ static E_Return _MemoryUnmap(const uintptr_t kVirtualAddress,
           CPUInvalidateTLBEntry(currVirtAddr);
 
           /* Update other CPUs TLB */
-          ipiParams.pData = (void *)currVirtAddr;
+          ipiParams.pData = (void* )currVirtAddr;
           CPUSendIPI(CPU_IPI_BROADCAST_TO_OTHER, &ipiParams);
 
           currVirtAddr += KERNEL_PAGE_SIZE;
@@ -1768,7 +1716,7 @@ static E_Return _MemoryUnmap(const uintptr_t kVirtualAddress,
 
 static void _ReleasePageDir(const uintptr_t kPhysTable,
                             const uintptr_t kBaseVirtAddr,
-                            const uint8_t kLevel)
+                            const uint8_t   kLevel)
 {
   uintptr_t frameAddr;
   uintptr_t *currentLevelPage;
@@ -1889,7 +1837,7 @@ static void _ReleasePageDir(const uintptr_t kPhysTable,
 
 static uintptr_t _GetPhysAddr(const uintptr_t kVirtualAddress,
                               const uintptr_t kPageDir,
-                              uint32_t *pFlags)
+                              uint32_t*       pFlags)
 {
   uintptr_t retPhysAddr;
   uintptr_t nextPtable;
@@ -1929,41 +1877,7 @@ static uintptr_t _GetPhysAddr(const uintptr_t kVirtualAddress,
         if (pFlags != NULL)
         {
           retPhysAddr = pPageTable[j][pmlEntry[j]];
-          *pFlags = MEMMGR_MAP_KERNEL;
-
-          if ((retPhysAddr & PAGE_FLAG_READ_WRITE) == PAGE_FLAG_READ_WRITE)
-          {
-            *pFlags |= MEMMGR_MAP_RW;
-          }
-          else
-          {
-            *pFlags |= MEMMGR_MAP_RO;
-          }
-
-          if ((retPhysAddr & PAGE_FLAG_XD) != PAGE_FLAG_XD)
-          {
-            *pFlags |= MEMMGR_MAP_EXEC;
-          }
-
-          if ((retPhysAddr & PAGE_FLAG_USER_ACCESS) == PAGE_FLAG_USER_ACCESS)
-          {
-            *pFlags |= MEMMGR_MAP_USER;
-          }
-
-          if ((retPhysAddr & PAGE_FLAG_CACHE_DISABLED) ==
-              PAGE_FLAG_CACHE_DISABLED)
-          {
-            *pFlags |= MEMMGR_MAP_CACHE_DISABLED;
-          }
-          if ((retPhysAddr & PAGE_FLAG_IS_HW) == PAGE_FLAG_IS_HW)
-          {
-            *pFlags |= MEMMGR_MAP_HARDWARE;
-          }
-          if ((retPhysAddr & PAGE_FLAG_COW) == PAGE_FLAG_COW)
-          {
-            *pFlags |= MEMMGR_MAP_COW;
-          }
-
+          *pFlags = retPhysAddr;
           retPhysAddr = (retPhysAddr & sPhysAddressWidthMask) & ~PAGE_SIZE_MASK;
         }
         else
@@ -2418,11 +2332,11 @@ static void _InitKernelFreePages(void)
             KERNEL_VIRTUAL_ADDR_MAX - kernelVirtEnd + 1);
 }
 
-static void _MapKernelRegion(uintptr_t *pLastSectionStart,
-                             uintptr_t *pLastSectionEnd,
+static void _MapKernelRegion(uintptr_t*      pLastSectionStart,
+                             uintptr_t*      pLastSectionEnd,
                              const uintptr_t kRegionStartAddr,
                              const uintptr_t kRegionEndAddr,
-                             const uint32_t kFlags)
+                             const uint32_t  kFlags)
 {
   int8_t i;
   uintptr_t tmpPageTablePhysAddr;
@@ -2454,15 +2368,8 @@ static void _MapKernelRegion(uintptr_t *pLastSectionStart,
                   PG_ENTRY_OFFSET_MASK;
     pmlEntry[2] = (kernelSectionStart >> PML3_ENTRY_OFFSET) &
                   PG_ENTRY_OFFSET_MASK;
-    if (kernelSectionStart < KERNEL_MEM_OFFSET)
-    {
-      pmlEntry[3] = (kernelSectionStart >> PML4_ENTRY_OFFSET) &
-                    PG_ENTRY_OFFSET_MASK;
-    }
-    else
-    {
-      pmlEntry[3] = KERNEL_PML4_BOOT_TMP_ENTRY;
-    }
+
+    pmlEntry[3] = KERNEL_PML4_BOOT_TMP_ENTRY;
 
     /* Setup entry in the four levels is needed  */
     for (i = 3; i >= 0; --i)
@@ -2531,7 +2438,7 @@ static void _MapKernelRegion(uintptr_t *pLastSectionStart,
         }
         else
         {
-          memset((void *)GET_VIRT_MEM_ADDR(tmpPageTablePhysAddr),
+          memset((void* )GET_VIRT_MEM_ADDR(tmpPageTablePhysAddr),
                  0,
                  KERNEL_PAGE_SIZE);
         }
@@ -2551,16 +2458,6 @@ static void _MapKernel(void)
   kernelSectionEnd = 0;
 
   /* Map kernel code */
-  _MapKernelRegion(&kernelSectionStart,
-                   &kernelSectionEnd,
-                   (uintptr_t)&_START_LOW_AP_STARTUP_ADDR,
-                   (uintptr_t)&_END_LOW_AP_STARTUP_ADDR,
-                   MEMMGR_MAP_RO | MEMMGR_MAP_EXEC);
-  _MapKernelRegion(&kernelSectionStart,
-                   &kernelSectionEnd,
-                   (uintptr_t)&_START_BIOS_CALL_ADDR,
-                   (uintptr_t)&_END_BIOS_CALL_ADDR,
-                   MEMMGR_MAP_RW | MEMMGR_MAP_EXEC);
   _MapKernelRegion(&kernelSectionStart,
                    &kernelSectionEnd,
                    (uintptr_t)&_START_TEXT_ADDR,
@@ -2610,15 +2507,18 @@ static void _MapKernel(void)
   /* Copy temporary entry to kernel entry and clear temp  */
   spKernelPageDir[KERNEL_PML4_KERNEL_ENTRY] =
       spKernelPageDir[KERNEL_PML4_BOOT_TMP_ENTRY];
-  spKernelPageDir[KERNEL_PML4_BOOT_TMP_ENTRY] = 0;
+  for (uint32_t i = 0; i < KERNEL_MEM_PML4_ENTRY; ++i)
+  {
+    spKernelPageDir[i] = 0;
+  }
 
   /* Update the whole page table */
   CPUSetPageDirectory((uintptr_t)spKernelPageDir - KERNEL_MEM_OFFSET);
 }
 
-static uintptr_t _AllocateUserPages(const size_t kPageCount,
-                                    const S_KernelProcess *kpProcess,
-                                    const bool kFromTop)
+static uintptr_t _AllocateUserPages(const size_t           kPageCount,
+                                    const S_KernelProcess* kpProcess,
+                                    const bool             kFromTop)
 {
   S_ProcessMemoryMetadata *pMemProcInfo;
   uintptr_t page;
@@ -2644,9 +2544,9 @@ static uintptr_t _AllocateUserPages(const size_t kPageCount,
   return page;
 }
 
-static void _ReleaseUserPages(const uintptr_t kBaseAddress,
-                              const size_t kPageCount,
-                              const S_KernelProcess *kpProcess)
+static void _ReleaseUserPages(const uintptr_t        kBaseAddress,
+                              const size_t           kPageCount,
+                              const S_KernelProcess* kpProcess)
 {
   S_ProcessMemoryMetadata *pMemProcInfo;
 
@@ -2657,11 +2557,11 @@ static void _ReleaseUserPages(const uintptr_t kBaseAddress,
             kPageCount * KERNEL_PAGE_SIZE);
 }
 
-static E_Return _MemoryMapUser(uintptr_t *pTableLevel,
-                               uintptr_t *pVirtAddress,
-                               uintptr_t *pPhysicalAddress,
-                               size_t *pPageCount,
-                               const uint8_t kLevel,
+static E_Return _MemoryMapUser(uintptr_t*     pTableLevel,
+                               uintptr_t*     pVirtAddress,
+                               uintptr_t*     pPhysicalAddress,
+                               size_t*        pPageCount,
+                               const uint8_t  kLevel,
                                const uint64_t kPageFlags)
 {
   uint32_t addrEntryIdx;
@@ -2828,9 +2728,9 @@ static E_Return _MemoryMapUser(uintptr_t *pTableLevel,
   return error;
 }
 
-static E_Return _MemoryUnmapUser(uintptr_t *pTableLevel,
-                                 uintptr_t *pVirtAddress,
-                                 size_t *pPageCount,
+static E_Return _MemoryUnmapUser(uintptr_t*    pTableLevel,
+                                 uintptr_t*    pVirtAddress,
+                                 size_t*       pPageCount,
                                  const uint8_t kLevel)
 {
   uint32_t i;
@@ -2939,9 +2839,9 @@ static E_Return _MemoryUnmapUser(uintptr_t *pTableLevel,
   return error;
 }
 
-static inline void _GetReferenceIndexTable(const uintptr_t kPhysAddr,
-                                           S_FrameMetadataTable **ppTable,
-                                           size_t *pEntryIdx)
+static inline void _GetReferenceIndexTable(const uintptr_t        kPhysAddr,
+                                           S_FrameMetadataTable** ppTable,
+                                           size_t*                pEntryIdx)
 {
   /* Search for the entry */
   *ppTable = spFramesMeta;
@@ -3047,6 +2947,8 @@ static uint64_t _TranslateFlags(const uint32_t kFlags)
 void MemoryInit(void)
 {
   E_Return error;
+  size_t   toMap;
+  void*   mapped;
 
   /* Get the CPU capabilities */
   sPhysAddressWidth = CPUGetPhysicalAddressWidth();
@@ -3103,6 +3005,40 @@ void MemoryInit(void)
   /* Creates the frames metadata */
   _CreateFramesMetadata();
 
+  /* Map the BIOS calls */
+  toMap = (uintptr_t)&_END_BIOS_CALL_ADDR -
+          (uintptr_t)&_START_BIOS_CALL_ADDR;
+  if (toMap & PAGE_SIZE_MASK)
+  {
+    toMap = ALIGN_UP(toMap, KERNEL_PAGE_SIZE);
+  }
+  mapped = MemoryKernelMapDirect(&_START_BIOS_CALL_ADDR,
+                                 &_START_BIOS_CALL_ADDR,
+                                 toMap,
+                                 MEMMGR_MAP_RW | MEMMGR_MAP_EXEC,
+                                 &error);
+  MEM_ASSERT(mapped != NULL && error == NO_ERROR,
+             "Failed to map the BIOS calls",
+             error,
+             false);
+
+  /* Map the AP startup code */
+  toMap = (uintptr_t)&_END_LOW_AP_STARTUP_ADDR -
+          (uintptr_t)&_START_LOW_AP_STARTUP_ADDR;
+  if (toMap & PAGE_SIZE_MASK)
+  {
+    toMap = ALIGN_UP(toMap, KERNEL_PAGE_SIZE);
+  }
+  mapped = MemoryKernelMapDirect(&_START_LOW_AP_STARTUP_ADDR,
+                                 &_START_LOW_AP_STARTUP_ADDR,
+                                 toMap,
+                                 MEMMGR_MAP_RW | MEMMGR_MAP_EXEC,
+                                 &error);
+  MEM_ASSERT(error == NO_ERROR && mapped != NULL,
+             "Failed to map AP startup code",
+             error,
+             false);
+
   /* Registers the page fault handler */
   error = InterruptRegister(PAGE_FAULT_EXC_LINE, _PageFaultHandler, false);
   MEM_ASSERT(error == NO_ERROR,
@@ -3111,10 +3047,10 @@ void MemoryInit(void)
              false);
 }
 
-void *MemoryKernelMap(const void *kPhysicalAddress,
-                      const size_t kSize,
+void* MemoryKernelMap(const void*    kPhysicalAddress,
+                      const size_t   kSize,
                       const uint32_t kFlags,
-                      E_Return *pError)
+                      E_Return*      pError)
 {
   uintptr_t kernelPages;
   size_t pageCount;
@@ -3158,10 +3094,51 @@ void *MemoryKernelMap(const void *kPhysicalAddress,
     kernelPages = (uintptr_t)NULL;
   }
 
-  return (void *)kernelPages;
+  return (void* )kernelPages;
 }
 
-E_Return MemoryKernelUnmap(const void *kVirtualAddress, const size_t kSize)
+void* MemoryKernelMapDirect(const void*    kPhysicalAddress,
+                            const void*    kVirtualAddress,
+                            const size_t   kSize,
+                            const uint32_t kFlags,
+                            E_Return*      pError)
+{
+  uintptr_t kernelPages;
+  size_t pageCount;
+
+  /* Check size */
+  if ((kSize & PAGE_SIZE_MASK) == 0 && kSize >= KERNEL_PAGE_SIZE)
+  {
+    pageCount = kSize / KERNEL_PAGE_SIZE;
+
+    KERNEL_LOCK(sLock);
+
+    /* Apply mapping */
+    *pError = _MemoryMap((uintptr_t)kVirtualAddress,
+                         (uintptr_t)kPhysicalAddress,
+                         pageCount,
+                         kFlags | MEMMGR_MAP_KERNEL,
+                         (uintptr_t)spKernelPageDir - KERNEL_MEM_OFFSET);
+    if (*pError != NO_ERROR)
+    {
+      kernelPages = (uintptr_t)NULL;
+    }
+    else
+    {
+      kernelPages = (uintptr_t)kVirtualAddress;
+    }
+    KERNEL_UNLOCK(sLock);
+  }
+  else
+  {
+    *pError = ERR_INVALID_PARAMETER;
+    kernelPages = (uintptr_t)NULL;
+  }
+
+  return (void* )kernelPages;
+}
+
+E_Return MemoryKernelUnmap(const void* kVirtualAddress, const size_t kSize)
 {
   size_t pageCount;
   E_Return error;
@@ -3204,9 +3181,9 @@ E_Return MemoryKernelUnmap(const void *kVirtualAddress, const size_t kSize)
   return error;
 }
 
-uintptr_t MemoryMapStack(const size_t kSize,
-                         const bool kIsKernel,
-                         S_KernelProcess *pProcess)
+uintptr_t MemoryMapStack(const size_t     kSize,
+                         const bool       kIsKernel,
+                         S_KernelProcess* pProcess)
 {
   size_t pageCount;
   size_t mappedCount;
@@ -3316,10 +3293,10 @@ uintptr_t MemoryMapStack(const size_t kSize,
   return pageBaseAddress;
 }
 
-void MemoryUnmapStack(const uintptr_t kEndAddress,
-                      const size_t kSize,
-                      const bool kIsKernel,
-                      S_KernelProcess *pProcess)
+void MemoryUnmapStack(const uintptr_t  kEndAddress,
+                      const size_t     kSize,
+                      const bool       kIsKernel,
+                      S_KernelProcess* pProcess)
 {
   size_t pageCount;
   size_t i;
@@ -3392,29 +3369,44 @@ void MemoryUnmapStack(const uintptr_t kEndAddress,
   KERNEL_UNLOCK(*pLock);
 }
 
-uintptr_t MemoryMgrGetPhysAddr(const uintptr_t kVirtualAddress,
-                               const S_KernelProcess *kpProcess,
-                               uint32_t *pFlags)
+uintptr_t MemoryMgrGetPhysAddr(const uintptr_t        kVirtualAddress,
+                               const S_KernelProcess* kpProcess,
+                               uint32_t*              pFlags)
 {
-  uintptr_t retPhysAddr;
+  uintptr_t                retPhysAddr;
   S_ProcessMemoryMetadata *pMemInfo;
+  uintptr_t                pageDir;
 
-  pMemInfo = kpProcess->pMemoryData;
+  if (kpProcess == NULL)
+  {
+    pageDir = (uintptr_t)spKernelPageDir - KERNEL_MEM_OFFSET;
 
-  KERNEL_LOCK(sLock);
-  KERNEL_LOCK(pMemInfo->lock);
+    KERNEL_LOCK(sLock);
 
-  retPhysAddr = _GetPhysAddr(kVirtualAddress, pMemInfo->PDPhysAddress, pFlags);
+    retPhysAddr = _GetPhysAddr(kVirtualAddress, pageDir, pFlags);
 
-  KERNEL_UNLOCK(pMemInfo->lock);
-  KERNEL_UNLOCK(sLock);
+    KERNEL_UNLOCK(sLock);
+  }
+  else
+  {
+    pMemInfo = kpProcess->pMemoryData;
+    pageDir = pMemInfo->PDPhysAddress;
+
+    KERNEL_LOCK(sLock);
+    KERNEL_LOCK(pMemInfo->lock);
+
+    retPhysAddr = _GetPhysAddr(kVirtualAddress, pageDir, pFlags);
+
+    KERNEL_UNLOCK(pMemInfo->lock);
+    KERNEL_UNLOCK(sLock);
+  }
 
   return retPhysAddr;
 }
 
-void *MemoryKernelAllocate(const size_t kSize,
+void* MemoryKernelAllocate(const size_t   kSize,
                            const uint32_t kFlags,
-                           E_Return *pError)
+                           E_Return*      pError)
 {
   size_t pageCount;
   size_t mappedCount;
@@ -3508,10 +3500,10 @@ void *MemoryKernelAllocate(const size_t kSize,
     pageBaseAddress = (uintptr_t)NULL;
   }
 
-  return (void *)pageBaseAddress;
+  return (void* )pageBaseAddress;
 }
 
-E_Return MemoryKernelFree(const void *kVirtualAddress, const size_t kSize)
+E_Return MemoryKernelFree(const void* kVirtualAddress, const size_t kSize)
 {
   size_t pageCount;
   size_t i;
@@ -3567,7 +3559,7 @@ E_Return MemoryKernelFree(const void *kVirtualAddress, const size_t kSize)
   return error;
 }
 
-E_Return MemoryCreateProcessDataAndHeap(S_KernelProcess *pProcess)
+E_Return MemoryCreateProcessDataAndHeap(S_KernelProcess* pProcess)
 {
   S_ProcessMemoryMetadata *pMemProcInfo;
   E_Return error;
@@ -3595,7 +3587,7 @@ E_Return MemoryCreateProcessDataAndHeap(S_KernelProcess *pProcess)
           if (pMemProcInfo->freePageTable.pQueue != NULL)
           {
             /* Map the kernel in the new page directory */
-            pMappedPGDir = MemoryKernelMap((void *)pMemProcInfo->PDPhysAddress,
+            pMappedPGDir = MemoryKernelMap((void* )pMemProcInfo->PDPhysAddress,
                                            KERNEL_PAGE_SIZE,
                                            MEMMGR_MAP_KERNEL |
                                                MEMMGR_MAP_RW,
@@ -3671,7 +3663,7 @@ E_Return MemoryCreateProcessDataAndHeap(S_KernelProcess *pProcess)
   return error;
 }
 
-void MemoryDestroyProcessData(S_KernelProcess *pProcess)
+void MemoryDestroyProcessData(S_KernelProcess* pProcess)
 {
   S_ProcessMemoryMetadata *pMemProcInfo;
 
@@ -3722,12 +3714,12 @@ void MemoryReleaseFrame(const uintptr_t kBaseAddress,
   _ReleaseFrames(kBaseAddress, kFrameCount);
 }
 
-E_Return MemoryUserMapDirect(const void *kPhysicalAddress,
-                             const void *kVirtualAddress,
-                             const size_t kSize,
-                             const uint32_t kFlags,
-                             const bool kRemoveFromPagePool,
-                             S_KernelProcess *pProcess)
+E_Return MemoryUserMapDirect(const void*      kPhysicalAddress,
+                             const void*      kVirtualAddress,
+                             const size_t     kSize,
+                             const uint32_t   kFlags,
+                             const bool       kRemoveFromPagePool,
+                             S_KernelProcess* pProcess)
 {
   S_ProcessMemoryMetadata *pMemProcInfo;
   uint64_t flags;
@@ -3799,10 +3791,10 @@ E_Return MemoryUserMapDirect(const void *kPhysicalAddress,
   return error;
 }
 
-E_Return MemoryUserUnmap(const void *kVirtualAddress,
-                         const size_t kSize,
-                         const bool kAddToPagePool,
-                         S_KernelProcess *pProcess)
+E_Return MemoryUserUnmap(const void*      kVirtualAddress,
+                         const size_t     kSize,
+                         const bool       kAddToPagePool,
+                         S_KernelProcess* pProcess)
 {
   S_ProcessMemoryMetadata *pMemProcInfo;
   size_t pageCount;
@@ -3865,10 +3857,10 @@ E_Return MemoryUserUnmap(const void *kVirtualAddress,
   return error;
 }
 
-void *MemoryUserAllocate(const size_t kSize,
-                         const uint32_t kFlags,
-                         S_KernelProcess *pProcess,
-                         E_Return *pError)
+void* MemoryUserAllocate(const size_t     kSize,
+                         const uint32_t   kFlags,
+                         S_KernelProcess* pProcess,
+                         E_Return*        pError)
 {
   size_t pageCount;
   size_t mappedCount;
@@ -3960,12 +3952,13 @@ void *MemoryUserAllocate(const size_t kSize,
     *pError = ERR_INVALID_PARAMETER;
   }
 
-  return (void *)pageBaseAddress;
+  return (void* )pageBaseAddress;
 }
 
-E_Return MemoryUserFree(const void *kVirtualAddress,
-                        const size_t kSize,
-                        S_KernelProcess *pProcess)
+
+E_Return MemoryUserFree(const void*      kVirtualAddress,
+                        const size_t     kSize,
+                        S_KernelProcess* pProcess)
 {
   size_t pageCount;
   size_t i;
@@ -4074,7 +4067,7 @@ bool MemoryStringIsMapped(const char*    kString,
   char*  alignedAddress;
   alignedSize = kMaxLength +
                 (KERNEL_PAGE_SIZE - ((uintptr_t)kString & PAGE_SIZE_MASK));
-  alignedAddress = (void *)ALIGN_DOWN((uintptr_t)kString, KERNEL_PAGE_SIZE);
+  alignedAddress = (void* )ALIGN_DOWN((uintptr_t)kString, KERNEL_PAGE_SIZE);
   offset = (uintptr_t)kString - (uintptr_t)alignedAddress;
 
   /* Try to read the string until we reach the page limit */

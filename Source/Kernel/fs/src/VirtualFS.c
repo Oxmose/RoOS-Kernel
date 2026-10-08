@@ -1321,61 +1321,68 @@ int32_t VFSOpen(const char* kpPath, int32_t flags, int32_t mode)
   void*       pHandle;
   void*       pDriverData;
 
-  pTable = GetCurrentProcess()->pFileDescriptorTable;
-
-  /* Allocate the path and clean it */
-  pPath = KMallocUser(VFS_PATH_MAX_LENGTH, pTable->pAllocPool);
-  if (pPath != NULL)
+  if (kpPath != NULL)
   {
-    pathLen = _CleanPath(pPath, kpPath);
+    pTable = GetCurrentProcess()->pFileDescriptorTable;
 
-    if (pathLen > 0)
+    /* Allocate the path and clean it */
+    pPath = KMallocUser(VFS_PATH_MAX_LENGTH, pTable->pAllocPool);
+    if (pPath != NULL)
     {
-      KERNEL_LOCK(sMountPointLock);
+      pathLen = _CleanPath(pPath, kpPath);
 
-      /* Search for the node */
-      pNode = _FindNode(spRootPoint, pPath, pathLen, &nextToken);
-      /* Check that the driver does not exist */
-      if (pNode != NULL)
+      if (pathLen > 0)
       {
-        /* Get the driver */
-        if (pNode->pDriver != NULL)
-        {
-          /* Handle with the dedicated driver */
-          pDriver = pNode->pDriver;
-          pDriverData = pDriver->pDriverData;
-        }
-        else if (nextToken == pathLen)
-        {
-          /* When the full path is a generic VFS node, handle with generic VFS */
-          pDriver = &sVFSGenericDriver;
-          pDriverData = pNode;
-        }
-        else
-        {
-          /* Not found */
-          pDriver = NULL;
-        }
+        KERNEL_LOCK(sMountPointLock);
 
-        KERNEL_UNLOCK(sMountPointLock);
-
-        if (pDriver != NULL)
+        /* Search for the node */
+        pNode = _FindNode(spRootPoint, pPath, pathLen, &nextToken);
+        /* Check that the driver does not exist */
+        if (pNode != NULL)
         {
-          pHandle = pDriver->pOpen(pDriverData,
-                                  pPath + nextToken,
-                                  flags,
-                                  mode);
-          if (pHandle != (void*)-1)
+          /* Get the driver */
+          if (pNode->pDriver != NULL)
           {
-            newFD = _CreateFileDescriptor(pTable,
-                                          pDriver,
-                                          pHandle,
-                                          pPath,
-                                          flags,
-                                          mode);
-            if (newFD == -1)
+            /* Handle with the dedicated driver */
+            pDriver = pNode->pDriver;
+            pDriverData = pDriver->pDriverData;
+          }
+          else if (nextToken == pathLen)
+          {
+            /* When the full path is a generic VFS node, handle with generic VFS */
+            pDriver = &sVFSGenericDriver;
+            pDriverData = pNode;
+          }
+          else
+          {
+            /* Not found */
+            pDriver = NULL;
+          }
+
+          KERNEL_UNLOCK(sMountPointLock);
+
+          if (pDriver != NULL)
+          {
+            pHandle = pDriver->pOpen(pDriverData,
+                                    pPath + nextToken,
+                                    flags,
+                                    mode);
+            if (pHandle != (void*)-1)
             {
-              pDriver->pClose(pDriver->pDriverData, pPath + nextToken);
+              newFD = _CreateFileDescriptor(pTable,
+                                            pDriver,
+                                            pHandle,
+                                            pPath,
+                                            flags,
+                                            mode);
+              if (newFD == -1)
+              {
+                pDriver->pClose(pDriver->pDriverData, pPath + nextToken);
+              }
+            }
+            else
+            {
+              newFD = -1;
             }
           }
           else
@@ -1385,21 +1392,21 @@ int32_t VFSOpen(const char* kpPath, int32_t flags, int32_t mode)
         }
         else
         {
+          KERNEL_UNLOCK(sMountPointLock);
           newFD = -1;
         }
       }
       else
       {
-        KERNEL_UNLOCK(sMountPointLock);
         newFD = -1;
       }
+
+      KFreeUser(pPath, pTable->pAllocPool);
     }
     else
     {
       newFD = -1;
     }
-
-    KFreeUser(pPath, pTable->pAllocPool);
   }
   else
   {

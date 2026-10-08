@@ -806,6 +806,18 @@ size_t CPUIDGetFlagsString(char*                 pBuffer,
                            size_t                length,
                            const S_CPUFlagsInfo* kpInfo);
 
+/**
+ * @brief Gets the CPU flags.
+ *
+ * @details Gets the CPU flags. The returned pointer is valid until the next
+ * call to CPUIDAnalyzeCPU. The returned pointer is NULL if the CPU has not been
+ * analyzed yet.
+ *
+ * @return The pointer to the CPU flags structure, or NULL if the CPU has not
+ * been analyzed yet.
+ */
+const S_CPUFlagsInfo* CPUIDGetFlags(void);
+
 #endif /* #ifndef __X8664_CPUID_H_ */
 
 /************************************ EOF *************************************/

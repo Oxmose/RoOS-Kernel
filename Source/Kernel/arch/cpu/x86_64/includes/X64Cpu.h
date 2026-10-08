@@ -294,6 +294,19 @@ typedef struct
   size_t fxDataRegionSize;
 } __attribute__((packed)) S_VirtualCPU;
 
+/** @brief BIOS Call registers structure */
+typedef struct
+{
+  /** @brief CPU's ax register. */
+  uint16_t ax;
+  /** @brief CPU's bx register. */
+  uint16_t bx;
+  /** @brief CPU's cx register. */
+  uint16_t cx;
+  /** @brief CPU's dx register. */
+  uint16_t dx;
+} __attribute__((packed)) S_BIOSRegisters;
+
 /*******************************************************************************
  * MACROS
  ******************************************************************************/
@@ -499,6 +512,26 @@ void CPURestoreContextFromInterruptSignal(const uintptr_t kUserContext);
  * @param[in] kUserContext The user context to return to.
  */
 void CPURestoreContextFromSyscallSignal(const uintptr_t kUserContext);
+
+/**
+ * @brief Issue a bios interrupt.
+ *
+ * @details Switch the CPU to real mode and raise an interrupt. This interrupt
+ * should be handled by the BIOS IVT. This function is not thread safe.
+ *
+ * @param[in, out] pRegs The array containing the registers values for the call.
+ * @param[in] kIntNumber The interrupt number to raise.
+ * @param[out] pBuffer The buffer used to receive the generated data is any.
+ * @param[in] kBufferSize The size of the data buffer.
+ * @param[out] pInitialDataLocation In the case data were to be copied in the
+ * buffer, this parameter is set with the initial location of the data before
+ * the copy.
+ */
+void CPUBIOSCall(S_BIOSRegisters* pRegs,
+                 const uint8_t    kIntNumber,
+                 void*            pBuffer,
+                 const size_t     kBufferSize,
+                 uintptr_t*       pInitialDataLocation);
 
 #endif /* #ifndef __CPU_X86_64_X64_CPU_H_ */
 

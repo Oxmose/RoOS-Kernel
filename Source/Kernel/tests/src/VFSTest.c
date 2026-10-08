@@ -115,24 +115,6 @@ typedef void (*T_DestroyFD)(S_FDTable* pTable, const int32_t kFD);
 /* None */
 
 /*******************************************************************************
- * GLOBAL VARIABLES
- ******************************************************************************/
-
-/************************* Imported global variables **************************/
-/* None */
-
-/************************* Exported global variables **************************/
-/* None */
-
-/************************** Static global variables ***************************/
-static char buffer[VFS_PATH_MAX_LENGTH];
-static S_VFSNode sNodePool[50];
-static uint32_t sTestValue = 0;
-static S_FSDriver driver0;
-static S_FSDriver driver1;
-static S_FSDriver driver2;
-
-/*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
 static void _TestNextToken(void);
@@ -153,6 +135,7 @@ static void* _DummyOpen(void*       pDriverData,
                         int32_t     flags,
                         int32_t     mode);
 static int32_t _DummyClose(void* pDriverData, void* pFileHandle);
+static int32_t _DummyClose2(void* pDriverData, void* pFileHandle);
 static ssize_t _DummyRead(void*  pDriverData,
                              void*  pFileHandle,
                              void*  pBuffer,
@@ -172,6 +155,62 @@ static E_Return _DummyMount(const char* kpPath,
                      const char* kpDevPath,
                      void**      pDriverMountData);
 static E_Return _DummyUnmount(void* pDriverMountData);
+
+/*******************************************************************************
+ * GLOBAL VARIABLES
+ ******************************************************************************/
+
+/************************* Imported global variables **************************/
+/* None */
+
+/************************* Exported global variables **************************/
+/* None */
+
+/************************** Static global variables ***************************/
+static char buffer[VFS_PATH_MAX_LENGTH];
+static S_VFSNode sNodePool[50];
+static uint32_t sTestValue = 0;
+static S_FSDriver driver0 =
+{
+  .pName         = "test-fs",
+  .pMount        = _DummyMount,
+  .pUnmount      = _DummyUnmount,
+  .pOpen         = _DummyOpen,
+  .pClose        = _DummyClose,
+  .pRead         = _DummyRead,
+  .pWrite        = _DummyWrite,
+  .pReadDir      = _DummyReadDir,
+  .pIOCTL        = _DummyIOCTL,
+  .pDriverData   = (void*)0xC0DEAABB
+};
+
+static S_FSDriver driver1 =
+{
+  .pName         = "test-2",
+  .pMount        = _DummyMount,
+  .pUnmount      = _DummyUnmount,
+  .pOpen         = _DummyOpen,
+  .pClose        = _DummyClose,
+  .pRead         = _DummyRead,
+  .pWrite        = _DummyWrite,
+  .pReadDir      = _DummyReadDir,
+  .pIOCTL        = _DummyIOCTL,
+  .pDriverData   = (void*)0xAABBCCDD
+};
+
+static S_FSDriver driver2 =
+{
+  .pName         = "test-3",
+  .pMount        = _DummyMount,
+  .pUnmount      = _DummyUnmount,
+  .pOpen         = _DummyOpen,
+  .pClose        = _DummyClose2,
+  .pRead         = _DummyRead,
+  .pWrite        = _DummyWrite,
+  .pReadDir      = _DummyReadDir,
+  .pIOCTL        = _DummyIOCTL,
+  .pDriverData   = (void*)0xDEADB00F
+};
 
 /*******************************************************************************
  * FUNCTIONS
@@ -617,18 +656,6 @@ static void _TestVFSMount(void)
 {
   E_Return retCode;
 
-  memset(&driver0, 0, sizeof(driver0));
-  driver0.pName = "test-fs";
-  driver0.pOpen = _DummyOpen;
-  driver0.pClose = _DummyClose;
-  driver0.pRead = _DummyRead;
-  driver0.pWrite = _DummyWrite;
-  driver0.pReadDir = _DummyReadDir;
-  driver0.pIOCTL = _DummyIOCTL;
-  driver0.pMount = _DummyMount;
-  driver0.pUnmount = _DummyUnmount;
-  driver0.pDriverData = (void*)0xC0DEAABB;
-
   sTestValue = 0;
   retCode = VFSMount("/test-mount", "/dev/test", "test-fs");
   TEST_POINT_ASSERT_RCODE(TEST_VFS_MOUNT(0),
@@ -706,6 +733,18 @@ static void* _DummyOpen(void*       pDriverData,
   sTestValue = 1;
 
   return (void*)0xAABBCCDDEE;
+}
+static int32_t _DummyClose2(void* pDriverData, void* pFileHandle)
+{
+  (void)pFileHandle;
+  TEST_POINT_ASSERT_POINTER(TEST_VFS_REGISTER_DRIVER(63 + lastTestVal++),
+                            pDriverData == (void*)0xDEADB00F,
+                            (uintptr_t)0xDEADB00F,
+                            (uintptr_t)pDriverData,
+                            TEST_VFS_ENABLED);
+  sTestValue = 2;
+
+  return 42;
 }
 static int32_t _DummyClose(void* pDriverData, void* pFileHandle)
 {

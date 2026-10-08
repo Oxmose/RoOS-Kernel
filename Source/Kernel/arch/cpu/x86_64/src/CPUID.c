@@ -1526,7 +1526,8 @@ static void _GetCacheInformationAmd(S_CPUInformation* pCpuInf);
 /* None */
 
 /************************** Static global variables ***************************/
-/* None */
+/** @brief The last CPU information structure that was analyzed. */
+static S_CPUInformation* spLastCPUInfo;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -2431,32 +2432,33 @@ static void _GetTLBInformation(S_CPUInformation* pCpuInf)
 
 void CPUIDAnalyzeCPU(S_CPUInformation* pCpuInfo)
 {
-    /* Get the vendor information */
-    _GetVendorInfo(pCpuInfo);
-    _GetCPUName(pCpuInfo);
+  /* Get the vendor information */
+  _GetVendorInfo(pCpuInfo);
+  _GetCPUName(pCpuInfo);
 
-    /* Get general features */
-    _GetGeneralInformation(pCpuInfo);
-    _GetGeneralFeatures(pCpuInfo);
+  /* Get general features */
+  _GetGeneralInformation(pCpuInfo);
+  _GetGeneralFeatures(pCpuInfo);
 
-    /* Get the memory, TLB and cache information */
-    _GetMemoryInformation(pCpuInfo);
-    _GetCacheInformation(pCpuInfo);
-    _GetTLBInformation(pCpuInfo);
+  /* Get the memory, TLB and cache information */
+  _GetMemoryInformation(pCpuInfo);
+  _GetCacheInformation(pCpuInfo);
+  _GetTLBInformation(pCpuInfo);
 
-    /* Fill in direct information */
-    pCpuInfo->fpu = pCpuInfo->flags.fpu;
+  /* Fill in direct information */
+  pCpuInfo->fpu = pCpuInfo->flags.fpu;
 
-    /* TODO */
-    pCpuInfo->microcode = 0;
-    pCpuInfo->frequencyHz = 0;
-    pCpuInfo->physicalId = 0;
-    pCpuInfo->siblings = 0;
-    pCpuInfo->coreId = 0;
-    pCpuInfo->cpuCores = 0;
-    pCpuInfo->apicId = 0;
-    pCpuInfo->bogoMips = 0;
+  /* TODO */
+  pCpuInfo->microcode = 0;
+  pCpuInfo->frequencyHz = 0;
+  pCpuInfo->physicalId = 0;
+  pCpuInfo->siblings = 0;
+  pCpuInfo->coreId = 0;
+  pCpuInfo->cpuCores = 0;
+  pCpuInfo->apicId = 0;
+  pCpuInfo->bogoMips = 0;
 
+  spLastCPUInfo = pCpuInfo;
 }
 
 size_t CPUIDGetFlagsString(char*                 pBuffer,
@@ -2752,6 +2754,11 @@ size_t CPUIDGetFlagsString(char*                 pBuffer,
   PRINT_FLAG_INFO(kpInfo->xfd, "xfd");
 
   return mainOffset;
+}
+
+const S_CPUFlagsInfo* CPUIDGetFlags(void)
+{
+  return spLastCPUInfo ? &spLastCPUInfo->flags : NULL;
 }
 
 /************************************ EOF *************************************/

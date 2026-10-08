@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file VGAText.h
  *
- * @see VGAText.h
+ * @see VGAText.c
  *
  * @author Alexy Torres Aurora Dugo
  *
