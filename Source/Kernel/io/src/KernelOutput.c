@@ -42,7 +42,7 @@
  * CONSTANTS
  ******************************************************************************/
 /** @brief Defines the maximal size of the buffer before sending for a print. */
-#define KPRINTF_BUFFER_SIZE 256
+#define KPRINTF_BUFFER_SIZE 1024
 
 /*******************************************************************************
  * STRUCTURES AND TYPES

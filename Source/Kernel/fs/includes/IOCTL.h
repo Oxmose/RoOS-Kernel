@@ -50,6 +50,8 @@
 #define VFS_IOCTL_GRAPH_DRAWLINE 9
 /** @brief IOCTL Graphic Command: Draw Bitmap */
 #define VFS_IOCTL_GRAPH_DRAWBITMAP 10
+/** @brief IOCTL Graphic Command: Set Video Mode */
+#define VFS_IOCTL_GRAPH_SET_VIDEOMODE 11
 
 /** @brief IOCTL File Command: Seek */
 #define VFS_IOCTL_FILE_SEEK 11
@@ -85,6 +87,74 @@ typedef struct
   /** @brief Seek offset */
   size_t offset;
 } S_SeekIOCTLArguments;
+
+/** @brief IOCTL Set VESA Mode arguments */
+typedef struct
+{
+  /** @brief The width of the video mode to set */
+  uint32_t width;
+  /** @brief The height of the video mode to set */
+  uint32_t height;
+  /** @brief The bits per pixel of the video mode to set */
+  uint32_t bpp;
+  /** @brief The refresh rate of the video mode to set */
+  uint32_t refreshRate;
+} S_IOCTLSetModeArguments;
+
+/** @brief IOCTL Draw Pixel arguments */
+typedef struct
+{
+  /** @brief The x position of the pixel to draw */
+  uint32_t x;
+  /** @brief The y position of the pixel to draw */
+  uint32_t y;
+  /** @brief The color of the pixel to draw */
+  uint32_t color;
+} S_IOCTLDrawPixelArguments;
+
+/** @brief IOCTL Draw Rectangle arguments */
+typedef struct
+{
+  /** @brief The x position of the rectangle to draw */
+  uint32_t x;
+  /** @brief The y position of the rectangle to draw */
+  uint32_t y;
+  /** @brief The width of the rectangle to draw */
+  uint32_t width;
+  /** @brief The height of the rectangle to draw */
+  uint32_t height;
+  /** @brief The color of the rectangle to draw */
+  uint32_t color;
+} S_IOCTLDrawRectangleArguments;
+
+/** @brief IOCTL Draw Line arguments */
+typedef struct
+{
+  /** @brief The x position of the line to draw */
+  uint32_t x;
+  /** @brief The y position of the line to draw */
+  uint32_t y;
+  /** @brief The width of the line to draw */
+  uint32_t width;
+  /** @brief The color of the line to draw */
+  uint32_t color;
+} S_IOCTLDrawLineArguments;
+
+/** @brief IOCTL Draw Bitmap arguments */
+typedef struct
+{
+  /** @brief The x position of the bitmap to draw */
+  uint32_t x;
+  /** @brief The y position of the bitmap to draw */
+  uint32_t y;
+  /** @brief The width of the bitmap to draw */
+  uint32_t width;
+  /** @brief The height of the bitmap to draw */
+  uint32_t height;
+  /** @brief A pointer to the bitmap data to draw */
+  const void* kpData;
+} S_IOCTLDrawBitmapArguments;
+
 
 /*******************************************************************************
  * MACROS

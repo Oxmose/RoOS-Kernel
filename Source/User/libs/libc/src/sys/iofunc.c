@@ -281,7 +281,7 @@ int GetStdout(void)
   if (sSTDout == -1)
   {
     /* TODO: Update to use actual stdout */
-    sSTDout = open("/dev/vga-text", O_RDWR, 0);
+    sSTDout = open("/dev/vesa", O_RDWR, 0);
   }
   return sSTDout;
 }

@@ -315,7 +315,7 @@ static void* _KMallocNoFree(const size_t kSize);
  * @param[in] ptr The pointer to the memory to be freed.
  * @param[in] pHeap The process heap containing the memory chunk.
  */
-static void _KFree(void *ptr, S_ProcessHeap* pHeap);
+static void _KFree(void* ptr, S_ProcessHeap* pHeap);
 
 /*******************************************************************************
  * GLOBAL VARIABLES
@@ -585,7 +585,7 @@ static void* _KMallocNoFree(const size_t kSize)
   return allocated;
 }
 
-void _KFree(void *ptr, S_ProcessHeap* pHeap)
+void _KFree(void* ptr, S_ProcessHeap* pHeap)
 {
   S_Chunk* pChunk;
   S_Chunk* pNext;
@@ -795,12 +795,12 @@ void* KMallocUser(const size_t kSize, S_ProcessHeap* pHeap)
   return alloc;
 }
 
-void KFree(void *ptr)
+void KFree(void* ptr)
 {
   _KFree(ptr, &sKernelHeap);
 }
 
-void KFreeUser(void *ptr, S_ProcessHeap* pHeap)
+void KFreeUser(void* ptr, S_ProcessHeap* pHeap)
 {
   /* Get the current process heap if none is specified */
   if (pHeap == NULL)

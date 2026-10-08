@@ -23,6 +23,7 @@
  ******************************************************************************/
 /* Included headers */
 #include <CPU.h>
+#include <IOCTL.h>
 #include <Panic.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -88,6 +89,7 @@ static void _ShellTest(const char* args);
 static void _ShellPanic(const char* args);
 static void _ShellSleep(const char* args);
 static void _ShellGetMapping(const char* args);
+static void _ShellDrawTest(const char* args);
 static void _ShellExecuteCommand(void);
 static void _ShellGetCommand(void);
 
@@ -132,6 +134,7 @@ static const S_ShellCommand sCommands[] =
   {"panic", "Generates a kernel panic", _ShellPanic},
   {"sleep", "Sleeps for ns time", _ShellSleep},
   {"map", "Get a thread memory mapping", _ShellGetMapping},
+  {"draw", "Draw a test pattern", _ShellDrawTest},
   {"help", "Display this help", _ShellHelp},
   {NULL, NULL, NULL}
 };
@@ -461,6 +464,46 @@ static void _ShellGetMapping(const char* args)
   KPrintf("Command 'map' is disabled in this build.\n");
 #endif
 }
+
+static void _ShellDrawTest(const char* args)
+{
+  int      graphicCardFd;
+  uint32_t x;
+  uint32_t i;
+  S_IOCTLDrawRectangleArguments rectArgs;
+  S_IOCTLDrawLineArguments lineArgs;
+
+  graphicCardFd = VFSOpen("/dev/vesa", O_RDWR, 0);
+  if (graphicCardFd < 0)
+  {
+    KPrintf("Failed to open graphic card device.\n");
+    return;
+  }
+
+  (void)args;
+
+  lineArgs.color = 0xFF3300FF;
+  for(i = 0; i < 20; ++i)
+  {
+    rectArgs.height = 768;
+    rectArgs.width = 24;
+    rectArgs.x = 1000;
+    rectArgs.y = 0;
+    rectArgs.color = 0x00000000;
+    //VFSIOCTL(graphicCardFd, VFS_IOCTL_GRAPH_DRAWRECT, &rectArgs);
+    (void)rectArgs;
+    for(x = 0; x < 768; ++x)
+    {
+      lineArgs.x = 500;
+      lineArgs.y = x;
+      lineArgs.width = 524;
+      VFSIOCTL(graphicCardFd, VFS_IOCTL_GRAPH_DRAWLINE, &lineArgs);
+      lineArgs.color -= 5;
+      SleepNs(1000000, NULL);
+    }
+  }
+}
+
 
 static void _ShellExecuteCommand(void)
 {

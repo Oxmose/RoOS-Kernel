@@ -131,9 +131,9 @@ typedef struct
 typedef struct
 {
   /** @brief The foreground color to be used when outputing data. */
-  uint16_t foreground;
+  uint32_t foreground;
   /** @brief The background color to be used when outputing data. */
-  uint16_t background;
+  uint32_t background;
 } S_ColorScheme;
 
 /** @brief Defines the IOCTL arguments for a scroll operation. */

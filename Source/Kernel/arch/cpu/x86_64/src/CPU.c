@@ -2457,9 +2457,8 @@ void CPUThreadSignalFromSyscall(S_KernelThread* pThread,
                                              8);
   if (pThread->stackEnd - pThread->stackSize < (uintptr_t)pSignalContext)
   {
-    pSyscallContext = (S_SyscallContext*)(ALIGN_DOWN(pVCpu->kernelStack,
-                                                    ALIGN_16_BYTES) -
-                                                    sizeof(S_SyscallContext));
+    pSyscallContext = (S_SyscallContext*)(pVCpu->kernelStack -
+                                          sizeof(S_SyscallContext));
 
     pSignalContext->isFromSyscall = SIGNAL_FROM_SYSCALL_MAGIC;
 
