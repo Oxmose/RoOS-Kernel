@@ -335,7 +335,7 @@ static size_t _FormatArgs(char*             pBuffer,
   uint8_t  paddingMod;
   bool     upperMod;
   char     padCharMod;
-  char     tmpSeq[64];
+  char     tmpSeq[128];
   char*    pArgsValue;
   size_t   bufferPos;
 

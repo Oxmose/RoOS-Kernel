@@ -191,8 +191,7 @@ void* MemoryKernelMap(const void*    kPhysicalAddress,
  * page boundaries.
  * @param[in] kFlags The mapping flags, see the MEM_MGR flags for more
  * infomation.
- * @param[out] pError The error buffer to store the operation's result. If NULL,
- * does not set the error value.
+ * @param[out] pError The error buffer to store the operation's result.
  *
  * @return The function returns the virtual base address of the mapped region.
  * NULL is returned on error.
