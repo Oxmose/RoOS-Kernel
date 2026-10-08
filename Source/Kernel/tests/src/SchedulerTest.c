@@ -661,7 +661,7 @@ static void TestCreateValid(void)
   char            name[32] = "TEST_THREAD_VALID\0";
 
   CPU_MASK_RESET(cpuMask);
-  CPU_MASK_SET(cpuMask, 2);
+  CPU_MASK_SET(cpuMask, 0);
 
   /* Create the test thread */
   spTestThread = NULL;

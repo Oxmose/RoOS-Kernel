@@ -1793,6 +1793,7 @@ static void _GetScheme(S_ColorScheme* pBuffer)
 
 static void _Flush(void)
 {
+#ifndef _TESTING_FRAMEWORK_ENABLED
   size_t   iterCount;
   uint8_t* src;
   uint8_t* dst;
@@ -1906,6 +1907,7 @@ static void _Flush(void)
 
   KERNEL_UNLOCK(sController.bufferLock);
   KERNEL_UNLOCK(sController.modeLock);
+#endif
 }
 
 static inline void _FastFill(uintptr_t      bufferAddr,
