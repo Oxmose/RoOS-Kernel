@@ -54,9 +54,9 @@
 #define VFS_IOCTL_GRAPH_SET_VIDEOMODE 11
 
 /** @brief IOCTL File Command: Seek */
-#define VFS_IOCTL_FILE_SEEK 11
+#define VFS_IOCTL_FILE_SEEK 12
 /** @brief IOCTL File Command: Tell */
-#define VFS_IOCTL_FILE_TELL 12
+#define VFS_IOCTL_FILE_TELL 13
 
 /** @brief IOCTL Device Command: Get Device Sector Size */
 #define VFS_IOCTL_DEV_GET_SECTOR_SIZE 100

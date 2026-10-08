@@ -108,6 +108,12 @@ CPUBIOSCall:
   ; Save the arguments
   mov [_biosCallArray], rdi
   mov [_dataBuffer], rdx
+
+  cmp rcx, BIOS_CALL_DATA_SIZE
+  jbe _BiosCallSizeOk
+  mov rcx, BIOS_CALL_DATA_SIZE
+
+_BiosCallSizeOk:
   mov [_dataBufferSize], rcx
 
   ; Save the current IDT and GDT

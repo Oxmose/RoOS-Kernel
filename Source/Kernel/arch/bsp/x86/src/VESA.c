@@ -257,6 +257,8 @@ typedef struct
   const char* kpDeviceName;
   /** @brief VESA controller's VBE current mode information. */
   S_VBEModeInformation* pCurrentModeInfo;
+  /** @brief VESA controller's mode lock. */
+  S_KernelSpinlock modeLock;
 
   /** @brief VESA controller's number of available modes. */
   uint32_t modeCount;
@@ -965,8 +967,11 @@ static E_Return _GetVESAModes(void)
       pModeId = (uint16_t*)((uintptr_t)mapped + offset);
       if (offset + sizeof(uint16_t) > KERNEL_PAGE_SIZE)
       {
-        /* Get the first byte */
-        currentMode = ((uint8_t)*pModeId) << 8;
+        if (offset < KERNEL_PAGE_SIZE)
+        {
+          /* Get the first byte */
+          currentMode = ((uint8_t)*pModeId) << 8;
+        }
 
         /* Unmap the page */
         retVal = MemoryKernelUnmap(mapped, KERNEL_PAGE_SIZE);
@@ -987,10 +992,16 @@ static E_Return _GetVESAModes(void)
                     retVal);
 
         /* Get the second byte */
-        offset = 0;
-        pModeId = (uint16_t*)((uintptr_t)mapped + offset);
-        currentMode |= *((uint8_t*)pModeId);
-        offset = 1;
+        if (offset < KERNEL_PAGE_SIZE)
+        {
+          currentMode |= *((uint8_t*)mapped);
+          offset = 1;
+        }
+        else
+        {
+          currentMode = *((uint16_t*)mapped);
+          offset = 2;
+        }
       }
       else
       {
@@ -1129,7 +1140,7 @@ static E_Return _GetVESAModesInformation(void)
 
 static E_Return _SetVESAMode(const uint16_t kWidth,
                              const uint16_t kHeight,
-                             const uint8_t kBpp,
+                             const uint8_t  kBpp,
                              const uint16_t kRefreshRate)
 {
   E_Return                  retVal;
@@ -1142,10 +1153,22 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
   uintptr_t                 oldBufferSize;
   uintptr_t                 oldBackBufferAddr;
   size_t                    alignedSize;
+  size_t                    newSize;
+  uint16_t                  refreshRate;
 
   retVal = ERR_NOT_FOUND;
 
   /* TODO: Synchronize with display thread */
+
+
+  if (kRefreshRate == 0)
+  {
+    refreshRate = 60;
+  }
+  else
+  {
+    refreshRate = kRefreshRate;
+  }
 
   pModeInfo = sController.pVBEModeInfo;
   while (pModeInfo != NULL)
@@ -1155,6 +1178,7 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
         pModeInfo->modeInfo.height == kHeight &&
         pModeInfo->modeInfo.bpp == kBpp)
     {
+      KERNEL_LOCK(sController.modeLock);
       /* Perform the bios call */
       biosRegs.ax = VESA_BIOS_CALL_SET_MODE;
       biosRegs.bx = VESA_FLAG_LINEAR_FB_ENABLE | pModeInfo->modeId;
@@ -1170,11 +1194,10 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
         oldBufferSize = sController.framebufferSize;
         oldBackBufferAddr = sController.backBufferAddr;
 
-        sController.framebufferAddr = pModeInfo->modeInfo.framebuffer;
-        sController.framebufferSize = pModeInfo->modeInfo.bytesPerScanLine *
-                                      pModeInfo->modeInfo.height;
-        alignedSize = ALIGN_UP(sController.framebufferSize, KERNEL_PAGE_SIZE);
-        mapped = MemoryKernelMap((void*)sController.framebufferAddr,
+        newSize = pModeInfo->modeInfo.bytesPerScanLine *
+                  pModeInfo->modeInfo.height;
+        alignedSize = ALIGN_UP(newSize, KERNEL_PAGE_SIZE);
+        mapped = MemoryKernelMap((void*)(uintptr_t)pModeInfo->modeInfo.framebuffer,
                                  alignedSize,
                                  MEMMGR_MAP_RW       |
                                  MEMMGR_MAP_KERNEL   |
@@ -1205,10 +1228,11 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
             }
 
             sController.framebufferAddr   = (uintptr_t)mapped;
+            sController.framebufferSize   = newSize;
             sController.screenWidth       = pModeInfo->modeInfo.width;
             sController.screenHeight      = pModeInfo->modeInfo.height;
             sController.screenPitch       = pModeInfo->modeInfo.bytesPerScanLine;
-            sController.screenRefreshRate = kRefreshRate;
+            sController.screenRefreshRate = refreshRate;
             sController.bitsPerPixel      = pModeInfo->modeInfo.bpp;
             sController.bytesPerPixel     = sController.bitsPerPixel / 8;
             sController.pCurrentModeInfo  = &pModeInfo->modeInfo;
@@ -1229,8 +1253,9 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
                         "VESA mode set to: %dx%d@%dHz %dbpp",
                         kWidth,
                         kHeight,
-                        kRefreshRate,
+                        refreshRate,
                         kBpp);
+            KERNEL_UNLOCK(sController.modeLock);
             break;
           }
           else
@@ -1260,6 +1285,7 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
         retVal = ERR_NOT_SUPPORTED;
       }
 
+      KERNEL_UNLOCK(sController.modeLock);
       break;
     }
 
@@ -1277,6 +1303,8 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
                  kBpp);
     retVal = ERR_NOT_SUPPORTED;
   }
+
+
 
   return retVal;
 }
@@ -1338,6 +1366,8 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
     {
       sController.memoryCapabilities = MEMORY_SSE_SUPPORTED;
     }
+
+    KERNEL_SPINLOCK_INIT(sController.modeLock);
 
     /* Get the VBE information from the BIOS. */
     retVal = _GetVESAInformation();
@@ -1443,7 +1473,7 @@ static void _PrintCursor(const uint32_t kX,
                    kY * VESA_TEXT_CHAR_HEIGHT + VESA_TEXT_CHAR_HEIGHT - 3,
                    VESA_TEXT_CHAR_WIDTH,
                    3,
-                   skVGAColorTable[sController.screenScheme.background]);
+                   skVGAColorTable[sController.screenScheme.background >> 8]);
   }
   else
   {
@@ -1461,8 +1491,11 @@ static void _DrawPixel(const uint32_t kX,
 {
   uint32_t* pPixel;
 
-  pPixel = (uint32_t*)GET_FRAME_BUFFER_AT(kX, kY);
-  *pPixel = kColor;
+  if (kX < sController.screenWidth && kY < sController.screenHeight)
+  {
+    pPixel = (uint32_t*)GET_FRAME_BUFFER_AT(kX, kY);
+    *pPixel = kColor;
+  }
 }
 
 static void _DrawRectangle(const uint32_t kX,
@@ -1472,9 +1505,14 @@ static void _DrawRectangle(const uint32_t kX,
                            const uint32_t kColor)
 {
   uint32_t i;
-  for (i = 0; i < kHeight; ++i)
+
+  if (kX + kWidth < sController.screenWidth &&
+      kY + kHeight < sController.screenHeight)
   {
-    _DrawLine(kX, kY + i, kWidth, kColor);
+    for (i = 0; i < kHeight; ++i)
+    {
+      _DrawLine(kX, kY + i, kWidth, kColor);
+    }
   }
 }
 
@@ -1484,9 +1522,12 @@ static void _DrawLineData(const void*    kpData,
                           const uint32_t kWidth)
 {
   uintptr_t pDest;
-  pDest = GET_FRAME_BUFFER_AT(kX, kY);
+  if (kX + kWidth < sController.screenWidth && kY < sController.screenHeight)
+  {
+    pDest = GET_FRAME_BUFFER_AT(kX, kY);
 
-  _FastCopy(pDest, (uintptr_t)kpData, kWidth * sizeof(uint32_t));
+    _FastCopy(pDest, (uintptr_t)kpData, kWidth * sizeof(uint32_t));
+  }
 }
 
 static void _DrawLine(const uint32_t kX,
@@ -1495,9 +1536,12 @@ static void _DrawLine(const uint32_t kX,
                       const uint32_t kColor)
 {
   uintptr_t pDest;
-  pDest = GET_FRAME_BUFFER_AT(kX, kY);
+  if (kX + kWidth < sController.screenWidth && kY < sController.screenHeight)
+  {
+    pDest = GET_FRAME_BUFFER_AT(kX, kY);
 
-  _FastFill(pDest, kColor, kWidth * sizeof(uint32_t));
+    _FastFill(pDest, kColor, kWidth * sizeof(uint32_t));
+  }
 }
 
 static void _DrawBitmap(const uint32_t kX,
@@ -1507,12 +1551,16 @@ static void _DrawBitmap(const uint32_t kX,
                         const void*    kpData)
 {
   uint32_t i;
-  for (i = 0; i < kHeight; ++i)
+   if (kX + kWidth < sController.screenWidth &&
+       kY + kHeight < sController.screenHeight)
   {
-    _DrawLineData(kpData + (i * kWidth * sizeof(uint32_t)),
-                  kX,
-                  kY + i,
-                  kWidth);
+    for (i = 0; i < kHeight; ++i)
+    {
+      _DrawLineData(((uint8_t*)kpData) + (i * kWidth * sizeof(uint32_t)),
+                    kX,
+                    kY + i,
+                    kWidth);
+    }
   }
 }
 
@@ -1535,9 +1583,9 @@ static inline void _PrintChar(const uint32_t kLine,
   {
     for(cx = 0; cx < VESA_TEXT_CHAR_WIDTH; ++cx)
     {
-      glyphLine[VESA_TEXT_CHAR_WIDTH - cx - 1] = pGlyph[cy] & (1 << cx) ?
+      glyphLine[VESA_TEXT_CHAR_WIDTH - cx - 1] = (pGlyph[cy] & (1 << cx)) ?
                       skVGAColorTable[sController.screenScheme.foreground] :
-                      skVGAColorTable[sController.screenScheme.background];
+                      skVGAColorTable[sController.screenScheme.background >> 8];
     }
 
     _DrawLineData(glyphLine, x, y + cy, VESA_TEXT_CHAR_WIDTH);
@@ -1729,8 +1777,12 @@ static void _Scroll(const E_ScrollDirection kDirection, const uint32_t kLines)
 
 static void _SetScheme(const S_ColorScheme* kpColorScheme)
 {
-  sController.screenScheme.foreground = kpColorScheme->foreground;
-  sController.screenScheme.background = kpColorScheme->background;
+  if (kpColorScheme->foreground <= FG_WHITE &&
+      kpColorScheme->background <= BG_WHITE)
+  {
+    sController.screenScheme.foreground = kpColorScheme->foreground;
+    sController.screenScheme.background = kpColorScheme->background;
+  }
 }
 
 static void _GetScheme(S_ColorScheme* pBuffer)
@@ -1748,6 +1800,7 @@ static void _Flush(void)
   size_t   blocks;
   size_t   i;
 
+  KERNEL_LOCK(sController.modeLock);
   KERNEL_LOCK(sController.bufferLock);
   src = (uint8_t*)sController.backBufferAddr;
   dst = (uint8_t*)sController.framebufferAddr;
@@ -1852,6 +1905,7 @@ static void _Flush(void)
   }
 
   KERNEL_UNLOCK(sController.bufferLock);
+  KERNEL_UNLOCK(sController.modeLock);
 }
 
 static inline void _FastFill(uintptr_t      bufferAddr,
@@ -1952,7 +2006,6 @@ static inline void _FastFill(uintptr_t      bufferAddr,
       if (pixelBytes >= 1)
       {
         dst[0] = c2;
-        ++dst;
       }
     }
   }
@@ -2051,7 +2104,6 @@ static inline void _FastFill(uintptr_t      bufferAddr,
       if (pixelBytes >= 1)
       {
         dst[0] = c2;
-        ++dst;
       }
     }
   }
@@ -2337,12 +2389,23 @@ static ssize_t _VFSIOCTL(void*    pDriverData,
         break;
       case VFS_IOCTL_GRAPH_DRAWBITMAP:
         pDrawBitmapArgs = pArgs;
-        _DrawBitmap(pDrawBitmapArgs->x,
-                    pDrawBitmapArgs->y,
-                    pDrawBitmapArgs->width,
-                    pDrawBitmapArgs->height,
-                    pDrawBitmapArgs->kpData);
-        retVal = 0;
+        if (MemoryIsMappedWithFlags(pDrawBitmapArgs->kpData,
+                                    pDrawBitmapArgs->width *
+                                    pDrawBitmapArgs->height *
+                                    sizeof(uint32_t),
+                                    MEMMGR_MAP_RO | MEMMGR_MAP_KERNEL) == true)
+        {
+          _DrawBitmap(pDrawBitmapArgs->x,
+                      pDrawBitmapArgs->y,
+                      pDrawBitmapArgs->width,
+                      pDrawBitmapArgs->height,
+                      pDrawBitmapArgs->kpData);
+          retVal = 0;
+        }
+        else
+        {
+          retVal = -1;
+        }
         break;
       default:
         retVal = -1;

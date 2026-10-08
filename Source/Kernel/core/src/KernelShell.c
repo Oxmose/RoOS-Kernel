@@ -502,6 +502,8 @@ static void _ShellDrawTest(const char* args)
       SleepNs(1000000, NULL);
     }
   }
+
+  VFSClose(graphicCardFd);
 }
 
 
