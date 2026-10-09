@@ -1532,8 +1532,6 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   kpUintProp = FDTGetProp(pkFdtNode, PCIE_FDT_ACPI_NODE_PROP, &propLen);
   if (kpUintProp != NULL && propLen == sizeof(uint32_t))
   {
-    retCode = NO_ERROR;
-
     /* Get the ACPI driver */
     kpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
     if (kpACPIDriver != NULL)
