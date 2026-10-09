@@ -58,9 +58,6 @@
 /** @brief FDT property for device path */
 #define KBD_FDT_DEVICE_PROP "device"
 
-/** @brief Cast a pointer to a keyboard driver controller */
-#define GET_CONTROLER(PTR) ((kbd_controler_t*)PTR)
-
 /** @brief Defines the maximal size of the keyboard input buffer */
 #define KBD_INPUT_BUFFER_SIZE 128
 

@@ -371,4 +371,8 @@ void InterruptSetEOI(const uint32_t kInterruptId)
   sInterruptDriver.pSetIRQEOI(kInterruptId);
 }
 
+uint32_t InterruptGetIRQIntLine(const uint32_t kIRQNumber)
+{
+  return sInterruptDriver.pGetIRQInterruptLine(kIRQNumber);
+}
 /************************************ EOF *************************************/

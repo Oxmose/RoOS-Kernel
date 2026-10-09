@@ -74,7 +74,7 @@
             compatible = "x86,x86-vesa";
             resolution = <1024 768>;
             depth = <32>;
-            refresh-rate = <180>;
+            refresh-rate = <30>;
             device = "/dev/vesa";
         };
 
@@ -82,20 +82,6 @@
             compatible = "x86,x86-acpi";
             reg = <0x0 0xE0000 0x0 0x20000>;
             pre-init-attach;
-        };
-
-        atapio0 {
-            compatible = "x86,x86-atapio";
-            comm = <0x1F0>;
-            type = <0>;
-            device = "/dev/storage/hd0";
-        };
-
-        atapio1 {
-            compatible = "x86,x86-atapio";
-            comm = <0x1F0>;
-            type = <1>;
-            device = "/dev/storage/hd1";
         };
 
         lapic: local-apic {
@@ -129,6 +115,11 @@
                 acpi-node = <&acpi>;
                 lapic-node = <&lapic>;
             };
+        };
+
+        pcie {
+            compatible = "x86,x86-pcie";
+            acpi-node = <&acpi>;
         };
 
         /* PIT capabilities (global, synchronized, interrupt):

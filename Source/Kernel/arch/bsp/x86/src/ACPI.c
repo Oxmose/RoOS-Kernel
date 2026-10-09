@@ -75,6 +75,8 @@
 #define ACPI_DSDT_SIG 0x54445344
 /** @brief ACPI memory signature: HPET. */
 #define ACPI_HPET_SIG 0x54455048
+/** @brief ACPI memory signature: MCFG. */
+#define ACPI_MCFG_SIG 0x4746434D
 
 /** @brief APIC type: local APIC. */
 #define APIC_TYPE_LOCAL_APIC 0x0
@@ -365,6 +367,33 @@ typedef struct
   uint8_t pageProtection;
 } __attribute__((__packed__)) S_ACPIHPETDescriptor;
 
+typedef struct
+{
+  /** @brief Base address of the enhanced configuration space */
+  uint64_t baseAddress;
+  /** @brief PCI segment group number */
+  uint16_t pciSegmentGroupNumber;
+  /** @brief Start bus number */
+  uint8_t startBusNumber;
+  /** @brief End bus number */
+  uint8_t endBusNumber;
+  /** @brief Reserved field */
+  uint32_t reserved;
+} __attribute__((__packed__)) S_MCFGDescriptorConfigSpace;
+
+/** @brief ACPI MCFG descriptor.
+ * Please check the ACPI standard for more information.
+ */
+typedef struct
+{
+  /** @brief MCFG header */
+  S_ACPIHeader header;
+  /** @brief Reserved field */
+  uint64_t reserved;
+  /** @brief Array of configuration spaces */
+  S_MCFGDescriptorConfigSpace configSpaces[];
+} __attribute__((__packed__)) S_MCFGDescriptor;
+
 /**
  * @brief ACPI APIC descriptor header.
  * Please check the ACPI standard for more information.
@@ -449,6 +478,8 @@ typedef struct
   S_InterruptOverrideNode* pIntOverrideList;
   /** @brief List of detected HPET devices */
   S_HPETNode* pHpetList;
+  /** @brief List of the detected PCI configuration spaces. */
+  S_PCIConfigNode* pPCIConfigList;
   /** @brief ACPI version */
   uint32_t version;
   /** @brief ACPI base address */
@@ -616,6 +647,16 @@ static void _ParseMADT(const S_MADT* kpApicPtr);
 static void _ParseHPET(const S_ACPIHPETDescriptor* kpHpetPtr);
 
 /**
+ * @brief Parses the APIC entries of the MCFG table.
+ *
+ * @details Parse the APIC entries of the MCFG table.The function will parse
+ * each entry and add the MCFG node to the list of detected MCFG entries.
+ *
+ * @param[in] kpMcfgPtr The address of the MCFG entry to parse.
+ */
+static void _ParseMCFG(const S_MCFGDescriptor* kpMcfgPtr);
+
+/**
  * @brief Returns the number of LAPIC detected in the system.
  *
  * @details Returns the number of LAPIC detected in the system.
@@ -687,6 +728,17 @@ static const S_HPETNode* _GetHPETList(void);
  * parameter.
  */
 static uint32_t _GetRemapedIRQ(const uint32_t kIRQNumber);
+
+/**
+ * @brief Returns the list of detected PCI configuration spaces.
+ *
+ * @details Returns the list of detected PCI configuration spaces. This list
+ * should not be modified and is generated during the attach of the ACPI while
+ * parsing its tables.
+ *
+ * @return The list of detected PCI configuration spaces is returned.
+ */
+static const S_PCIConfigNode* _GetPCIConfigList(void);
 
 /**
  * @brief Opens the ACPI ProcFS main entry.
@@ -783,6 +835,7 @@ static S_ACPIControler sDrvCtrl =
   .pLAPICList               = NULL,
   .pIntOverrideList         = NULL,
   .pHpetList                = NULL,
+  .pPCIConfigList           = NULL,
   .version                  = 0,
   .baseAddress              = 0,
 };
@@ -797,6 +850,7 @@ static S_ACPIDriver sAPIDriver =
   .pGetIOAPICList       = _GetIOAPICList,
   .pGetHPETList         = _GetHPETList,
   .pGetRemapedIRQ       = _GetRemapedIRQ,
+  .pGetPCIConfigList    = _GetPCIConfigList,
 };
 
 /** @brief PROCFS main entry */
@@ -1222,6 +1276,18 @@ static void _ParseDT(const S_ACPIHeader* kpHeader, const uintptr_t kPhysAddr)
   {
     _ParseHPET((S_ACPIHPETDescriptor*)descPtr);
   }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_MCFG_SIG)
+  {
+    _ParseMCFG((S_MCFGDescriptor*)descPtr);
+  }
+  else
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "Unknown table detected at 0x%p: 0x%08x",
+                 descPtr,
+                 *((uint32_t*)kpHeader->pSignature));
+  }
 
   /* Unmap memory */
   errCode = MemoryKernelUnmap((void*)descAddr, toMap);
@@ -1425,6 +1491,58 @@ static void _ParseHPET(const S_ACPIHPETDescriptor* kpHpetPtr)
   ++sDrvCtrl.detectedHpetCount;
 }
 
+static void _ParseMCFG(const S_MCFGDescriptor* kpMcfgPtr)
+{
+  int32_t          sum;
+  uint32_t         i;
+  uint32_t         toParse;
+  S_PCIConfigNode* pNode;
+  S_PCIConfigNode* pCursor;
+
+  ACPI_ASSERT(kpMcfgPtr != NULL, "Parse a NULL MCFG", ERR_INVALID_PARAMETER);
+
+  /* Verify checksum */
+  sum = 0;
+  for (i = 0; i < kpMcfgPtr->header.length; ++i)
+  {
+    sum += ((uint8_t*)kpMcfgPtr)[i];
+  }
+
+  KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "ACPI MCFG at 0x%p",
+               kpMcfgPtr);
+
+  ACPI_ASSERT((sum & 0xFF) == 0, "MCFG Checksum failed", ERR_INVALID_VALUE);
+  ACPI_ASSERT(*((uint32_t*)kpMcfgPtr->header.pSignature) == ACPI_MCFG_SIG,
+              "MCFG Signature comparison failed",
+              ERR_INVALID_VALUE);
+
+  toParse = kpMcfgPtr->header.length - sizeof(S_ACPIHeader) - sizeof(uint64_t);
+  toParse /= sizeof(S_MCFGDescriptorConfigSpace);
+  for (i = 0; i < toParse; ++i)
+  {
+    /* Create the new node */
+    pNode = KMalloc(sizeof(S_PCIConfigNode), KMALLOC_NO_FREE_POOL);
+    pNode->pciConfig.baseAddress = kpMcfgPtr->configSpaces[i].baseAddress;
+    pNode->pciConfig.pciSegmentGroupNumber = kpMcfgPtr->configSpaces[i].pciSegmentGroupNumber;
+    pNode->pciConfig.startBusNumber = kpMcfgPtr->configSpaces[i].startBusNumber;
+    pNode->pciConfig.endBusNumber = kpMcfgPtr->configSpaces[i].endBusNumber;
+
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "    PCI Config Space %d: Base Address: 0x%p, "
+                 "Segment Group: %d, Start Bus: %d, End Bus: %d",
+                 i,
+                 pNode->pciConfig.baseAddress,
+                 pNode->pciConfig.pciSegmentGroupNumber,
+                 pNode->pciConfig.startBusNumber,
+                 pNode->pciConfig.endBusNumber);
+
+    ADD_TO_LIST(sDrvCtrl.pPCIConfigList, pCursor, pNode);
+  }
+}
+
 static uint8_t _GetLAPICCount(void)
 {
   return sDrvCtrl.detectedCPUCount;
@@ -1475,6 +1593,11 @@ static uint32_t _GetRemapedIRQ(const uint32_t kIRQNumber)
 
   /* If we did not find the interrupt, there is no redirection. */
   return retValue;
+}
+
+static const S_PCIConfigNode* _GetPCIConfigList(void)
+{
+  return sDrvCtrl.pPCIConfigList;
 }
 
 static void* _ProcFSOpen(void*       pDriverData,

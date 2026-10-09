@@ -44,6 +44,7 @@ extern _USER_END_BSS_ADDR
 ; EXTERN FUNCTIONS
 ;-------------------------------------------------------------------------------
 extern main
+extern Syscall
 
 ;-------------------------------------------------------------------------------
 ; EXPORTED FUNCTIONS
@@ -66,31 +67,33 @@ __user_entry:
     and rsp, 0xFFFFFFFFFFFFFFF0
 
     ; Init BSS
-    call _user_bss_init
+    call _userBSSInit
 
-    ; TODO: init Heap
+    ; Call main
     call main
 
-    ; TODO: call exit
-
+    ; Exit thread
+    mov rdi, 3 ; TODO: Update this value with the correct one
+    mov rsi, rax
+    call Syscall
 ;-------------------------------------------------------------------------------
 ; Initializes the user BSS section.
 ;
 ; Param:
 ;     None.
-_user_bss_init:
+_userBSSInit:
     xor rax, rax
     mov r8, _USER_START_BSS_ADDR
     mov r9, _USER_END_BSS_ADDR
 
-_init_bss_loop:
+_initBSSLoop:
     cmp r8, r9
-    je _init_bss_end
+    je _initBSSEnd
     mov [r8], al
     inc r8
-    jmp _init_bss_loop
+    jmp _initBSSLoop
 
-_init_bss_end:
+_initBSSEnd:
     ret
 ;-------------------------------------------------------------------------------
 ; DATA

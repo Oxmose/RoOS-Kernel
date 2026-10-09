@@ -338,6 +338,19 @@ typedef struct
 const S_VirtualCPU* CPUGetVirtualCPU(const S_KernelThread* kpThread);
 
 /**
+ * @brief Returns the LAPIC ID of the current CPU.
+ *
+ * @details Returns the LAPIC ID of the current CPU. This function is used to
+ * get the LAPIC ID of the current CPU. The LAPIC ID is used to identify the
+ * CPU in the system. This function is used by the scheduler to get the LAPIC
+ * ID of the current CPU. The LAPIC ID is used to identify the CPU in the
+ * system.
+ *
+ * @return The LAPIC ID of the current CPU is returned.
+ */
+uint32_t CPUGetLAPICId(void);
+
+/**
  * @brief Writes byte on port.
  *
  * @param[in] kValue The value to send to the port.

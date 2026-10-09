@@ -73,9 +73,6 @@
 /** @brief FDT property for refresh rate */
 #define VGA_FDT_REFRESH_PROP "refresh-rate"
 
-/** @brief Cast a pointer to a VGA driver controller */
-#define GET_CONTROLER(PTR) ((S_VGAControler*)PTR)
-
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
