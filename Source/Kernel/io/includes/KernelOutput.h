@@ -67,8 +67,8 @@
 do {                                                                \
   if (ENABLED)                                                      \
   {                                                                 \
-    KPrintfDebug(" " MODULE " | " STR " | " __FILE__ ":%d - %s\n",  \
-                  ##__VA_ARGS__, __LINE__, __FUNCTION__);           \
+    KPrintfDebug(" " MODULE " | " __FILE__ ":%d - %s | " STR "\n",  \
+                 __LINE__, __FUNCTION__,  ##__VA_ARGS__);           \
   }                                                                 \
 } while (0);
 #else

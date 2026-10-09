@@ -1158,9 +1158,6 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
 
   retVal = ERR_NOT_FOUND;
 
-  /* TODO: Synchronize with display thread */
-
-
   if (kRefreshRate == 0)
   {
     refreshRate = 60;

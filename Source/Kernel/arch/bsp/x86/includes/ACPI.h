@@ -98,6 +98,19 @@ typedef struct
   uint8_t accessSize;
 } S_HPETDescriptor;
 
+/** @brief PCI Configuration Space custom descriptor. */
+typedef struct
+{
+  /** @brief Base address of the enhanced configuration space */
+  uint64_t baseAddress;
+  /** @brief PCI segment group number */
+  uint16_t pciSegmentGroupNumber;
+  /** @brief Start bus number */
+  uint8_t startBusNumber;
+  /** @brief End bus number */
+  uint8_t endBusNumber;
+} S_PCIConfigDescriptor;
+
 /** @brief IO APIC node. */
 typedef struct S_IOAPICNode
 {
@@ -133,6 +146,15 @@ typedef struct S_HPETNode
   /** @brief Pointer to the next HPET node */
   struct S_HPETNode* pNext;
 } S_HPETNode;
+
+/** @brief PCI Configuration Space node. */
+typedef struct S_PCIConfigNode
+{
+  /** @brief PCI Configuration Space descriptor */
+  S_PCIConfigDescriptor pciConfig;
+  /** @brief Pointer to the next PCI Configuration Space node */
+  struct S_PCIConfigNode* pNext;
+} S_PCIConfigNode;
 
 
 /** @brief x86 ACPI driver. */
@@ -210,6 +232,18 @@ typedef struct
    * parameter.
    */
   uint32_t (*pGetRemapedIRQ)(const uint32_t kIRQNumber);
+
+  /**
+   * @brief Returns the list of detected PCI configuration spaces.
+   *
+   * @details Returns the list of detected PCI configuration spaces. This list
+   * should not be modified and is generated during the attach of the ACPI while
+   * parsing its tables.
+   *
+   * @return The list of detected PCI configuration spaces descriptors is
+   * returned.
+   */
+  const S_PCIConfigNode* (*pGetPCIConfigList)(void);
 } S_ACPIDriver;
 
 /*******************************************************************************

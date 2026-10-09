@@ -1410,6 +1410,11 @@ void CPUAPInit(const uint8_t kCPUId)
         false);
 }
 
+uint32_t CPUGetLAPICId(void)
+{
+  return kspLAPICDriver->pGetLAPICId();
+}
+
 const S_VirtualCPU* CPUGetVirtualCPU(const S_KernelThread* kpThread)
 {
   return (S_VirtualCPU*)kpThread->pVCpu;

@@ -70,9 +70,10 @@
  * @param[in] pAddr The address of the IO to write.
  * @param[in] kValue The value to write to the IO.
  */
-static inline void _MMIOWrite8(void* volatile pAddr, const uint8_t kValue)
+static inline void _MMIOWrite8(volatile void* pAddr, const uint8_t kValue)
 {
   *(volatile uint8_t*)(pAddr) = kValue;
+  __asm__ volatile("" : : : "memory");
 }
 
 /**
@@ -85,9 +86,10 @@ static inline void _MMIOWrite8(void* volatile pAddr, const uint8_t kValue)
  * @param[in] pAddr The address of the IO to write.
  * @param[in] kValue The value to write to the IO.
  */
-static inline void _MMIOWrite16(void* volatile pAddr, const uint16_t kValue)
+static inline void _MMIOWrite16(volatile void* pAddr, const uint16_t kValue)
 {
   *(volatile uint16_t*)(pAddr) = kValue;
+  __asm__ volatile("" : : : "memory");
 }
 
 /**
@@ -100,9 +102,10 @@ static inline void _MMIOWrite16(void* volatile pAddr, const uint16_t kValue)
  * @param[in] pAddr The address of the IO to write.
  * @param[in] kValue The value to write to the IO.
  */
-static inline void _MMIOWrite32(void* volatile pAddr, const uint32_t kValue)
+static inline void _MMIOWrite32(volatile void* pAddr, const uint32_t kValue)
 {
   *(volatile uint32_t*)(pAddr) = kValue;
+  __asm__ volatile("" : : : "memory");
 }
 
 /**
@@ -115,9 +118,10 @@ static inline void _MMIOWrite32(void* volatile pAddr, const uint32_t kValue)
  * @param[in] pAddr The address of the IO to write.
  * @param[in] kValue The value to write to the IO.
  */
-static inline void _MMIOWrite64(void* volatile pAddr, const uint64_t kValue)
+static inline void _MMIOWrite64(volatile void* pAddr, const uint64_t kValue)
 {
   *(volatile uint64_t*)(pAddr) = kValue;
+  __asm__ volatile("" : : : "memory");
 }
 
 /**
@@ -131,7 +135,9 @@ static inline void _MMIOWrite64(void* volatile pAddr, const uint64_t kValue)
  */
 static inline uint8_t _MMIORead8(const volatile void* pAddr)
 {
-  return *(volatile uint8_t*)(pAddr);
+  uint8_t value = *(volatile uint8_t*)(pAddr);
+  __asm__ volatile("" : : : "memory");
+  return value;
 }
 
 /**
@@ -145,7 +151,9 @@ static inline uint8_t _MMIORead8(const volatile void* pAddr)
  */
 static inline uint16_t _MMIORead16(const volatile void* pAddr)
 {
-  return *(volatile uint16_t*)(pAddr);
+  uint16_t value = *(volatile uint16_t*)(pAddr);
+  __asm__ volatile("" : : : "memory");
+  return value;
 }
 
 /**
@@ -159,7 +167,9 @@ static inline uint16_t _MMIORead16(const volatile void* pAddr)
  */
 static inline uint32_t _MMIORead32(const volatile void* pAddr)
 {
-  return *(volatile uint32_t*)(pAddr);
+  uint32_t value = *(volatile uint32_t*)(pAddr);
+  __asm__ volatile("" : : : "memory");
+  return value;
 }
 
 /**
@@ -173,7 +183,9 @@ static inline uint32_t _MMIORead32(const volatile void* pAddr)
  */
 static inline uint64_t _MMIORead64(const volatile void* pAddr)
 {
-  return *(volatile uint64_t*)(pAddr);
+  uint64_t value = *(volatile uint64_t*)(pAddr);
+  __asm__ volatile("" : : : "memory");
+  return value;
 }
 
 #endif /* #ifndef __X86_MMIO_H_ */

@@ -235,6 +235,19 @@ void InterruptSetIRQMask(const uint32_t kIRQNumber, const bool kEnabled);
  */
 void InterruptSetEOI(const uint32_t kInterruptId);
 
+/**
+ * @brief Returns the interrupt line attached to an IRQ.
+ *
+ * @details Returns the interrupt line attached to an IRQ. 0xFFFFFFFF is
+ * returned if the IRQ number is not supported by the driver.
+ *
+ * @param[in] kIRQNumber The IRQ number to get the interrupt line for.
+ *
+ * @return The interrupt line attached to an IRQ. 0xFFFFFFFF is returned if the
+ * IRQ number is not supported by the driver.
+ */
+uint32_t InterruptGetIRQIntLine(const uint32_t kIRQNumber);
+
 #endif /* #ifndef __CORE_INTERRUPTS_H_ */
 
 /************************************ EOF *************************************/
