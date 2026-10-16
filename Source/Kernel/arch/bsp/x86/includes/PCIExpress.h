@@ -23,6 +23,7 @@
 /*******************************************************************************
  * INCLUDES
  ******************************************************************************/
+#include <MMIO.h>
 #include <stdint.h>
 
 /*******************************************************************************
@@ -90,9 +91,9 @@ typedef struct
 typedef struct
 {
   /** @brief The lower 32 bits of the message address. */
-  uint32_t msgAddrLower;
+  uint32_t msgAddrLow;
   /** @brief The upper 32 bits of the message address. */
-  uint32_t msgAddrUpper;
+  uint32_t msgAddrHigh;
   /** @brief The message data. */
   uint32_t msgData;
   /** @brief The vector control register. */
@@ -102,6 +103,7 @@ typedef struct
 /**
  * @brief PCI device descriptor.
  */
+struct S_PCIDriver;
 typedef struct S_PCIDevice
 {
   /** @brief The name of the PCI device class. */
@@ -113,7 +115,7 @@ typedef struct S_PCIDevice
   /** @brief The PCI function descriptor. */
   S_PCIFunction* pFunction;
   /** @brief The PCI driver attached to the device. */
-  void* pDriver;
+  struct S_PCIDriver* pDriver;
   /** @brief The base address of the MSI interrupt for the device. */
   uintptr_t msiBaseAddr;
   /** @brief The base address of the MSI X interrupt for the device. */
@@ -124,12 +126,14 @@ typedef struct S_PCIDevice
   bool isMSIEnabled;
   /** @brief Indicates if MSIX is enabled for the device. */
   bool isMSIXEnabled;
+  /** @brief The interrupt line for the device. */
+  uint8_t interruptLine;
   /** @brief Next device in the list */
   struct S_PCIDevice* pNext;
 } S_PCIDevice;
 
 /** @brief Defines the generic definition for a PCI driver used in the kernel */
-typedef struct
+typedef struct S_PCIDriver
 {
   /** @brief Driver's name. */
   const char* pName;
@@ -141,6 +145,16 @@ typedef struct
   uint16_t deviceID;
   /** @brief Driver's vendor ID. */
   uint16_t vendorID;
+  /** @brief Driver's device class. */
+  uint8_t devClass;
+  /** @brief Driver's device subclass. */
+  uint8_t devSubClass;
+  /** @brief Driver's device programming interface. */
+  uint8_t devProgIf;
+
+  /** @brief Driver's internal data. */
+  void* pDriverData;
+
   /**
    * @brief Driver's attatch function.
    *
@@ -148,11 +162,11 @@ typedef struct
    * is detected and is compatible with the driver.
    * It should initialize the driver and / or device.
    *
-   * @param[in] kpPCIDevice The PCI node that matches the driver.
+   * @param[in] pPCIDevice The PCI node that matches the driver.
    *
    * @return The functon should return the error state of the driver.
    */
-  E_Return (*pDriverAttach)(const S_PCIDevice* kpPCIDevice);
+  E_Return (*pDriverAttach)(S_PCIDevice* pPCIDevice);
 
   /**
    * @brief Driver's dettach function.
@@ -161,22 +175,11 @@ typedef struct
    * is detached or shutdown after being attached.
    * It should deinitialize the driver and / or device.
    *
-   * @param[in] kpPCIDevice The PCI node that matches the driver.
+   * @param[in] pPCIDevice The PCI node that matches the driver.
    *
    * @return The functon should return the error state of the driver.
    */
-  E_Return (*pDriverDettach)(const S_PCIDevice* kpPCIDevice);
-
-  /**
-   * @brief Driver's interrupt notification function.
-   *
-   * @details Driver's interrupt notification function. This function is called
-   * when a device generates an interrupt and is compatible with the driver.
-   * It should handle the interrupt and / or device.
-   *
-   * @param[in] kpPCIDevice The PCI node that matches the driver.
-   */
-  void (*pNotifyInterrupt)(void);
+  E_Return (*pDriverDettach)(S_PCIDevice* pPCIDevice);
 } S_PCIDriver;
 
 /** @brief PCI BAR type. */

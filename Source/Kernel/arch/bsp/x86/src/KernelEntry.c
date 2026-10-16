@@ -34,8 +34,10 @@
 #include <VirtualFS.h>
 #include <KernelHeap.h>
 #include <DeviceTree.h>
+#include <DiskManager.h>
 #include <DebugOutput.h>
 #include <KernelShell.h>
+#include <KernelWorker.h>
 #include <TimerManager.h>
 #include <KernelOutput.h>
 #include <DriverManager.h>
@@ -157,6 +159,18 @@ void X64KernelEntry(void)
   SchedulerInit();
   KERNEL_SUCCESS("Scheduler initialized.\n");
 
+  /* Initialize the kernel worker */
+  KWorkerInit();
+  KERNEL_SUCCESS("Kernel worker initialized.\n");
+
+  /* Initialize the disk manager*/
+  DiskManagerInit();
+  KERNEL_SUCCESS("Disk manager initialized.\n");
+
+  /* Initialize the time manager */
+  TimeManagerInit();
+  KERNEL_SUCCESS("Time manager initialized.\n");
+
   /* Initialize the drivers */
   DriverManagerInit(false);
   KERNEL_SUCCESS("Drivers initialized.\n");
@@ -164,10 +178,6 @@ void X64KernelEntry(void)
   /* Initialize the console */
   ConsoleInit();
   KERNEL_SUCCESS("Console initialized.\n");
-
-  /* Initialize the time manager */
-  TimeManagerInit();
-  KERNEL_SUCCESS("Time manager initialized.\n");
 
   /* Now that devices are configured, start the CPU manager, in charge of
    * starting other CPUs if needed. After calling this function all the
@@ -191,6 +201,7 @@ void X64KernelEntry(void)
   TEST_POINT_FUNCTION(ProcFSTest, TEST_PROCFS_ENABLED);
   TEST_POINT_FUNCTION(RAMDiskTest, TEST_RAMDISK_ENABLED);
   TEST_POINT_FUNCTION(USTARFSTest, TEST_USTARFS_ENABLED);
+  TEST_POINT_FUNCTION(StorageTest, TEST_STORAGE_ENABLED);
   TEST_POINT_FUNCTION(CPUIDTest, TEST_CPUID_ENABLED);
   TEST_POINT_FUNCTION(TimeManagerTest, TEST_TIME_ENABLED);
   TEST_POINT_FUNCTION(ELFManagerTest, TEST_ELFMANAGER_ENABLED);
@@ -201,12 +212,12 @@ void X64KernelEntry(void)
 #ifndef _TESTING_FRAMEWORK_ENABLED
   KERNEL_INFO("Starting user space...\n");
   /* Initialize the user space */
-  UserInit();
+  //UserInit();
   KERNEL_SUCCESS("User space initialized.\n");
 
   /* Initialize the kernel shell */
-  //KernelShellInit();
-  #endif
+  KernelShellInit();
+#endif
 
   /* Perform first schedule */
   SchedulerSchedule();

@@ -123,11 +123,11 @@ typedef struct
  * MACROS
  ******************************************************************************/
 /**
- * @brief Assert macro used by the driver manager to ensure correctness of
+ * @brief Assert macro used by the scheduler to ensure correctness of
  * execution.
  *
- * @details Assert macro used by the driver manager to ensure correctness of
- * execution. Due to the critical nature of the driver manager, any error
+ * @details Assert macro used by the scheduler to ensure correctness of
+ * execution. Due to the critical nature of the scheduler, any error
  * generates a kernel panic.
  *
  * @param[in] COND The condition that should be true.

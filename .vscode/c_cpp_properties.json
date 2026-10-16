@@ -3,11 +3,14 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "Source/**",
+                "Source/Kernel/libs/libc/includes/**"
             ],
             "defines": [
                 "_TESTING_FRAMEWORK_ENABLED",
-                "SOC_MAX_CPU_COUNT=64"
+                "SOC_MAX_CPU_COUNT=64",
+                "ssize_t=long long int"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",

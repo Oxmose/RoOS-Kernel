@@ -539,12 +539,12 @@ typedef struct
  * @details Attaches the ACPI driver to the system. This function will use the
  * FDT to initialize the ACPI hardware and retreive the ACPI parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Use the APIC RSDP to parse the ACPI infomation.
@@ -875,7 +875,7 @@ static size_t sProcFSStringLength = 0;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uintptr_t*         kpUintptrProp;
   size_t                   propLen;
@@ -889,7 +889,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   uint64_t                 signature;
 
   /* Get the reg: the range to search for the ACPI structure */
-  kpUintptrProp = FDTGetProp(pkFdtNode, ACPI_FDT_REGS_PROP, &propLen);
+  kpUintptrProp = FDTGetProp(kpFdtNode, ACPI_FDT_REGS_PROP, &propLen);
 
   ACPI_ASSERT(kpUintptrProp != NULL && propLen == sizeof(uintptr_t) * 2,
               "Invalid ACPI node in FDT.",
@@ -952,7 +952,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
               "ACPI not found", ERR_NOT_SUPPORTED);
 
   /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(pkFdtNode, &sAPIDriver);
+  retCode = DriverManagerSetDeviceData(kpFdtNode, &sAPIDriver);
   ACPI_ASSERT(retCode == NO_ERROR, "Failed to register ACPI", retCode);
 
   /* Update the CPU count */

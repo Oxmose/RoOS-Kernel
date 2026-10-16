@@ -157,12 +157,12 @@ typedef struct
  * @details Attaches the PIC driver to the system. This function will use the
  * FDT to initialize the PIC hardware and retreive the PIC parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Sets the IRQ mask for the desired IRQ number.
@@ -259,7 +259,7 @@ static S_PICControler sDrvCtrl =
  * FUNCTIONS
  ******************************************************************************/
 
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t* kpUintProp;
   size_t          propLen;
@@ -269,13 +269,13 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   KERNEL_SPINLOCK_INIT(sDrvCtrl.lock);
 
   /* Check for slave */
-  if (FDTGetProp(pkFdtNode, PIC_FDT_HASSLAVE_PROP, &propLen) != NULL)
+  if (FDTGetProp(kpFdtNode, PIC_FDT_HASSLAVE_PROP, &propLen) != NULL)
   {
     sDrvCtrl.hasSlave = true;
   }
 
   /* Get IRQ offset */
-  kpUintProp = FDTGetProp(pkFdtNode, PIC_FDT_INTOFF_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, PIC_FDT_INTOFF_PROP, &propLen);
   PIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
              "Invlaid PIC FDT property.",
              ERR_INVALID_VALUE);
@@ -283,7 +283,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   sDrvCtrl.intOffset = (uint8_t)FDTTOCPU32(*kpUintProp);
 
   /* Get the com ports */
-  kpUintProp = FDTGetProp(pkFdtNode, PIC_FDT_COMM_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, PIC_FDT_COMM_PROP, &propLen);
   if (sDrvCtrl.hasSlave == true)
   {
     PIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 4,
@@ -329,7 +329,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   }
 
   /* Register if needed */
-  if (FDTGetProp(pkFdtNode, PIC_FDT_IS_INT_DRIVER_PROP, &propLen) != NULL)
+  if (FDTGetProp(kpFdtNode, PIC_FDT_IS_INT_DRIVER_PROP, &propLen) != NULL)
   {
     /* Register as interrupt controller */
     retCode = InterruptSetDriver(&sPicDriver);

@@ -162,13 +162,50 @@ static void _ShellPanic(const char* args)
   PANIC(NO_ERROR, "KERNEL_Shell", "Kernel Shell Panic Generator", false, false);
 }
 
+static void _ReadDisk(const char* pPath)
+{
+  int32_t fd;
+  char    buffer[100];
+  ssize_t ret;
+
+  fd = VFSOpen(pPath, O_RDONLY, 0);
+  if (fd < 0)
+  {
+    KPrintf("Failed to open %s\n", pPath);
+    return;
+  }
+
+  ret = VFSRead(fd, buffer, 99);
+  if (ret > 0)
+  {
+    buffer[ret] = 0;
+    KPrintf("Read from %s: %s\n", pPath, buffer);
+  }
+  else
+  {
+    KPrintf("Failed to read from %s\n", pPath);
+    return;
+  }
+
+  ret = VFSClose(fd);
+  if (ret != 0)
+  {
+    KPrintf("Error closing file: %s\n", pPath);
+  }
+}
+
 static void _ShellTest(const char* args)
 {
   (void)args;
-
-  _ShellMount("/dev/storage/ramdisk0 /initrd ustar");
-  _ShellList("/initrd");
-
+  _ReadDisk("/dev/storage/sda1");
+  _ReadDisk("/dev/storage/sda2");
+  _ReadDisk("/dev/storage/sda4");
+  _ReadDisk("/dev/storage/sdb1");
+  _ReadDisk("/dev/storage/sdb2");
+  _ReadDisk("/dev/storage/sdb4");
+  _ReadDisk("/dev/storage/sdb5");
+  _ReadDisk("/dev/storage/sdb6");
+  _ReadDisk("/dev/storage/sdb7");
 
   KPrintf("Kernel Shell Test Command Executed\n");
 }

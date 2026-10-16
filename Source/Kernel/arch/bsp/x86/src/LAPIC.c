@@ -310,12 +310,12 @@ typedef struct
  * @details Attaches the LAPIC driver to the system. This function will use
  * the FDT to initialize the LAPIC hardware and retreive the LAPIC parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Sets END OF INTERRUPT for the current CPU Local APIC.
@@ -415,12 +415,12 @@ static inline void _Write(const uintptr_t kBaseAddr,
  * use the FDT to initialize the LAPIC Timer hardware and retreive the LAPIC
  * Timer parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _TimerAttach(const S_FDTNode* pkFdtNode);
+static E_Return _TimerAttach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Calibrates the LAPIC Timer frequency.
@@ -787,7 +787,7 @@ static size_t sProcFSStringLength = 0;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t*     kpUintProp;
   const S_ACPIDriver* skpACPIDriver;
@@ -802,7 +802,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   sDrvCtrl.spuriousIntLine = CPUGetInterruptConfig()->spuriousInterruptLine;
 
   /* Get the ACPI pHandle */
-  kpUintProp = FDTGetProp(pkFdtNode, LAPIC_FDT_ACPI_NODE_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, LAPIC_FDT_ACPI_NODE_PROP, &propLen);
   LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
                "Failed to get ACPI handle for LAPIC",
                ERR_INVALID_VALUE);
@@ -846,7 +846,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   _Write(sDrvCtrl.baseAddr, LAPIC_SVR, 0x100 | sDrvCtrl.spuriousIntLine);
 
   /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(pkFdtNode, &sLAPICAPIDriver);
+  retCode = DriverManagerSetDeviceData(kpFdtNode, &sLAPICAPIDriver);
   LAPIC_ASSERT(retCode == NO_ERROR, "Failed to set LAPIC API driver", retCode);
   /* Register the driver in the CPU manager */
   CPURegisterLAPICDriver(&sLAPICAPIDriver);
@@ -974,7 +974,7 @@ static void _InitApCPU(void)
   _Write(sDrvCtrl.baseAddr, LAPIC_EOI, 0);
 }
 
-static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
+static E_Return _TimerAttach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t*        kpUintProp;
   size_t                 propLen;
@@ -1016,21 +1016,21 @@ static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
   pTimerDrv->pDriverCtrl    = pDrvCtrl;
 
   /* Get interrupt lines */
-  kpUintProp = FDTGetProp(pkFdtNode, LAPICT_FDT_INT_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, LAPICT_FDT_INT_PROP, &propLen);
   LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
                "Invalid Timer FDT configuration.",
                ERR_INVALID_VALUE);
   pDrvCtrl->interruptNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
 
   /* Get selected frequency */
-  kpUintProp = FDTGetProp(pkFdtNode, LAPICT_FDT_SELFREQ_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, LAPICT_FDT_SELFREQ_PROP, &propLen);
   LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
                "Invalid Timer FDT configuration.",
                ERR_INVALID_VALUE);
   pDrvCtrl->selectedFrequency = FDTTOCPU32(*kpUintProp);
 
   /* Get bus frequency divider */
-  kpUintProp = FDTGetProp(pkFdtNode, LAPICT_FDT_DIVIDER_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, LAPICT_FDT_DIVIDER_PROP, &propLen);
   LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
                "Invalid Timer FDT configuration.",
                ERR_INVALID_VALUE);
@@ -1066,7 +1066,7 @@ static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
   }
 
   /* Get the LAPIC pHandle */
-  kpUintProp = FDTGetProp(pkFdtNode, LAPICT_FDT_LAPIC_NODE_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, LAPICT_FDT_LAPIC_NODE_PROP, &propLen);
   LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
                "Invalid Timer FDT configuration.",
                ERR_INVALID_VALUE);
@@ -1078,7 +1078,7 @@ static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
                ERR_NOT_SUPPORTED);
 
   /* Get the base timer pHandle */
-  kpUintProp = FDTGetProp(pkFdtNode,
+  kpUintProp = FDTGetProp(kpFdtNode,
                           LAPICT_TIMER_FDT_BASE_TIMER_PROP,
                           &propLen);
   LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
@@ -1113,7 +1113,7 @@ static E_Return _TimerAttach(const S_FDTNode* pkFdtNode)
   CPURegisterLAPICTimerDriver(&sLAPICTimerAPIDriver);
 
   /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(pkFdtNode, pTimerDrv);
+  retCode = DriverManagerSetDeviceData(kpFdtNode, pTimerDrv);
   LAPIC_ASSERT(retCode == NO_ERROR,
                "Failed to register LAPIC Timer data.",
                retCode);

@@ -33,6 +33,10 @@
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
+#ifndef __SIZE_TYPE__
+#error __SIZE_TYPE__ not defined
+#endif
+
 /**
  * @brief Defines size_t type as a renaming for __SIZE_TYPE__.
  */

@@ -324,12 +324,12 @@ typedef struct
  * @details Attaches the VESA driver to the system. This function will use the
  * FDT to initialize the VESA hardware and retreive the VESA parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Reads the VESA parameters from the FDT node.
@@ -338,11 +338,11 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode);
  * the VESA parameters from the FDT node and store them in the VESA driver
  * instance.
  *
- * @param[in] pkFdtNode The FDT node with the VESA parameters.
+ * @param[in] kpFdtNode The FDT node with the VESA parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _GetVESAParameters(const S_FDTNode* pkFdtNode);
+static E_Return _GetVESAParameters(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Retreives the VESA information from the BIOS.
@@ -751,7 +751,7 @@ static const uint32_t skVGAColorTable[16] =
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _GetVESAParameters(const S_FDTNode* pkFdtNode)
+static E_Return _GetVESAParameters(const S_FDTNode* kpFdtNode)
 {
   const uint32_t* kpUintProp;
   const char*     kpStrProp;
@@ -760,7 +760,7 @@ static E_Return _GetVESAParameters(const S_FDTNode* pkFdtNode)
 
   retVal = NO_ERROR;
 
-  kpUintProp = FDTGetProp(pkFdtNode, VESA_FDT_RESOLUTION_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, VESA_FDT_RESOLUTION_PROP, &propLen);
   if (kpUintProp == NULL || propLen != sizeof(uint32_t) * 2)
   {
     retVal = ERR_INVALID_VALUE;
@@ -771,7 +771,7 @@ static E_Return _GetVESAParameters(const S_FDTNode* pkFdtNode)
     sController.screenWidth  = (uint16_t)FDTTOCPU32(*kpUintProp);
     sController.screenHeight = (uint16_t)FDTTOCPU32(*(kpUintProp + 1));
 
-    kpUintProp = FDTGetProp(pkFdtNode, VESA_FDT_DEPTH_PROP, &propLen);
+    kpUintProp = FDTGetProp(kpFdtNode, VESA_FDT_DEPTH_PROP, &propLen);
     if (kpUintProp == NULL || propLen != sizeof(uint32_t))
     {
       retVal = ERR_INVALID_VALUE;
@@ -782,7 +782,7 @@ static E_Return _GetVESAParameters(const S_FDTNode* pkFdtNode)
   {
     sController.bitsPerPixel = (uint8_t)FDTTOCPU32(*kpUintProp);
 
-    kpUintProp = FDTGetProp(pkFdtNode, VESA_FDT_REFRESH_RATE_PROP, &propLen);
+    kpUintProp = FDTGetProp(kpFdtNode, VESA_FDT_REFRESH_RATE_PROP, &propLen);
     if (kpUintProp == NULL || propLen != sizeof(uint32_t))
     {
       retVal = ERR_INVALID_VALUE;
@@ -793,7 +793,7 @@ static E_Return _GetVESAParameters(const S_FDTNode* pkFdtNode)
   {
     sController.screenRefreshRate = (uint16_t)FDTTOCPU32(*kpUintProp);
 
-    kpStrProp = FDTGetProp(pkFdtNode, VESA_FDT_DEVICE_PROP, &propLen);
+    kpStrProp = FDTGetProp(kpFdtNode, VESA_FDT_DEVICE_PROP, &propLen);
     if (kpStrProp == NULL || propLen  == 0)
     {
       retVal = ERR_INVALID_VALUE;
@@ -1332,14 +1332,14 @@ static E_Return _CreateDisplayThread(void)
   return retVal;
 }
 
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   E_Return              retVal;
   T_VFSDriver           vfsDriver;
   const S_CPUFlagsInfo* pkCPUFlags;
 
   /* Get the VESA parameters from the FDT node. */
-  retVal = _GetVESAParameters(pkFdtNode);
+  retVal = _GetVESAParameters(kpFdtNode);
   if (retVal == NO_ERROR)
   {
     /* Get the memory capabilities. */

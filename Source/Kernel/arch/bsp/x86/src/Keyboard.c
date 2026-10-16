@@ -147,11 +147,11 @@ typedef struct
  * the FDT to initialize the keyboard hardware and retreive the keyboard
  * parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared by the driver.
+ * @param[in] kpFdtNode The FDT node with the compatible declared by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Handles a keyboard interrupt.
@@ -453,7 +453,7 @@ static const S_KeyMapper ksQwertyMap =
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t* kpUintProp;
   const char*     kpStrProp;
@@ -468,7 +468,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
     retCode = NO_ERROR;
 
     /* Get the keyboard CPU communication ports */
-    kpUintProp = FDTGetProp(pkFdtNode, KBD_FDT_COMM_PROP, &propLen);
+    kpUintProp = FDTGetProp(kpFdtNode, KBD_FDT_COMM_PROP, &propLen);
     if (kpUintProp != NULL && propLen == sizeof(uint32_t) * 2)
     {
       sInputCtrl.cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
@@ -480,7 +480,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
     }
 
     /* Get IRQ lines */
-    kpUintProp = FDTGetProp(pkFdtNode, KBD_FDT_INT_PROP, &propLen);
+    kpUintProp = FDTGetProp(kpFdtNode, KBD_FDT_INT_PROP, &propLen);
     if (kpUintProp != NULL && propLen == sizeof(uint32_t) * 2)
     {
       sInputCtrl.irqNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
@@ -490,7 +490,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
       retCode = ERR_INVALID_VALUE;
     }
 
-    kpStrProp = FDTGetProp(pkFdtNode, KBD_FDT_DEVICE_PROP, &propLen);
+    kpStrProp = FDTGetProp(kpFdtNode, KBD_FDT_DEVICE_PROP, &propLen);
     if (kpStrProp == NULL || propLen  == 0)
     {
       retCode = ERR_INVALID_VALUE;
