@@ -1839,11 +1839,11 @@ static uintptr_t _GetPhysAddr(const uintptr_t kVirtualAddress,
                               const uintptr_t kPageDir,
                               uint32_t*       pFlags)
 {
-  uintptr_t retPhysAddr;
-  uintptr_t nextPtable;
-  uintptr_t *pPageTable[4];
-  uint16_t pmlEntry[4];
-  int8_t j;
+  uintptr_t  retPhysAddr;
+  uintptr_t  nextPtable;
+  uintptr_t* pPageTable[4];
+  uint16_t   pmlEntry[4];
+  int8_t     j;
 
   retPhysAddr = MEMMGR_PHYS_ADDR_ERROR;
 

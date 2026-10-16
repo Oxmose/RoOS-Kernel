@@ -372,7 +372,7 @@ T_VFSDriver RegisterVFSDriver(const char*  kpPath,
  *
  * @return The function returns the success or error state.
  */
-E_Return UnregisterDriver(T_VFSDriver driver);
+E_Return UnregisterVFSDriver(T_VFSDriver driver);
 
 /**
  * @brief Opens and possibly create a file.

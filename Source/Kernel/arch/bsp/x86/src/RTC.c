@@ -156,12 +156,12 @@ typedef struct
  * @details Attaches the RTC driver to the system. This function will use the
  * FDT to initialize the RTC hardware and retreive the RTC parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Initial RTC interrupt handler.
@@ -404,7 +404,7 @@ static S_RTCControler* spDrvCtrl = NULL;
  * FUNCTIONS
  ******************************************************************************/
 
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t* kpUintProp;
   size_t          propLen;
@@ -435,7 +435,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
     pTimerDrv->pDriverCtrl    = spDrvCtrl;
 
     /* Get IRQ lines */
-    kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_INT_PROP, &propLen);
+    kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_INT_PROP, &propLen);
     RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
                 "Invalid RTC property.",
                 ERR_INVALID_VALUE);
@@ -443,7 +443,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
     spDrvCtrl->irqNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
 
     /* Get communication ports */
-    kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_COMM_PROP, &propLen);
+    kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_COMM_PROP, &propLen);
     RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
                 "Invalid RTC property.",
                 ERR_INVALID_VALUE);
@@ -451,7 +451,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
     spDrvCtrl->cpuDataPort = (uint16_t)FDTTOCPU32(*(kpUintProp + 1));
 
     /* Get quartz frequency */
-    kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_QUARTZ_PROP, &propLen);
+    kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_QUARTZ_PROP, &propLen);
     RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
                 "Invalid RTC property.",
                 ERR_INVALID_VALUE);
@@ -459,14 +459,14 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
 
 
     /* Get selected frequency */
-    kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_SELFREQ_PROP, &propLen);
+    kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_SELFREQ_PROP, &propLen);
     RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
                 "Invalid RTC property.",
                 ERR_INVALID_VALUE);
     spDrvCtrl->selectedFrequency = FDTTOCPU32(*kpUintProp);
 
     /* Get the frequency range */
-    kpUintProp = FDTGetProp(pkFdtNode, RTC_FDT_FREQRANGE_PROP, &propLen);
+    kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_FREQRANGE_PROP, &propLen);
     RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
                 "Invalid RTC property.",
                 ERR_INVALID_VALUE);
@@ -512,7 +512,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
     if (retCode == NO_ERROR)
     {
       /* Set the API driver */
-      retCode = DriverManagerSetDeviceData(pkFdtNode, pTimerDrv);
+      retCode = DriverManagerSetDeviceData(kpFdtNode, pTimerDrv);
 
       if (retCode != NO_ERROR)
       {

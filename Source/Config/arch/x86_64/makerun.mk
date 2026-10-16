@@ -9,16 +9,24 @@
 # virtualbox.
 ################################################################################
 
-QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 256M -vga std -global VGA.vgamem_mb=16\
+QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 256M -vga std -global VGA.vgamem_mb=16 \
 			-smp 4 -serial stdio -machine q35 \
-			-drive format=raw,file=../Peripherals/hdd.img \
+			-drive if=none,format=raw,file=../Peripherals/hddmbr.img,id=disk0 \
+			-drive if=none,format=raw,file=../Peripherals/hddgpt.img,id=disk1 \
+			-device ahci,id=ahci0 \
+			-device ide-hd,bus=ahci0.0,drive=disk0 \
+			-device ide-hd,bus=ahci0.1,drive=disk1 \
 			-drive if=none,id=stick,format=raw,file=../Peripherals/usb.img \
 			-device nec-usb-xhci,id=xhci \
 			-device usb-storage,bus=xhci.0,drive=stick
 
-QEMUOPTSTEST = -cpu EPYC -rtc base=localtime -m 256M\
+QEMUOPTSTEST = -cpu EPYC -rtc base=localtime -m 256M \
 			-smp 4 -serial stdio -machine q35 \
-			-drive format=raw,file=../Peripherals/hdd.img \
+			-drive if=none,format=raw,file=../Peripherals/hddmbr.img,id=disk0 \
+			-drive if=none,format=raw,file=../Peripherals/hddgpt.img,id=disk1 \
+			-device ahci,id=ahci0 \
+			-device ide-hd,bus=ahci0.0,drive=disk0 \
+			-device ide-hd,bus=ahci0.1,drive=disk1 \
 			-drive if=none,id=stick,format=raw,file=../Peripherals/usb.img \
 			-device nec-usb-xhci,id=xhci \
 			-device usb-storage,bus=xhci.0,drive=stick

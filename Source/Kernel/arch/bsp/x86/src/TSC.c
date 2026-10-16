@@ -95,12 +95,12 @@ typedef struct
  * @details Attaches the TSC driver to the system. This function will use the
  * FDT to initialize the TSC hardware and retreive the TSC parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Unused, TSC does not support enabling / disabling.
@@ -192,7 +192,7 @@ static S_Driver sX86TSCDriver =
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t*      kpUintProp;
   size_t               propLen;
@@ -230,7 +230,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   pTimerDrv->pDriverCtrl    = pDrvCtrl;
 
   /* Get the base timer pHandle */
-  kpUintProp = FDTGetProp(pkFdtNode,
+  kpUintProp = FDTGetProp(kpFdtNode,
                           TSC_FDT_BASE_TIMER_PROP,
                           &propLen);
   TSC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
@@ -272,7 +272,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   KPrintfInfo("Detected TSC Frequency: %lluHz\n", pDrvCtrl->frequency);
 
   /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(pkFdtNode, pTimerDrv);
+  retCode = DriverManagerSetDeviceData(kpFdtNode, pTimerDrv);
   TSC_ASSERT(retCode == NO_ERROR,
              "Failed to register the TSC device",
              retCode);

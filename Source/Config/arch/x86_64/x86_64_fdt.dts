@@ -87,6 +87,7 @@
         lapic: local-apic {
             compatible = "x86,x86-lapic";
             acpi-node = <&acpi>;
+            pre-init-attach;
         };
 
         /* Interrupt controller must be placed before any device using
@@ -114,12 +115,8 @@
                 int-offset = <0x30>;
                 acpi-node = <&acpi>;
                 lapic-node = <&lapic>;
+                pre-init-attach;
             };
-        };
-
-        pcie {
-            compatible = "x86,x86-pcie";
-            acpi-node = <&acpi>;
         };
 
         /* PIT capabilities (global, synchronized, interrupt):
@@ -161,6 +158,7 @@
                 interrupt-parent = <&int_ctrl>;
                 interrupts = <0 0>; /* 0: is IRQ; 1: IRQ line */
                 acpi-node = <&acpi>;
+                pre-init-attach;
             };
 
             auxtimer1: pit {
@@ -172,6 +170,7 @@
                 qartz-freq = <0x1234DD>;
                 freq = <500>;
                 freq-range = <20 8000>;
+                pre-init-attach;
             };
 
             rtctimer: rtc {
@@ -182,11 +181,13 @@
                 qartz-freq = <32768>;
                 freq = <2>;
                 freq-range = <2 8192>;
+                pre-init-attach;
             };
 
             lifetimer: tsc {
                 compatible = "x86,x86-tsc";
                 base-timer = <&auxtimer0>;
+                pre-init-attach;
             };
 
             maintimer: lapic-timer {
@@ -197,6 +198,7 @@
                 bus-freq-divider = <128>;
                 base-timer = <&lifetimer>;
                 lapic-node = <&lapic>;
+                pre-init-attach;
             };
         };
 
@@ -239,6 +241,12 @@
             comm = <0x2E8>;
             baudrate = <115200>;
             device = "/dev/uart/3";
+        };
+
+        pcie {
+            compatible = "x86,x86-pcie";
+            acpi-node = <&acpi>;
+            irq-range = <0x60 0xFF>;
         };
     };
 

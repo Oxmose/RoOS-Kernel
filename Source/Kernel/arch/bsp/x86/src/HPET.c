@@ -181,12 +181,12 @@ typedef struct
  * use the FDT to initialize the HPET hardware and retreive the HPET
  * parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Initializes the HPET.
@@ -196,11 +196,11 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode);
  * Other HPETs are not used.
  *
  * @param[in, out] pCtrl The HPET controller to initialize.
- * @param[in] pkFdtNode The FDT node used to initialize the driver.
+ * @param[in] kpFdtNode The FDT node used to initialize the driver.
  *
  * @return The success of error state is returned.
  */
-static E_Return _Init(S_HPETControler* pCtrl, const S_FDTNode* pkFdtNode);
+static E_Return _Init(S_HPETControler* pCtrl, const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Returns the time elasped since the last timer's reset in ns.
@@ -345,7 +345,7 @@ static size_t sProcFSStringLength = 0;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t* kpUintProp;
   size_t          propLen;
@@ -365,7 +365,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   pTimerDrv->pDriverCtrl = &sDrvCtrl;
 
   /* Get interrupt lines */
-  kpUintProp = FDTGetProp(pkFdtNode, HPET_FDT_INT_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, HPET_FDT_INT_PROP, &propLen);
   HPET_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
               "Failed to get the HPET interrupt",
               ERR_INVALID_VALUE);
@@ -373,10 +373,10 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   sDrvCtrl.interruptNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
 
   /* Initializes the HPET */
-  retCode = _Init(&sDrvCtrl, pkFdtNode);
+  retCode = _Init(&sDrvCtrl, kpFdtNode);
   HPET_ASSERT(retCode == NO_ERROR, "Failed to initialize the HPET", retCode);
   /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(pkFdtNode, pTimerDrv);
+  retCode = DriverManagerSetDeviceData(kpFdtNode, pTimerDrv);
   HPET_ASSERT(retCode == NO_ERROR, "Failed to set the HPET driver", retCode);
 
   retCode = _CreateProcFSEntry();
@@ -385,7 +385,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   return retCode;
 }
 
-static E_Return _Init(S_HPETControler* pCtrl, const S_FDTNode* pkFdtNode)
+static E_Return _Init(S_HPETControler* pCtrl, const S_FDTNode* kpFdtNode)
 {
   const uint32_t*         kpUintProp;
   const S_HPETNode*       kpHpetNode;
@@ -399,7 +399,7 @@ static E_Return _Init(S_HPETControler* pCtrl, const S_FDTNode* pkFdtNode)
   kpHpetNode = NULL;
 
   /* Get the ACPI pHandle */
-  kpUintProp = FDTGetProp(pkFdtNode, HPET_FDT_ACPI_NODE_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, HPET_FDT_ACPI_NODE_PROP, &propLen);
   if (kpUintProp != NULL && propLen == sizeof(uint32_t))
   {
     /* Get the ACPI driver */

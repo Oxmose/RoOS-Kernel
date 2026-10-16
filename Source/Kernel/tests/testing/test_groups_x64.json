@@ -8,6 +8,10 @@
     "testname": "USTARFS"
   },
   {
+    "name": "Kernel SATA storage",
+    "testname": "STORAGE"
+  },
+  {
     "name": "Kernel CPUID",
     "testname": "CPUID"
   },

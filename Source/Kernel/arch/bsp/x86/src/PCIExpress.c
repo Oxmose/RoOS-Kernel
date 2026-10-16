@@ -22,9 +22,9 @@
  ******************************************************************************/
 /* Included headers */
 #include <ACPI.h>
-#include <MMIO.h>
 #include <Panic.h>
 #include <X64Cpu.h>
+#include <MMIO.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -49,6 +49,8 @@
  ******************************************************************************/
 /** @brief FDT property for acpi handle */
 #define PCIE_FDT_ACPI_NODE_PROP "acpi-node"
+/** @brief FDT property for irq range */
+#define PCIE_FDT_IRQ_NODE_PROP "irq-range"
 
 /** @brief Maximum number of PCIe buses */
 #define PCIE_MAX_BUS_COUNT 256
@@ -117,13 +119,13 @@
 /** @brief Capability ID for MSI-X */
 #define PCI_CAPABILITY_ID_MSIX 0x11
 /** @brief MSI control bit for enabling MSI */
-#define PCIE_MSI_CONTROL_ENABLE 0x0001
+#define PCIE_MSI_CONTROL_ENABLE 0x00010000
 /** @brief MSI control bit for 64-bit address support */
-#define PCIE_MSI_CONTROL_64BIT 0x0080
+#define PCIE_MSI_CONTROL_64BIT 0x00800000
 /** @brief MSI-X control bit for enabling MSI-X */
-#define PCIE_MSIX_CONTROL_ENABLE 0x8000
+#define PCIE_MSIX_CONTROL_ENABLE 0x80000000
 /** @brief MSI-X control bit for masking MSI-X */
-#define PCIE_MSIX_CONTROL_MASK 0x4000
+#define PCIE_MSIX_CONTROL_MASK 0x40000000
 
 /** @brief Maximum number of PCIe BARS */
 #define PCI_MAX_BARS 6
@@ -185,79 +187,6 @@
 /*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
-
-/**
- * @brief Reads a 32-bit value from the PCIe.
- *
- * @details Reads a 32-bit value from the PCIe. Thus function uses MMIO
- * functions to read the value.
- *
- * @param[in] pAddr The address to read from.
- * @param[in] kSize The size of the value to read.
- *
- * @return The function returns the 32-bit value read from the PCIe.
- */
-static inline uint32_t _PCIERead32(const volatile void* pAddr);
-
-/**
- * @brief Reads a 16-bit value from the PCIe.
- *
- * @details Reads a 16-bit value from the PCIe. Thus function uses MMIO
- * functions to read the value.
- *
- * @param[in] pAddr The address to read from.
- * @param[in] kSize The size of the value to read.
- *
- * @return The function returns the 16-bit value read from the PCIe.
- */
-static inline uint16_t _PCIERead16(const volatile void* pAddr);
-
-/**
- * @brief Reads a 8-bit value from the PCIe.
- *
- * @details Reads a 8-bit value from the PCIe. Thus function uses MMIO
- * functions to read the value.
- *
- * @param[in] pAddr The address to read from.
- * @param[in] kSize The size of the value to read.
- *
- * @return The function returns the 8-bit value read from the PCIe.
- */
-static inline uint8_t _PCIERead8(const volatile void* pAddr);
-
-/**
- * @brief Writes a 32-bit value to the PCIe.
- *
- * @details Writes a 32-bit value to the PCIe. Thus function uses MMIO
- * functions to write the value.
- *
- * @param[in] pAddr The address to write to.
- * @param[in] kValue The value to write.
- */
-static inline void _PCIEWrite32(volatile void* pAddr, const uint32_t kValue);
-
-/**
- * @brief Writes a 16-bit value to the PCIe.
- *
- * @details Writes a 16-bit value to the PCIe. Thus function uses MMIO
- * functions to write the value.
- *
- * @param[in] pAddr The address to write to.
- * @param[in] kValue The value to write.
- */
-static inline void _PCIEWrite16(volatile void* pAddr, const uint16_t kValue);
-
-/**
- * @brief Writes a 8-bit value to the PCIe.
- *
- * @details Writes a 8-bit value to the PCIe. Thus function uses MMIO
- * functions to write the value.
- *
- * @param[in] pAddr The address to write to.
- * @param[in] kValue The value to write.
- */
-static inline void _PCIEWrite8(volatile void* pAddr, const uint8_t kValue);
-
 /**
  * @brief Gets the full class code string for a given class code, subclass, and
  * programming interface.
@@ -328,12 +257,12 @@ static void _PrepareDeviceInterrupt(S_PCIDevice* pDevice);
  * use the FDT to initialize the PCIE hardware and retreive the PCIE
  * parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /*******************************************************************************
  * GLOBAL VARIABLES
@@ -359,6 +288,11 @@ static S_Driver sX86PCIEDriver =
 
 /** @brief Pointer to the list of PCIe devices */
 static S_PCIDevice* spDevices = NULL;
+
+/** @brief The next interrupt line allocated. */
+uint8_t sNextInterruptLine = 0;
+/** @brief The maximum interrupt line available. */
+uint8_t sMaxInterruptLine = 0;
 
 /** @brief PCIe class code strings */
 const char* skpPCIEClassCodeStrings[PCIE_CLASS_TABLE_SIZE] =
@@ -751,76 +685,6 @@ static const uint32_t skpPCIESubClassCodeSizes[PCIE_CLASS_TABLE_SIZE] =
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static inline uint32_t _PCIERead32(const volatile void* pAddr)
-{
-  return _MMIORead32(pAddr);
-}
-
-static inline void _PCIEWrite32(volatile void* pAddr, const uint32_t kValue)
-{
-  _MMIOWrite32(pAddr, kValue);
-}
-
-static inline uint16_t _PCIERead16(const volatile void* pAddr)
-{
-  uint32_t  value;
-  uintptr_t aligned;
-  uint32_t  shift;
-
-  aligned = ((uintptr_t)pAddr & ~0x3);
-  shift   = ((uintptr_t)pAddr & 0x3) << 3;
-
-  value = _MMIORead32((void*)aligned);
-
-  return (value >> shift) & 0xFFFF;
-}
-
-static inline void _PCIEWrite16(volatile void* pAddr, const uint16_t kValue)
-{
-  uint32_t  value;
-  uintptr_t aligned;
-  uint32_t  shift;
-
-  aligned = ((uintptr_t)pAddr & ~0x3);
-  shift   = ((uintptr_t)pAddr & 0x3) << 3;
-
-  value = _MMIORead32((void*)aligned);
-  value &= ~(0xFFFF << shift);
-  value |= ((uint32_t)kValue << shift);
-
-  _MMIOWrite32((void*)aligned, value);
-}
-
-static inline uint8_t _PCIERead8(const volatile void* pAddr)
-{
-  uint32_t  value;
-  uintptr_t aligned;
-  uint32_t  shift;
-
-  aligned = ((uintptr_t)pAddr & ~0x3);
-  shift   = ((uintptr_t)pAddr & 0x3) << 3;
-
-  value = _MMIORead32((void*)aligned);
-
-  return (value >> shift) & 0xFF;
-}
-
-static inline void _PCIEWrite8(volatile void* pAddr, const uint8_t kValue)
-{
-  uint32_t  value;
-  uintptr_t aligned;
-  uint32_t  shift;
-
-  aligned = ((uintptr_t)pAddr & ~0x3);
-  shift   = ((uintptr_t)pAddr & 0x3) << 3;
-
-  value = _MMIORead32((void*)aligned);
-  value &= ~(0xFF << shift);
-  value |= ((uint32_t)kValue << shift);
-
-  _MMIOWrite32((void*)aligned, value);
-}
-
 static void _GetFullProgIFString(const uint8_t kClassCode,
                                  const uint8_t kSubclass,
                                  const uint8_t kProgIF,
@@ -1311,6 +1175,7 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList)
   uint8_t                subclass;
   uint8_t                progIF;
   uint8_t                headerType;
+  uint32_t               registerValue;
 
   if (kpPCIConfigList != NULL)
   {
@@ -1355,12 +1220,14 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList)
                                           k,
                                           mapped);
               /* Read the vendor ID */
-              vendorID = _PCIERead16(&pFunction->vendorID);
+              registerValue = _MMIORead32(&pFunction->vendorID);
+              vendorID = registerValue & 0xFFFF;
               if (vendorID != 0xFFFF)
               {
-                deviceID = _PCIERead16(&pFunction->deviceID);
-                subsystemID = _PCIERead16(&pFunction->subsystemID);
-                subsystemVendorID = _PCIERead16(&pFunction->subsystemVendorID);
+                deviceID = registerValue >> 16;
+                registerValue = _MMIORead32(&pFunction->subsystemVendorID);
+                subsystemVendorID = registerValue & 0xFFFF;
+                subsystemID = registerValue >> 16;
                 pDevice = KMalloc(sizeof(S_PCIDevice), KMALLOC_NO_FREE_POOL);
                 memset(pDevice, 0, sizeof(S_PCIDevice));
                 KERNEL_DEBUG(PCIE_DRIVER_DEBUG_ENABLED,
@@ -1379,9 +1246,10 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList)
                              subsystemVendorID);
 
                 /* Initialize the PCIe device descriptor */
-                classCode = _PCIERead8(&pFunction->classCode);
-                subclass = _PCIERead8(&pFunction->subclass);
-                progIF = _PCIERead8(&pFunction->progIF);
+                registerValue = _MMIORead32(&pFunction->revisionID);
+                progIF = registerValue >> 8;
+                subclass = registerValue >> 16;
+                classCode = registerValue >> 24;
 
                 pDevice->pFunction     = pFunction;
                 pDevice->msiBaseAddr   = 0;
@@ -1398,7 +1266,8 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList)
               if (k == 0)
               {
                 /* Check if this is a multi-function device */
-                headerType = _PCIERead8(&pFunction->headerType);
+                registerValue = _MMIORead32(&pFunction->cacheLineSize);
+                headerType = registerValue >> 16;
                 if ((headerType & 0x80) == 0)
                 {
                   /* Not a multi-function device */
@@ -1429,7 +1298,7 @@ static void _PrepareDeviceInterrupt(S_PCIDevice* pDevice)
   uint8_t   capabilitiesPtr;
   uint32_t  capabilityHeader;
   uint8_t   capabilityId;
-  uint16_t  commandReg;
+  uint32_t  commandReg;
   void*     pCommandReg;
   uint8_t   bir;
   uint32_t  tableInfo;
@@ -1441,24 +1310,26 @@ static void _PrepareDeviceInterrupt(S_PCIDevice* pDevice)
 
   /* Update the Command register */
   pCommandReg = (void*)&pDevice->pFunction->command;
-  commandReg  = _PCIERead16(pCommandReg);
+  commandReg  = _MMIORead32(pCommandReg);
   commandReg |= PCI_COMMAND_BUS_MASTER_ENABLE |
                 PCI_COMMAND_MEMORY_SPACE_ENABLE |
                 PCI_COMMAND_LEGACY_INTERRUPT_DISABLE;
-  _PCIEWrite16(pCommandReg, commandReg);
+  _MMIOWrite32(pCommandReg, commandReg);
 
   /* Check for MSI and MSI-X support */
   pDevice->msiBaseAddr  = 0;
   pDevice->msiXBaseAddr = 0;
-  status = _PCIERead16(&pDevice->pFunction->status);
+  commandReg = _MMIORead32(pCommandReg);
+  status     = commandReg >> 16;
   if ((status & PCI_STATUS_CAPABILITIES_LIST) != 0)
   {
-    capabilitiesPtr = _PCIERead8(&pDevice->pFunction->capabilitiesPointer);
+    commandReg = _MMIORead32(&pDevice->pFunction->capabilitiesPointer);
+    capabilitiesPtr = commandReg & 0xFF;
     /* Process the capabilities pointer */
     while (capabilitiesPtr != 0)
     {
       /* Read the capability ID */
-      capabilityHeader = _PCIERead32((void*)((uintptr_t)pDevice->pFunction +
+      capabilityHeader = _MMIORead32((void*)((uintptr_t)pDevice->pFunction +
                                             capabilitiesPtr));
       capabilityId = (uint8_t)(capabilityHeader & 0xFF);
       if (capabilityId == PCI_CAPABILITY_ID_MSI)
@@ -1482,7 +1353,7 @@ static void _PrepareDeviceInterrupt(S_PCIDevice* pDevice)
   if (pDevice->msiXBaseAddr != 0)
   {
     /* Get the BAR that the MSI-X is associated with */
-    tableInfo = _PCIERead32((void*)(pDevice->msiXBaseAddr + 4));
+    tableInfo = _MMIORead32((void*)(pDevice->msiXBaseAddr + 4));
     bir       = tableInfo & 0x7;
     tableInfo = tableInfo & 0xFFFFFFF8;
 
@@ -1514,9 +1385,19 @@ static void _PrepareDeviceInterrupt(S_PCIDevice* pDevice)
       pDevice->msiXBaseAddr = 0;
     }
   }
+
+  /* Allocate IRQ is needed */
+  if (pDevice->msiXBaseAddr != 0 || pDevice->msiBaseAddr != 0)
+  {
+    PCIE_ASSERT(sNextInterruptLine <= sMaxInterruptLine,
+                "No more IRQs available",
+                ERR_EXCEEDED_LIMIT);
+    pDevice->interruptLine = sNextInterruptLine;
+    sNextInterruptLine++;
+  }
 }
 
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t*         kpUintProp;
   const S_ACPIDriver*     kpACPIDriver;
@@ -1527,61 +1408,92 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   S_PCIDevice*            pDevice;
   uint16_t                vendorID;
   uint16_t                deviceID;
+  uint8_t                 classCode;
+  uint8_t                 subclass;
+  uint8_t                 devProgIf;
+  uint32_t                registerValue;
 
   /* Get the ACPI pHandle */
-  kpUintProp = FDTGetProp(pkFdtNode, PCIE_FDT_ACPI_NODE_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, PCIE_FDT_ACPI_NODE_PROP, &propLen);
   if (kpUintProp != NULL && propLen == sizeof(uint32_t))
   {
     /* Get the ACPI driver */
     kpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
     if (kpACPIDriver != NULL)
     {
-      /* Get all devices*/
-      retCode = _ProbeDevices(kpACPIDriver->pGetPCIConfigList());
-
-      if (retCode == NO_ERROR)
+      kpUintProp = FDTGetProp(kpFdtNode, PCIE_FDT_IRQ_NODE_PROP, &propLen);
+      if (kpUintProp != NULL && propLen == sizeof(uint32_t) * 2)
       {
-        /* Attach the drivers */
-        pDevice = spDevices;
-        while (pDevice != NULL)
-        {
-          /* Get the head of the registered drivers section */
-          driverTableCursor = (uintptr_t)&_START_PCI_TABLE_ADDR;
-          pDriver = *(S_PCIDriver**)driverTableCursor;
+        sNextInterruptLine = FDTTOCPU32(*(kpUintProp));
+        sMaxInterruptLine  = FDTTOCPU32(*(kpUintProp + 1));
 
-          /* Compare with the list of registered drivers */
-          while (pDriver != NULL)
+        /* Get all devices*/
+        retCode = _ProbeDevices(kpACPIDriver->pGetPCIConfigList());
+
+        if (retCode == NO_ERROR)
+        {
+          /* Attach the drivers */
+          pDevice = spDevices;
+          while (pDevice != NULL)
           {
-            vendorID = _PCIERead16(&pDevice->pFunction->vendorID);
-            deviceID = _PCIERead16(&pDevice->pFunction->deviceID);
-            if (pDriver->deviceID == deviceID &&
-                pDriver->vendorID == vendorID)
+            /* Get the head of the registered drivers section */
+            driverTableCursor = (uintptr_t)&_START_PCI_TABLE_ADDR;
+            pDriver = *(S_PCIDriver**)driverTableCursor;
+
+            /* Compare with the list of registered drivers */
+            while (pDriver != NULL)
             {
-              _PrepareDeviceInterrupt(pDevice);
-              retCode = pDriver->pDriverAttach(pDevice);
-              if (retCode != NO_ERROR)
+              registerValue = _MMIORead32(&pDevice->pFunction->vendorID);
+              vendorID      = registerValue & 0xFFFF;
+              deviceID      = registerValue >> 16;
+              registerValue = _MMIORead32(&pDevice->pFunction->revisionID);
+              devProgIf     = registerValue >> 8;
+              subclass      = registerValue >> 16;
+              classCode     = registerValue >> 24;
+
+              if (pDriver->devClass == classCode &&
+                  pDriver->devSubClass == subclass &&
+                  pDriver->devProgIf == devProgIf)
               {
-                KERNEL_ERROR("%s failed to attach to device %04x%04x with"
-                            " error %d\n",
-                              pDriver->pName,
-                              deviceID,
-                              vendorID,
-                              retCode);
-              }
-              else
-              {
-                pDevice->pDriver = pDriver;
-                KERNEL_INFO("%s attached to device %04x%04x\n",
+                _PrepareDeviceInterrupt(pDevice);
+
+                KERNEL_DEBUG(PCIE_DRIVER_DEBUG_ENABLED,
+                            MODULE_NAME,
+                            "Attaching %s to device \\%04x\\%04x",
                             pDriver->pName,
                             deviceID,
                             vendorID);
+
+                pDevice->pDriver = pDriver;
+                retCode = pDriver->pDriverAttach(pDevice);
+                if (retCode != NO_ERROR)
+                {
+                  pDevice->pDriver = NULL;
+                  KERNEL_ERROR("%s failed to attach to device \\%04x\\%04x with"
+                              " error %d\n",
+                                pDriver->pName,
+                                deviceID,
+                                vendorID,
+                                retCode);
+                }
+                else
+                {
+                  KERNEL_INFO("%s attached to device \\%04x\\%04x\n",
+                              pDriver->pName,
+                              deviceID,
+                              vendorID);
+                }
               }
+              driverTableCursor += sizeof(uintptr_t);
+              pDriver = *(S_PCIDriver**)driverTableCursor;
             }
-            driverTableCursor += sizeof(uintptr_t);
-            pDriver = *(S_PCIDriver**)driverTableCursor;
+            pDevice = pDevice->pNext;
           }
-          pDevice = pDevice->pNext;
         }
+      }
+      else
+      {
+        retCode = ERR_INVALID_VALUE;
       }
     }
     else
@@ -1608,14 +1520,14 @@ size_t PCIGetBARSize(const S_PCIFunction* kpFunction, const uint8_t kBARIndex)
   if (kBARIndex < PCI_MAX_BARS)
   {
     pBarValue = (uint32_t*)&kpFunction->bar0 + kBARIndex;
-    valueSave = _PCIERead32(pBarValue);
+    valueSave = _MMIORead32(pBarValue);
     type = PCIGetBARType(valueSave);
 
     if (type == PCI_BAR_TYPE_IO)
     {
-      _PCIEWrite32(pBarValue, 0xFFFFFFFF);
-      size = (size_t)(_PCIERead32(pBarValue));
-      _PCIEWrite32(pBarValue, valueSave);
+      _MMIOWrite32(pBarValue, 0xFFFFFFFF);
+      size = (size_t)(_MMIORead32(pBarValue));
+      _MMIOWrite32(pBarValue, valueSave);
 
       size = size & 0xFFFFFFFC;
       if (size == 0)
@@ -1624,14 +1536,14 @@ size_t PCIGetBARSize(const S_PCIFunction* kpFunction, const uint8_t kBARIndex)
       }
       else
       {
-        size = ~size + 1;
+        size = (~size + 1) & 0xFFFFFFFF;
       }
     }
     else if (type == PCI_BAR_TYPE_MEM32)
     {
-      _PCIEWrite32(pBarValue, 0xFFFFFFFF);
-      size = (size_t)(_PCIERead32(pBarValue));
-      _PCIEWrite32(pBarValue, valueSave);
+      _MMIOWrite32(pBarValue, 0xFFFFFFFF);
+      size = (size_t)(_MMIORead32(pBarValue));
+      _MMIOWrite32(pBarValue, valueSave);
 
       size = size & 0xFFFFFFF0;
       if (size == 0)
@@ -1640,21 +1552,21 @@ size_t PCIGetBARSize(const S_PCIFunction* kpFunction, const uint8_t kBARIndex)
       }
       else
       {
-        size = ~size + 1;
+        size = (~size + 1) & 0xFFFFFFFF;
       }
     }
     else if (type == PCI_BAR_TYPE_MEM64 && kBARIndex < PCI_MAX_BARS - 1)
     {
-      valueSaveSecond = _PCIERead32(pBarValue + 1);
+      valueSaveSecond = _MMIORead32(pBarValue + 1);
 
-      _PCIEWrite32(pBarValue, 0xFFFFFFFF);
-      _PCIEWrite32(pBarValue + 1, 0xFFFFFFFF);
+      _MMIOWrite32(pBarValue, 0xFFFFFFFF);
+      _MMIOWrite32(pBarValue + 1, 0xFFFFFFFF);
 
-      size = (size_t)(_PCIERead32(pBarValue));
-      size |= ((size_t)(_PCIERead32(pBarValue + 1))) << 32;
+      size = (size_t)(_MMIORead32(pBarValue));
+      size |= ((size_t)(_MMIORead32(pBarValue + 1))) << 32;
 
-      _PCIEWrite32(pBarValue, valueSave);
-      _PCIEWrite32(pBarValue + 1, valueSaveSecond);
+      _MMIOWrite32(pBarValue, valueSave);
+      _MMIOWrite32(pBarValue + 1, valueSaveSecond);
 
       size = size & 0xFFFFFFFFFFFFFFF0ULL;
       if (size == 0)
@@ -1689,21 +1601,21 @@ uintptr_t PCIGetBARAddress(const S_PCIFunction* kpFunction,
   if (kBARIndex < PCI_MAX_BARS)
   {
     pBarValue = (uint32_t*)&kpFunction->bar0 + kBARIndex;
-    type = PCIGetBARType(_PCIERead32(pBarValue));
+    type = PCIGetBARType(_MMIORead32(pBarValue));
 
     if (type == PCI_BAR_TYPE_MEM64 && kBARIndex < PCI_MAX_BARS - 1)
     {
-      barValue[0] = _PCIERead32(pBarValue);
-      barValue[1] = _PCIERead32(pBarValue + 1);
+      barValue[0] = _MMIORead32(pBarValue);
+      barValue[1] = _MMIORead32(pBarValue + 1);
       address = ((uintptr_t)barValue[1] << 32) | (barValue[0] & 0xFFFFFFF0);
     }
     else if (type == PCI_BAR_TYPE_MEM32)
     {
-      address = (uintptr_t)_PCIERead32(pBarValue) & 0xFFFFFFF0;
+      address = (uintptr_t)_MMIORead32(pBarValue) & 0xFFFFFFF0;
     }
     else if (type == PCI_BAR_TYPE_IO)
     {
-      address = (uintptr_t)(_PCIERead32(pBarValue) & 0xFFFFFFFC);
+      address = (uintptr_t)(_MMIORead32(pBarValue) & 0xFFFFFFFC);
     }
     else
     {
@@ -1748,7 +1660,7 @@ E_Return PCISetupInterruptMSI(S_PCIDevice*   pDevice,
 {
   E_Return retCode;
   uint32_t cpuMainLapicId;
-  uint16_t msgCtrl;
+  uint32_t msgCtrl;
   uint32_t msgAddr;
   uint32_t msgData;
 
@@ -1757,7 +1669,7 @@ E_Return PCISetupInterruptMSI(S_PCIDevice*   pDevice,
     /* Check if MSI is supported */
     if (pDevice->msiBaseAddr != 0)
     {
-      msgCtrl = _PCIERead16((void*)(pDevice->msiBaseAddr + 2));
+      msgCtrl = _MMIORead32((void*)(pDevice->msiBaseAddr));
 
       if (kIsEnabled == true)
       {
@@ -1780,17 +1692,17 @@ E_Return PCISetupInterruptMSI(S_PCIDevice*   pDevice,
         msgData = 0;
       }
 
-      _PCIEWrite32((void*)(pDevice->msiBaseAddr + 4), msgAddr);
+      _MMIOWrite32((void*)(pDevice->msiBaseAddr + 4), msgAddr);
       if ((msgCtrl & PCIE_MSI_CONTROL_64BIT) != 0)
       {
-        _PCIEWrite32((void*)(pDevice->msiBaseAddr + 8), 0);
-        _PCIEWrite32((void*)(pDevice->msiBaseAddr + 12), msgData);
+        _MMIOWrite32((void*)(pDevice->msiBaseAddr + 8), 0);
+        _MMIOWrite32((void*)(pDevice->msiBaseAddr + 12), msgData);
       }
       else
       {
-        _PCIEWrite32((void*)(pDevice->msiBaseAddr + 8), msgData);
+        _MMIOWrite32((void*)(pDevice->msiBaseAddr + 8), msgData);
       }
-      _PCIEWrite16((void*)(pDevice->msiBaseAddr + 2), msgCtrl);
+      _MMIOWrite32((void*)(pDevice->msiBaseAddr), msgCtrl);
       KERNEL_DEBUG(PCIE_DRIVER_DEBUG_ENABLED,
                     MODULE_NAME,
                     "MSI %s for device at %p",
@@ -1828,7 +1740,7 @@ E_Return PCISetupInterruptMSIX(S_PCIDevice*   pDevice,
   {
     if (pDevice->msiXBaseAddr != 0)
     {
-      msgCtrl = _PCIERead16((void*)(pDevice->msiXBaseAddr + 2));
+      msgCtrl = _MMIORead32((void*)(pDevice->msiXBaseAddr));
       if (kIsEnabled == true)
       {
         pDevice->isMSIXEnabled = true;
@@ -1852,12 +1764,12 @@ E_Return PCISetupInterruptMSIX(S_PCIDevice*   pDevice,
         vector  = 1;
       }
 
-      _PCIEWrite32(&pDevice->pMSIXTable[kVector].msgAddrLower, msgAddr);
-      _PCIEWrite32(&pDevice->pMSIXTable[kVector].msgAddrUpper, 0);
-      _PCIEWrite32(&pDevice->pMSIXTable[kVector].msgData, msgData);
-      _PCIEWrite32(&pDevice->pMSIXTable[kVector].vectorControl, vector);
+      _MMIOWrite32(&pDevice->pMSIXTable[kVector].msgAddrLow, msgAddr);
+      _MMIOWrite32(&pDevice->pMSIXTable[kVector].msgAddrHigh, 0);
+      _MMIOWrite32(&pDevice->pMSIXTable[kVector].msgData, msgData);
+      _MMIOWrite32(&pDevice->pMSIXTable[kVector].vectorControl, vector);
 
-      _PCIEWrite16((void*)(pDevice->msiXBaseAddr + 2), msgCtrl);
+      _MMIOWrite32((void*)(pDevice->msiXBaseAddr), msgCtrl);
       KERNEL_DEBUG(PCIE_DRIVER_DEBUG_ENABLED,
                     MODULE_NAME,
                     "MSIX %s for device at %p",

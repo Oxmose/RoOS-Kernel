@@ -1285,7 +1285,7 @@ T_VFSDriver RegisterVFSDriver(const char*  kpPath,
   return pDriver;
 }
 
-E_Return UnregisterDriver(T_VFSDriver driver)
+E_Return UnregisterVFSDriver(T_VFSDriver driver)
 {
   S_VFSNode*  pNode;
   S_FSDriver* pDriverInstance;

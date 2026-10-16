@@ -159,12 +159,12 @@ typedef struct S_IOAPICControler
  * the FDT to initialize the IO-APIC hardware and retreive the IO-APIC
  * parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief Sets the IRQ mask for the desired IRQ number.
@@ -388,7 +388,7 @@ static size_t sProcFSStringLength = 0;
  * FUNCTIONS
  ******************************************************************************/
 
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t*     kpACPINodeProp;
   const uint32_t*     kpLAPICNodeProp;
@@ -413,17 +413,17 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   sSpuriousIntLine = CPUGetInterruptConfig()->spuriousInterruptLine;
 
   /* Get IRQ offset */
-  kpUintProp = FDTGetProp(pkFdtNode, IOAPIC_FDT_INTOFF_PROP, &propLen);
+  kpUintProp = FDTGetProp(kpFdtNode, IOAPIC_FDT_INTOFF_PROP, &propLen);
   IOAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
                 "Invalid int-offset property",
                 ERR_INVALID_VALUE);
   sIntOffset = (uint8_t)FDTTOCPU32(*kpUintProp);
 
   /* Get the handles */
-  kpACPINodeProp = FDTGetProp(pkFdtNode,
+  kpACPINodeProp = FDTGetProp(kpFdtNode,
                               IOAPIC_FDT_ACPI_NODE_PROP,
                               &acpiPropLen);
-  kpLAPICNodeProp = FDTGetProp(pkFdtNode,
+  kpLAPICNodeProp = FDTGetProp(kpFdtNode,
                                IOAPIC_FDT_LAPIC_NODE_PROP,
                                &lapicPropLen);
   IOAPIC_ASSERT(kpACPINodeProp != NULL && acpiPropLen == sizeof(uint32_t) &&
@@ -492,7 +492,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   }
 
   /* Register if needed */
-  if (FDTGetProp(pkFdtNode, IOAPIC_FDT_INT_DRIVER_PROP, &propLen) != NULL)
+  if (FDTGetProp(kpFdtNode, IOAPIC_FDT_INT_DRIVER_PROP, &propLen) != NULL)
   {
     /* Register as interrupt controller */
     retCode = InterruptSetDriver(&sIOAPICDriver);

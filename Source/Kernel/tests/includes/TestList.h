@@ -45,6 +45,7 @@
 #define TEST_OS_VECTOR_ENABLED                    0
 #define TEST_RAMDISK_ENABLED                      0
 #define TEST_USTARFS_ENABLED                      0
+#define TEST_STORAGE_ENABLED                      0
 #define TEST_OS_KQUEUE_ENABLED                    0
 #define TEST_OS_FAST_QUEUES_ENABLED               0
 #define TEST_CPUID_ENABLED                        0
@@ -137,6 +138,26 @@
 
 /** @brief USTAR filesystem test */
 #define TEST_USTARFS(X)              (0 + X)
+
+/** @brief SATA storage integration tests */
+#define TEST_STORAGE_DEVICE(X)         (X)
+#define TEST_STORAGE_PARTITION(X)      (100 + X)
+#define TEST_STORAGE_PARTITION_CLOSE(X) (120 + X)
+#define TEST_STORAGE_CONTENT_OPEN(X)   (140 + X)
+#define TEST_STORAGE_CONTENT_READ(X)   (160 + X)
+#define TEST_STORAGE_CONTENT_MATCH(X)  (180 + X)
+#define TEST_STORAGE_CONTENT_CLOSE(X)  (200 + X)
+#define TEST_STORAGE_THREAD_CREATE(X)  (220 + X)
+#define TEST_STORAGE_THREAD_JOIN(X)    (240 + X)
+#define TEST_STORAGE_THREAD_OPEN(X)    (260 + X)
+#define TEST_STORAGE_THREAD_READ(X)    (280 + X)
+#define TEST_STORAGE_THREAD_DATA(X)    (300 + X)
+#define TEST_STORAGE_BOUNDARY_ALLOC    320
+#define TEST_STORAGE_BOUNDARY_OPEN(X)  (330 + X)
+#define TEST_STORAGE_BOUNDARY_READ(X)  (340 + X)
+#define TEST_STORAGE_BOUNDARY_END(X)   (350 + X)
+#define TEST_STORAGE_BOUNDARY_CLOSE(X) (360 + X)
+#define STORAGE_CREATE_TEST_THREAD_ID(X) (400 + X)
 
 /** @brief Interrupt test */
 #define TEST_INTERRUPT(X) (X)
@@ -507,6 +528,8 @@ void ProcFSTest(void);
 void RAMDiskTest(void);
 /** @brief USTAR filesystem test function */
 void USTARFSTest(void);
+/** @brief SATA storage integration test function */
+void StorageTest(void);
 
 
 #endif /* #ifdef _TESTING_FRAMEWORK_ENABLED */

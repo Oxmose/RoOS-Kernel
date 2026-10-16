@@ -2663,7 +2663,7 @@ void VFSRemoveDriverTest(void* pArgs)
                             (uintptr_t)pNewDriver[4],
                             (uintptr_t)pNode->pDriver,
                             TEST_VFS_ENABLED);
-  retCode = UnregisterDriver(pNewDriver[4]);
+  retCode = UnregisterVFSDriver(pNewDriver[4]);
   TEST_POINT_ASSERT_RCODE(TEST_VFS_REMOVE_DRIVER(6),
                             retCode == NO_ERROR,
                             (uintptr_t)NO_ERROR,
@@ -2704,7 +2704,7 @@ void VFSRemoveDriverTest(void* pArgs)
                             (uintptr_t)pNewDriver[0]->pDriverData,
                             (uintptr_t)0xCAFEBABE,
                             TEST_VFS_ENABLED);
-  retCode = UnregisterDriver(pNewDriver[0]);
+  retCode = UnregisterVFSDriver(pNewDriver[0]);
   TEST_POINT_ASSERT_RCODE(TEST_VFS_REMOVE_DRIVER(10),
                             retCode == NO_ERROR,
                             (uintptr_t)NO_ERROR,

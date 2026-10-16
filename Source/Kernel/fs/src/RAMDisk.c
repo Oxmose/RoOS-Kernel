@@ -113,12 +113,12 @@ typedef struct
  * @details Attaches the RamDisk driver to the system. This function will
  * use the FDT to initialize the RamDisk and retreive the RamDisk parameters.
  *
- * @param[in] pkFdtNode The FDT node with the compatible declared
+ * @param[in] kpFdtNode The FDT node with the compatible declared
  * by the driver.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* pkFdtNode);
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
 /**
  * @brief RamDisk VFS open hook.
@@ -284,7 +284,7 @@ static S_Driver sRAMDISKDriver =
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* pkFdtNode)
+static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uintptr_t*     kpPtrProp;
   const char*          kpStrProp;
@@ -303,7 +303,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
   if (retCode == NO_ERROR)
   {
     /* Get the registers, giving the base physical address and size */
-    kpPtrProp = FDTGetProp(pkFdtNode, RAMDISK_FDT_REG_PROP, &propLen);
+    kpPtrProp = FDTGetProp(kpFdtNode, RAMDISK_FDT_REG_PROP, &propLen);
     if (kpPtrProp != NULL && propLen == sizeof(uintptr_t) * 2)
     {
 #ifdef ARCH_64_BITS
@@ -324,7 +324,7 @@ static E_Return _Attach(const S_FDTNode* pkFdtNode)
       if (retCode == NO_ERROR)
       {
         /* Get the device path */
-        kpStrProp = FDTGetProp(pkFdtNode, RAMDISK_FDT_DEVICE_PROP, &propLen);
+        kpStrProp = FDTGetProp(kpFdtNode, RAMDISK_FDT_DEVICE_PROP, &propLen);
         if (kpStrProp != NULL && propLen  != 0)
         {
           /* Register the driver */

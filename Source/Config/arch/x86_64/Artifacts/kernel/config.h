@@ -36,7 +36,7 @@
 #define OUTPUT_DEBUG_ENABLE 1
 
 /* Kernel log on UART */
-#define DEBUG_LOG_UART      1
+#define DEBUG_LOG_UART      0
 #define DEBUG_LOG_UART_RATE BAUDRATE_115200
 
 /* Kernel log level */
@@ -51,9 +51,10 @@
  * Set to 0 to disable debug output for a specific module
  * Set to 1 to enable debug output for a specific module
  ******************************************************************************/
-#define ACPI_DRIVER_DEBUG_ENABLED 1
-#define PCIE_DRIVER_DEBUG_ENABLED 1
+#define ACPI_DRIVER_DEBUG_ENABLED 0
+#define PCIE_DRIVER_DEBUG_ENABLED 0
 #define DRIVER_MGR_DEBUG_ENABLED 0
 #define VESA_DERIVER_DEBUG_ENABLED 0
-
+#define AHCI_DRIVER_DEBUG_ENABLED 0
+#define DISK_MGR_DEBUG_ENABLED 0
 #endif /* ifndef __GLOBAL_CONFIG_H_ */
