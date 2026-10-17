@@ -62,8 +62,6 @@
 #define VFS_IOCTL_DEV_GET_SECTOR_SIZE 100
 /** @brief IOCTL Device Command: Get Device Sector Count */
 #define VFS_IOCTL_DEV_GET_SECTOR_COUNT 101
-/** @brief IOCTL Device Command: Set Device LBA */
-#define VFS_IOCTL_DEV_SET_LBA 103
 /** @brief  IOCTL Device Command: Flush */
 #define VFS_IOCTL_DEV_FLUSH 102
 

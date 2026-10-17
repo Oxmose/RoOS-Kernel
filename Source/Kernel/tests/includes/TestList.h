@@ -46,6 +46,7 @@
 #define TEST_RAMDISK_ENABLED                      0
 #define TEST_USTARFS_ENABLED                      0
 #define TEST_STORAGE_ENABLED                      0
+#define TEST_KWORKER_ENABLED                      0
 #define TEST_OS_KQUEUE_ENABLED                    0
 #define TEST_OS_FAST_QUEUES_ENABLED               0
 #define TEST_CPUID_ENABLED                        0
@@ -158,6 +159,15 @@
 #define TEST_STORAGE_BOUNDARY_END(X)   (350 + X)
 #define TEST_STORAGE_BOUNDARY_CLOSE(X) (360 + X)
 #define STORAGE_CREATE_TEST_THREAD_ID(X) (400 + X)
+
+/** @brief Kernel worker tests */
+#define TEST_KWORKER_INIT_ID(X)                  (0 + X)
+#define TEST_KWORKER_SUBMIT_ID(X)                (50 + X)
+#define TEST_KWORKER_WAIT_ID(X)                  (100 + X)
+#define TEST_KWORKER_EXECUTION_ID                200
+#define TEST_KWORKER_ARGUMENT_ID(X)              (250 + X)
+#define TEST_KWORKER_DESTROY_ID(X)               (300 + X)
+#define TEST_KWORKER_INIT_THREAD_ID(X)           (400 + X)
 
 /** @brief Interrupt test */
 #define TEST_INTERRUPT(X) (X)
@@ -530,6 +540,8 @@ void RAMDiskTest(void);
 void USTARFSTest(void);
 /** @brief SATA storage integration test function */
 void StorageTest(void);
+/** @brief Kernel worker test function */
+void KernelWorkerTest(void);
 
 
 #endif /* #ifdef _TESTING_FRAMEWORK_ENABLED */

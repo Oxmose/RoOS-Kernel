@@ -666,10 +666,6 @@ static S_KernelThread* _ElectNextThread(S_ScheduleContext* pContext)
   pNode = KQueuePop(pContext->pReadyList[pContext->highestPriority]);
   pNextThread = (S_KernelThread*)pNode->pData;
 
-  /* Update the thread */
-  pNextThread->previousState = pNextThread->currentState;
-  pNextThread->currentState  = THREAD_STATE_RUNNING;
-
   /* Update the priority */
   for (i = pContext->highestPriority; i < KERNEL_LOWEST_PRIORITY; ++i)
   {
@@ -1145,6 +1141,10 @@ bool SchedulerSchedule(void)
   CPUMemoryFenceAcquire();
   pCurrThread->isScheduled = true;
 
+  /* Update the thread state */
+  pCurrThread->previousState = pCurrThread->currentState;
+  pCurrThread->currentState  = THREAD_STATE_RUNNING;
+
   /* Update the memory configuration */
   CPUUpdateMemoryConfig(pCurrThread);
 
@@ -1207,7 +1207,7 @@ S_KernelProcess* GetCurrentProcess(void)
 }
 
 void SetCurrentThreadToWaiting(S_KernelQueue* pWaitingList,
-                                        const bool     kIsInterruptible)
+                               const bool     kIsInterruptible)
 {
   S_KernelThread* pThread;
 

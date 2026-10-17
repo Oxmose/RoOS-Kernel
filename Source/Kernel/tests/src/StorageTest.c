@@ -343,7 +343,6 @@ static void* StorageTestEntry(void* args)
 
 void StorageTest(void)
 {
-
   E_Return        error;
   S_CPUMask       cpuMask;
   char            name[32] = "TEST_THREAD_VALID\0";
@@ -367,12 +366,12 @@ void StorageTest(void)
                           error == NO_ERROR,
                           NO_ERROR,
                           error,
-                          TEST_SCHEDULER_ENABLED);
+                          TEST_STORAGE_ENABLED);
   TEST_POINT_ASSERT_POINTER(STORAGE_CREATE_TEST_THREAD_ID(1),
                             pTestThread != NULL,
                             0xFFFFFFFFFFFFFFFFULL,
                             (uintptr_t)pTestThread,
-                            TEST_SCHEDULER_ENABLED);
+                            TEST_STORAGE_ENABLED);
 }
 
 #endif

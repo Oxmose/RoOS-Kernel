@@ -87,9 +87,6 @@ void RAMDiskTest(void)
     retVal = VFSIOCTL(fd, VFS_IOCTL_FILE_TELL, NULL);
     TEST_POINT_ASSERT_INT(TEST_RAMDISK(16), retVal == sizeof(pattern),
                           sizeof(pattern), retVal, TEST_RAMDISK_ENABLED);
-    retVal = VFSIOCTL(fd, VFS_IOCTL_DEV_SET_LBA, &(uint64_t){1});
-    TEST_POINT_ASSERT_INT(TEST_RAMDISK(17), retVal == 512, 512, retVal,
-                          TEST_RAMDISK_ENABLED);
     retVal = VFSIOCTL(fd, VFS_IOCTL_FILE_SEEK, &(S_SeekIOCTLArguments){
       .direction = SEEK_SET, .offset = 0});
     TEST_POINT_ASSERT_INT(TEST_RAMDISK(18), retVal == 0, 0, retVal,
