@@ -886,6 +886,7 @@ static ssize_t _VFSIOCTL(void*    pDiskDevice,
 static E_Return _DetectAndAttachMBRPartitions(S_DiskDevice* pDevice)
 {
   E_Return      retVal;
+  E_Return      error;
   T_VFSDriver   diskDriver;
   S_MBRData*    pMBR;
   uint32_t      partId;
@@ -932,7 +933,7 @@ static E_Return _DetectAndAttachMBRPartitions(S_DiskDevice* pDevice)
             pPartitionDevice->type = pDevice->type;
             snprintf(pPartitionDevice->name,
                     DISK_MGR_MAX_PATH_LENGTH,
-                    "%s%d",
+                    "%s%u",
                     pDevice->name,
                     partId + 1);
             pPartitionDevice->pReadOperation = pDevice->pReadOperation;
@@ -972,10 +973,10 @@ static E_Return _DetectAndAttachMBRPartitions(S_DiskDevice* pDevice)
       }
     }
 
-    retVal = MemoryKernelFree(pTransferBuffer, mappingSize);
-    DISKMGR_ASSERT(retVal == NO_ERROR,
-                    "Failed to free transfer buffer",
-                    retVal);
+    error = MemoryKernelFree(pTransferBuffer, mappingSize);
+    DISKMGR_ASSERT(error == NO_ERROR,
+                   "Failed to free transfer buffer",
+                   error);
   }
   else
   {
@@ -1095,7 +1096,7 @@ static E_Return _DetectAndAttachGPTPartitions(S_DiskDevice* pDevice)
                     pPartitionDevice->type = pDevice->type;
                     snprintf(pPartitionDevice->name,
                             DISK_MGR_MAX_PATH_LENGTH,
-                            "%s%d",
+                            "%s%u",
                             pDevice->name,
                             partId + 1);
                     pPartitionDevice->pReadOperation = pDevice->pReadOperation;
