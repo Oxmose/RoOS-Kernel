@@ -132,8 +132,8 @@ void FQueuePush(S_FastQueue* pQueue, const void* kpData)
 
   /* Copy the data */
   memcpy(pQueue->pBuffer + pQueue->head * pQueue->elementSize,
-          kpData,
-          pQueue->elementSize);
+         kpData,
+         pQueue->elementSize);
 
   /* Ensure the copy is made and update the write index */
   CPUMemoryFenceRelease();

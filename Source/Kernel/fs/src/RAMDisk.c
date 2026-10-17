@@ -245,21 +245,6 @@ static ssize_t _VFSSeek(void*                 pDriverData,
  */
 static ssize_t _VFSTell(void* pDriverData, void* pHandle, void* pArgs);
 
-/**
- * @brief Sets the simulated LBA to the file descriptor.
- *
- * @details Sets the simulated LBA to the file descriptor. The cursor is
- * positionned based on the simulated sector size.
- *
- * @param[in, out] pDrvCtrl The RamDisk driver that was registered in the VFS.
- * @param[in] pHandle The handle that was created when calling the open
- * function.
- * @param[in, out] lba The LBA value to set
- */
-static ssize_t _SetLBA(S_RAMDiskController*     pCtrl,
-                       S_RAMDiskFileDescriptor* pDesc,
-                       uint64_t                 lba);
-
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
@@ -534,9 +519,6 @@ static ssize_t _VFSIOCTL(void*    pDriverData,
     case VFS_IOCTL_DEV_GET_SECTOR_SIZE:
       retVal = RAMDISK_BLOCK_SIZE;
       break;
-    case VFS_IOCTL_DEV_SET_LBA:
-      retVal = _SetLBA(pDriverData, pHandle, *(uint64_t*)pArgs);
-      break;
     case VFS_IOCTL_FILE_TELL:
       retVal = _VFSTell(pDriverData, pHandle, pArgs);
       break;
@@ -599,27 +581,6 @@ static ssize_t _VFSTell(void* pDriverData, void* pHandle, void* pArgs)
   if (pHandle != NULL && pHandle != (void*)-1)
   {
     pDesc = pHandle;
-    retVal = pDesc->offset;
-  }
-  else
-  {
-    retVal = -1;
-  }
-
-  return retVal;
-}
-
-static ssize_t _SetLBA(S_RAMDiskController*     pCtrl,
-                       S_RAMDiskFileDescriptor* pDesc,
-                       uint64_t                 lba)
-{
-  ssize_t retVal;
-
-  (void)pCtrl;
-
-  if (pDesc != NULL && pDesc != (void*)-1)
-  {
-    pDesc->offset = RAMDISK_BLOCK_SIZE * lba;
     retVal = pDesc->offset;
   }
   else

@@ -12,6 +12,10 @@
     "testname": "STORAGE"
   },
   {
+    "name": "Kernel Worker",
+    "testname": "KWORKER"
+  },
+  {
     "name": "Kernel CPUID",
     "testname": "CPUID"
   },

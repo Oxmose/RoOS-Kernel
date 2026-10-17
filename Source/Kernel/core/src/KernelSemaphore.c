@@ -130,16 +130,9 @@ E_Return KernelSemaphoreDestroy(S_KernelSemaphore* pSemaphore)
   E_Return error;
 
   KERNEL_LOCK(pSemaphore->lock);
-  if (pSemaphore->lockState != 0)
-  {
-    /* Destroy the waiting queue */
-    KQueueDestroy(&pSemaphore->pWaitingList);
-    error = NO_ERROR;
-  }
-  else
-  {
-    error = ERR_UNAUTHORIZED_ACTION;
-  }
+  /* Destroy the waiting queue */
+  KQueueDestroy(&pSemaphore->pWaitingList);
+  error = NO_ERROR;
   KERNEL_UNLOCK(pSemaphore->lock);
 
   return error;

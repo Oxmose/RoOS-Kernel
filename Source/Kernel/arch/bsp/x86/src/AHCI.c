@@ -3243,15 +3243,15 @@ static E_Return _InitAHCIController(S_GenericHostControl* pHostControl)
     }
   }
 
-  /* Check reset and continue*/
+  /* Enable AHCI mode */
+  globalHostControl = _MMIORead32(&pHostControl->globalHostControl);
+  globalHostControl |= AHCI_GLOBAL_HOST_CONTROL_AHCI_ENABLE;
+  _MMIOWrite32(&pHostControl->globalHostControl, globalHostControl);
+
+  /* Check reset and continue */
   if ((_MMIORead32(&pHostControl->globalHostControl) &
       AHCI_GLOBAL_HOST_CONTROL_HBA_RESET) == 0)
   {
-    /* Enable AHCI mode */
-    globalHostControl = _MMIORead32(&pHostControl->globalHostControl);
-    globalHostControl |= AHCI_GLOBAL_HOST_CONTROL_AHCI_ENABLE;
-    _MMIOWrite32(&pHostControl->globalHostControl, globalHostControl);
-
     err = NO_ERROR;
   }
   else
@@ -3925,38 +3925,36 @@ static E_AHCIOpResult _ReadSATAPort(S_AHCIPortControler* pPortCtrl,
   uint8_t              slotPort;
   uint32_t             actSlots;
   uint32_t             cmdIssue;
-  uint32_t             status;
   uint32_t             cmdValue;
   E_AHCIOpResult       retCode;
   uint16_t             prdtCount;
   uint32_t             i;
-  uint64_t             timeout;
   size_t               totalBytes;
 
   pPort = pPortCtrl->pPort;
 
-  /* Disable the interrupt for this port */
-  _MMIOWrite32(&pPort->interruptEnable, 0);
-  status = _MMIORead32(&pPort->interruptStatus);
-  _MMIOWrite32(&pPort->interruptStatus, status);
-
-  /* Find a free slot in the command list */;
-  actSlots = _MMIORead32(&pPort->sataActive);
-  cmdIssue = _MMIORead32(&pPort->commandAndStatus);
-  actSlots |= cmdIssue;
-  for (slotPort = 0; slotPort < COMMAND_TABLE_COUNT; ++slotPort)
+  /* Check if the drive is ready */
+  slotPort = COMMAND_TABLE_COUNT;
+  cmdValue = _MMIORead32(&pPort->taskFileData);
+  if ((cmdValue & (TFD_STATUS_BSY | TFD_STATUS_DRQ)) == 0)
   {
-    if ((actSlots & (1 << slotPort)) == 0 &&
-        (pPortCtrl->issuedCommandTable & (1 << slotPort)) == 0)
+    /* Find a free slot in the command list */;
+    actSlots = _MMIORead32(&pPort->sataActive);
+    cmdIssue = _MMIORead32(&pPort->commandAndStatus);
+    actSlots |= cmdIssue;
+    for (slotPort = 0; slotPort < COMMAND_TABLE_COUNT; ++slotPort)
     {
-      break;
+      if ((actSlots & (1 << slotPort)) == 0 &&
+          (pPortCtrl->issuedCommandTable & (1 << slotPort)) == 0)
+      {
+        break;
+      }
     }
   }
 
   /* If no free slot is available, ask for retry */
   if (slotPort != COMMAND_TABLE_COUNT)
   {
-    retCode = AHCI_OP_WAIT;
     totalBytes = kSectorCount * pPortCtrl->devInfo.satadInfo.sectorSize;
     /* Calculate how many PRDT entries are needed */
     prdtCount = totalBytes / PRDT_ENTRY_MAX_SIZE;
@@ -4013,48 +4011,28 @@ static E_AHCIOpResult _ReadSATAPort(S_AHCIPortControler* pPortCtrl,
     cmdValue = (kSectorStart & 0x00FFFFFF) |
                (FIS_ATA_DEVICE_LBA << FIS_DEVICE_SHIFT);
     _MMIOWrite32(&pCmdFIS->lbaLow, cmdValue);
-    cmdValue = (kSectorStart >> 24 & 0x00FFFFFF);
+    cmdValue = (kSectorStart >> 24) & 0x00FFFFFF;
     _MMIOWrite32(&pCmdFIS->lbaLowExp, cmdValue);
     cmdValue = kSectorCount & 0x0000FFFF;
     _MMIOWrite32(&pCmdFIS->countLow, cmdValue);
     _MMIOWrite32(&pCmdFIS->reserved1, 0);
 
-    /* Wait for slot to be available */
-    timeout = TimeGetUptime() + AHCI_COMMAND_TIMEOUT_NS;
-    status = _MMIORead32(&pPort->taskFileData);
-    while ((_MMIORead32(&pPort->taskFileData) &
-            (TFD_STATUS_BSY | TFD_STATUS_DRQ)) != 0)
-    {
-      /* Wait for the command engine to stop */
-      if (TimeGetUptime() > timeout)
-      {
-        retCode = AHCI_OP_TIMEOUT;
-        break;
-      }
-    }
-    if (retCode == AHCI_OP_WAIT)
-    {
-      /* Set the current thread to waiting */
-      SetCurrentThreadToWaiting(NULL, false);
+    /* Add the port to the waiting table queue */
+    pPortCtrl->issuedCommandTable |= (1 << slotPort);
+    pPortCtrl->commandWaitingTable[slotPort].pResult = pAsyncResult;
+    pPortCtrl->commandWaitingTable[slotPort].pThread = GetCurrentThread();
+    pPortCtrl->commandWaitingTable[slotPort].type = AHCI_CMD_READ;
 
-      /* Add the port to the waiting table queue */
-      pPortCtrl->issuedCommandTable |= (1 << slotPort);
-      pPortCtrl->commandWaitingTable[slotPort].pResult = pAsyncResult;
-      pPortCtrl->commandWaitingTable[slotPort].pThread = GetCurrentThread();
-      pPortCtrl->commandWaitingTable[slotPort].type = AHCI_CMD_READ;
+    /* Issue the command */
+    _ClearAHCIPortError(pPort);
+    _MMIOWrite32(&pPort->commandIssue, 1 << slotPort);
 
-      /* Issue the command */
-      _ClearAHCIPortError(pPort);
-      _MMIOWrite32(&pPort->commandIssue, 1 << slotPort);
-    }
+    retCode = AHCI_OP_WAIT;
   }
   else
   {
     retCode = AHCI_OP_RETRY;
   }
-
-  /* Enable interrupts for this port */
-  _MMIOWrite32(&pPort->interruptEnable, AHCI_INTERRUPT_ENABLE_MASK);
 
   return retCode;
 }
@@ -4072,37 +4050,36 @@ static E_AHCIOpResult _WriteSATAPort(S_AHCIPortControler* pPortCtrl,
   uint8_t              slotPort;
   uint32_t             actSlots;
   uint32_t             cmdIssue;
-  uint32_t             status;
   uint32_t             cmdValue;
   E_AHCIOpResult       retCode;
   uint16_t             prdtCount;
   uint32_t             i;
-  uint64_t             timeout;
   size_t               totalBytes;
 
   pPort = pPortCtrl->pPort;
 
-  /* Disable the interrupt for this port */
-  _MMIOWrite32(&pPort->interruptEnable, 0);
-  status = _MMIORead32(&pPort->interruptStatus);
-  _MMIOWrite32(&pPort->interruptStatus, status);
-
-  /* Find a free slot in the command list */;
-  actSlots = _MMIORead32(&pPort->sataActive);
-  cmdIssue = _MMIORead32(&pPort->commandAndStatus);
-  actSlots |= cmdIssue;
-  for (slotPort = 0; slotPort < COMMAND_TABLE_COUNT; ++slotPort)
+  /* Check if the drive is ready */
+  slotPort = COMMAND_TABLE_COUNT;
+  cmdValue = _MMIORead32(&pPort->taskFileData);
+  if ((cmdValue & (TFD_STATUS_BSY | TFD_STATUS_DRQ)) == 0)
   {
-    if ((actSlots & (1 << slotPort)) == 0)
+    /* Find a free slot in the command list */;
+    actSlots = _MMIORead32(&pPort->sataActive);
+    cmdIssue = _MMIORead32(&pPort->commandAndStatus);
+    actSlots |= cmdIssue;
+    for (slotPort = 0; slotPort < COMMAND_TABLE_COUNT; ++slotPort)
     {
-      break;
+      if ((actSlots & (1 << slotPort)) == 0 &&
+          (pPortCtrl->issuedCommandTable & (1 << slotPort)) == 0)
+      {
+        break;
+      }
     }
   }
 
   /* If no free slot is available, ask for retry */
   if (slotPort != COMMAND_TABLE_COUNT)
   {
-    retCode = AHCI_OP_WAIT;
     totalBytes = kSectorCount * pPortCtrl->devInfo.satadInfo.sectorSize;
     /* Calculate how many PRDT entries are needed */
     prdtCount = totalBytes / PRDT_ENTRY_MAX_SIZE;
@@ -4159,48 +4136,28 @@ static E_AHCIOpResult _WriteSATAPort(S_AHCIPortControler* pPortCtrl,
     cmdValue = (kSectorStart & 0x00FFFFFF) |
                (FIS_ATA_DEVICE_LBA << FIS_DEVICE_SHIFT);
     _MMIOWrite32(&pCmdFIS->lbaLow, cmdValue);
-    cmdValue = (kSectorStart >> 24 & 0x00FFFFFF);
+    cmdValue = (kSectorStart >> 24) & 0x00FFFFFF;
     _MMIOWrite32(&pCmdFIS->lbaLowExp, cmdValue);
     cmdValue = kSectorCount & 0x0000FFFF;
     _MMIOWrite32(&pCmdFIS->countLow, cmdValue);
     _MMIOWrite32(&pCmdFIS->reserved1, 0);
 
-    /* Wait for slot to be available */
-    timeout = TimeGetUptime() + AHCI_COMMAND_TIMEOUT_NS;
-    status = _MMIORead32(&pPort->taskFileData);
-    while ((_MMIORead32(&pPort->taskFileData) &
-            (TFD_STATUS_BSY | TFD_STATUS_DRQ)) != 0)
-    {
-      /* Wait for the command engine to stop */
-      if (TimeGetUptime() > timeout)
-      {
-        retCode = AHCI_OP_TIMEOUT;
-        break;
-      }
-    }
-    if (retCode == AHCI_OP_WAIT)
-    {
-      /* Set the current thread to waiting */
-      SetCurrentThreadToWaiting(NULL, false);
+    /* Add the port to the waiting table queue */
+    pPortCtrl->issuedCommandTable |= (1 << slotPort);
+    pPortCtrl->commandWaitingTable[slotPort].pResult = pAsyncResult;
+    pPortCtrl->commandWaitingTable[slotPort].pThread = GetCurrentThread();
+    pPortCtrl->commandWaitingTable[slotPort].type = AHCI_CMD_WRITE;
 
-      /* Add the port to the waiting table queue */
-      pPortCtrl->issuedCommandTable |= (1 << slotPort);
-      pPortCtrl->commandWaitingTable[slotPort].pResult = pAsyncResult;
-      pPortCtrl->commandWaitingTable[slotPort].pThread = GetCurrentThread();
-      pPortCtrl->commandWaitingTable[slotPort].type = AHCI_CMD_WRITE;
+    /* Issue the command */
+    _ClearAHCIPortError(pPort);
+    _MMIOWrite32(&pPort->commandIssue, 1 << slotPort);
 
-      /* Issue the command */
-      _ClearAHCIPortError(pPort);
-      _MMIOWrite32(&pPort->commandIssue, 1 << slotPort);
-    }
+    retCode = AHCI_OP_WAIT;
   }
   else
   {
     retCode = AHCI_OP_RETRY;
   }
-
-  /* Enable interrupts for this port */
-  _MMIOWrite32(&pPort->interruptEnable, AHCI_INTERRUPT_ENABLE_MASK);
 
   return retCode;
 }
@@ -4265,11 +4222,13 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
   E_AHCIOpResult   result;
   S_KernelThread*  pCurThread;
   E_AHCIOpResult   asyncResult;
+  uint32_t         intState;
 
   /* Get the physical address of the buffer */
   pCurThread = GetCurrentThread();
   do
   {
+    KERNEL_ENTER_CRITICAL_LOCAL(intState);
     /* Lock the port */
     KERNEL_LOCK(pPortCtrl->lock);
 
@@ -4297,8 +4256,12 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
     /* Check the result */
     if (result == AHCI_OP_WAIT)
     {
+      /* Set the current thread to waiting */
+      SetCurrentThreadToWaiting(NULL, false);
+
       /* Unlock the port */
       KERNEL_UNLOCK(pPortCtrl->lock);
+
       /* Schedule */
       CPUSaveContextAndSchedule(pCurThread->pVCpu);
 
@@ -4307,9 +4270,12 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
     }
     else if (result == AHCI_OP_RETRY)
     {
+      /* Set the current thread to waiting */
       _WaitForAHCIRetry(pPortCtrl, pCurThread);
+
       /* Unlock the port */
       KERNEL_UNLOCK(pPortCtrl->lock);
+
       /* Schedule */
       CPUSaveContextAndSchedule(pCurThread->pVCpu);
     }
@@ -4318,6 +4284,8 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
       /* Unlock the port */
       KERNEL_UNLOCK(pPortCtrl->lock);
     }
+
+    KERNEL_EXIT_CRITICAL_LOCAL(intState);
   } while (result == AHCI_OP_RETRY);
 
   if (result == AHCI_OP_SUCCESS)
@@ -4424,10 +4392,10 @@ static ssize_t _AHCIRead(void*          pDriverData,
   {
     /* Check the input parameters */
     isValid = _CheckAndPopulateParameters(pDriverData,
-                                           pBuffer,
-                                           kSectorStart,
-                                           kSectorCount,
-                                           pBuffers);
+                                          pBuffer,
+                                          kSectorStart,
+                                          kSectorCount,
+                                          pBuffers);
     if (isValid == true)
     {
       sectorsRead = _AHCIPerformOperation(pDriverData,
@@ -4462,10 +4430,10 @@ static ssize_t _AHCIWrite(void*          pDriverData,
   {
     /* Check the input parameters */
     isValid = _CheckAndPopulateParameters(pDriverData,
-                                           kpBuffer,
-                                           kSectorStart,
-                                           kSectorCount,
-                                           pBuffers);
+                                          kpBuffer,
+                                          kSectorStart,
+                                          kSectorCount,
+                                          pBuffers);
     if (isValid == true)
     {
       sectorsWrite = _AHCIPerformOperation(pDriverData,

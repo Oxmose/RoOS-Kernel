@@ -22,6 +22,7 @@
  * INCLUDES
  ******************************************************************************/
 /* Included headers */
+#include <CPU.h>
 #include <Panic.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -98,14 +99,10 @@ typedef struct S_DiskDevice
   uint64_t sectorSize;
   /** @brief The driver data for the disk device. */
   void* pDriverData;
-  /** @brief The transfer buffer for the disk device. */
-  void* pTransferBuffer;
   /** @brief The VFS driver for the disk device. */
   T_VFSDriver pDiskDriver;
   /** @brief The number of sub-devices for the disk device. */
   size_t subDeviceCount;
-  /** @brief The device mutex, shared between the device and sub-devices. */
-  S_KernelMutex* pDeviceMutex;
   /** @brief Pointer to the sub-devices of the disk device. */
   struct S_DiskDevice* pSubDevices;
   /** @brief Pointer to the next disk device in the list. */
@@ -583,7 +580,9 @@ static ssize_t _VFSWrite(void*       pDiskDevice,
   size_t                  currentSectorCount;
   size_t                  bytesToWrite;
   ssize_t                 writeSize;
+  size_t                  mappingSize;
   void*                   pEndBuffer;
+  void*                   pTransferBuffer;
 
   pDevice = pDiskDevice;
   pDesc = pHandle;
@@ -607,31 +606,38 @@ static ssize_t _VFSWrite(void*       pDiskDevice,
 
     if (firstSector + sectorCount - 1 <= pDesc->endSector)
     {
-
-      writeSize = 0;
-
-      while (sectorCount > 0)
+      /* Allocate the transfer buffer */
+      mappingSize = MIN(sectorCount * pDesc->sectorSize, TRANSFER_BUFFER_SIZE);
+      mappingSize = ALIGN_UP(mappingSize, KERNEL_PAGE_SIZE);
+      pTransferBuffer = MemoryKernelAllocate(mappingSize,
+                                             MEMMGR_MAP_KERNEL |
+                                             MEMMGR_MAP_RW |
+                                             MEMMGR_MAP_CACHE_DISABLED,
+                                             &error);
+      if (error == NO_ERROR)
       {
-        currentSectorCount = MIN(sectorCount,
-                                TRANSFER_BUFFER_SIZE / pDesc->sectorSize);
-        error = KernelMutexLock(pDevice->pDeviceMutex);
-        if (error == NO_ERROR)
+        writeSize = 0;
+
+        while (sectorCount > 0)
         {
+          currentSectorCount = MIN(sectorCount,
+                                  TRANSFER_BUFFER_SIZE / pDesc->sectorSize);
           /* If the first sector is partial: read, modify, and write it back */
           if (firstByteOffset != 0)
           {
             retVal = pDevice->pReadOperation(pDevice->pDriverData,
-                                            pDevice->pTransferBuffer,
-                                            firstSector,
-                                            1);
+                                              pTransferBuffer,
+                                              firstSector,
+                                              1);
             if (retVal == 1)
             {
               bytesToWrite = MIN(count, pDesc->sectorSize - firstByteOffset);
-              memcpy((uint8_t*)pDevice->pTransferBuffer + firstByteOffset,
+              memcpy((uint8_t*)pTransferBuffer + firstByteOffset,
                     kpBuffer,
                     bytesToWrite);
+              CPUMemoryFenceRelease();
               retVal = pDevice->pWriteOperation(pDevice->pDriverData,
-                                                pDevice->pTransferBuffer,
+                                                pTransferBuffer,
                                                 firstSector,
                                                 1);
               if (retVal == 1)
@@ -648,21 +654,11 @@ static ssize_t _VFSWrite(void*       pDiskDevice,
               }
               else
               {
-                writeSize = -1;
-                error = KernelMutexUnlock(pDevice->pDeviceMutex);
-                DISKMGR_ASSERT(error == NO_ERROR,
-                              "Failed to unlock device mutex",
-                              error);
                 break;
               }
             }
             else
             {
-              writeSize = -1;
-              error = KernelMutexUnlock(pDevice->pDeviceMutex);
-              DISKMGR_ASSERT(error == NO_ERROR,
-                            "Failed to unlock device mutex",
-                            error);
               break;
             }
           }
@@ -674,16 +670,16 @@ static ssize_t _VFSWrite(void*       pDiskDevice,
             if (lastByteOffset != 0 &&
                 currentSectorCount <= TRANSFER_BUFFER_SIZE / pDesc->sectorSize)
             {
-              pEndBuffer = (uint8_t*)pDevice->pTransferBuffer +
-                          (currentSectorCount - 1) *
-                          pDesc->sectorSize;
+              pEndBuffer = (uint8_t*)pTransferBuffer +
+                            (currentSectorCount - 1) *
+                            pDesc->sectorSize;
 
               retVal = pDevice->pReadOperation(pDevice->pDriverData,
-                                              pEndBuffer,
-                                              firstSector +
+                                                pEndBuffer,
+                                                firstSector +
                                                   currentSectorCount -
                                                   1,
-                                              1);
+                                                1);
             }
             if (retVal == 1)
             {
@@ -692,9 +688,10 @@ static ssize_t _VFSWrite(void*       pDiskDevice,
               {
                 bytesToWrite = count;
               }
-              memcpy(pDevice->pTransferBuffer, kpBuffer, bytesToWrite);
+              memcpy(pTransferBuffer, kpBuffer, bytesToWrite);
+              CPUMemoryFenceRelease();
               retVal = pDevice->pWriteOperation(pDevice->pDriverData,
-                                                pDevice->pTransferBuffer,
+                                                pTransferBuffer,
                                                 firstSector,
                                                 currentSectorCount);
               if (retVal == (ssize_t)currentSectorCount)
@@ -709,35 +706,26 @@ static ssize_t _VFSWrite(void*       pDiskDevice,
               }
               else
               {
-                error = KernelMutexUnlock(pDevice->pDeviceMutex);
-                DISKMGR_ASSERT(error == NO_ERROR,
-                              "Failed to unlock device mutex",
-                              error);
                 break;
               }
             }
             else
             {
-              error = KernelMutexUnlock(pDevice->pDeviceMutex);
-              DISKMGR_ASSERT(error == NO_ERROR,
-                              "Failed to unlock device mutex",
-                              error);
               break;
             }
           }
+        }
+        retVal = writeSize;
 
-          error = KernelMutexUnlock(pDevice->pDeviceMutex);
-          DISKMGR_ASSERT(error == NO_ERROR,
-                          "Failed to unlock device mutex",
-                          error);
-        }
-        else
-        {
-          retVal = -1;
-        }
-        break;
+        error = MemoryKernelFree(pTransferBuffer, mappingSize);
+        DISKMGR_ASSERT(error == NO_ERROR,
+                       "Failed to free transfer buffer",
+                       error);
       }
-      retVal = writeSize;
+      else
+      {
+        retVal = -1;
+      }
     }
     else
     {
@@ -768,6 +756,8 @@ static ssize_t _VFSRead(void*  pDiskDevice,
   size_t                  currentSectorCount;
   size_t                  bytesToRead;
   ssize_t                 readSize;
+  size_t                  mappingSize;
+  void*                   pTransferBuffer;
 
   pDevice = pDiskDevice;
   pDesc = pHandle;
@@ -786,26 +776,34 @@ static ssize_t _VFSRead(void*  pDiskDevice,
 
     if (firstSector + sectorCount - 1 <= pDesc->endSector)
     {
-      readSize = 0;
+      /* Allocate the transfer buffer */
+      mappingSize = MIN(sectorCount * pDesc->sectorSize, TRANSFER_BUFFER_SIZE);
+      mappingSize = ALIGN_UP(mappingSize, KERNEL_PAGE_SIZE);
+      pTransferBuffer = MemoryKernelAllocate(mappingSize,
+                                             MEMMGR_MAP_KERNEL |
+                                             MEMMGR_MAP_RW |
+                                             MEMMGR_MAP_CACHE_DISABLED,
+                                             &error);
 
-      while (sectorCount > 0)
+      if (error == NO_ERROR)
       {
-        currentSectorCount = MIN(sectorCount,
-                                TRANSFER_BUFFER_SIZE / pDesc->sectorSize);
-        error = KernelMutexLock(pDevice->pDeviceMutex);
-        if (error == NO_ERROR)
+        readSize = 0;
+
+        while (sectorCount > 0)
         {
+          currentSectorCount = MIN(sectorCount,
+                                  TRANSFER_BUFFER_SIZE / pDesc->sectorSize);
           retVal = pDevice->pReadOperation(pDevice->pDriverData,
-                                          pDevice->pTransferBuffer,
-                                          firstSector,
-                                          currentSectorCount);
+                                           pTransferBuffer,
+                                           firstSector,
+                                           currentSectorCount);
           if (retVal == (ssize_t)currentSectorCount)
           {
             bytesToRead = currentSectorCount * pDesc->sectorSize -
                           firstByteOffset;
             bytesToRead = MIN(bytesToRead, count);
             memcpy(pBuffer,
-                  (uint8_t*)pDevice->pTransferBuffer + firstByteOffset,
+                  (uint8_t*)pTransferBuffer + firstByteOffset,
                   bytesToRead);
 
             readSize        += bytesToRead;
@@ -817,32 +815,23 @@ static ssize_t _VFSRead(void*  pDiskDevice,
 
             pDesc->offset   += bytesToRead;
           }
-          else if (readSize == 0)
-          {
-            readSize = -1;
-            error = KernelMutexUnlock(pDevice->pDeviceMutex);
-            DISKMGR_ASSERT(error == NO_ERROR,
-                          "Failed to unlock device mutex",
-                          error);
-            break;
-          }
           else
           {
-            error = KernelMutexUnlock(pDevice->pDeviceMutex);
-            DISKMGR_ASSERT(error == NO_ERROR,
-                          "Failed to unlock device mutex",
-                          error);
+            readSize = -1;
             break;
           }
-
-          error = KernelMutexUnlock(pDevice->pDeviceMutex);
-          DISKMGR_ASSERT(error == NO_ERROR,
-                          "Failed to unlock device mutex",
-                          error);
         }
+        retVal = readSize;
 
+        error = MemoryKernelFree(pTransferBuffer, mappingSize);
+        DISKMGR_ASSERT(error == NO_ERROR,
+                       "Failed to free transfer buffer",
+                       error);
       }
-      retVal = readSize;
+      else
+      {
+        retVal = -1;
+      }
     }
     else
     {
@@ -875,7 +864,6 @@ static ssize_t _VFSIOCTL(void*    pDiskDevice,
 {
   S_DiskDevice*           pDevice;
   ssize_t                 retVal;
-  E_Return                error;
   S_DiskDeviceDescriptor* pDesc;
 
   pDevice = pDiskDevice;
@@ -883,21 +871,9 @@ static ssize_t _VFSIOCTL(void*    pDiskDevice,
 
   if (pDesc != NULL && pDesc != (void*)-1 && (pDesc->flags & O_RDWR) == O_RDWR)
   {
-    error = KernelMutexLock(pDevice->pDeviceMutex);
-    if (error == NO_ERROR)
-    {
-      retVal = pDevice->pIOCTLOperation(pDevice->pDriverData,
-                                        operation,
-                                        pArgs);
-      error = KernelMutexUnlock(pDevice->pDeviceMutex);
-      DISKMGR_ASSERT(error == NO_ERROR,
-                     "Failed to unlock device mutex",
-                     error);
-    }
-    else
-    {
-      retVal = -1;
-    }
+    retVal = pDevice->pIOCTLOperation(pDevice->pDriverData,
+                                      operation,
+                                      pArgs);
   }
   else
   {
@@ -915,8 +891,9 @@ static E_Return _DetectAndAttachMBRPartitions(S_DiskDevice* pDevice)
   uint32_t      partId;
   ssize_t       secRead;
   S_DiskDevice* pPartitionDevice;
-  uint8_t*      pBuffer;
   size_t        sectorCount;
+  size_t        mappingSize;
+  void*         pTransferBuffer;
 
   /* Read the MBR */
   sectorCount = sizeof(S_MBRData) / pDevice->sectorSize;
@@ -924,74 +901,81 @@ static E_Return _DetectAndAttachMBRPartitions(S_DiskDevice* pDevice)
   {
     ++sectorCount;
   }
-  pBuffer = pDevice->pTransferBuffer;
-  secRead = pDevice->pReadOperation(pDevice->pDriverData,
-                                    pBuffer,
-                                    0,
-                                    sectorCount);
-
-  if (secRead == (ssize_t)sectorCount)
+  mappingSize = ALIGN_UP(sectorCount * pDevice->sectorSize, KERNEL_PAGE_SIZE);
+  pTransferBuffer = MemoryKernelAllocate(mappingSize,
+                                         MEMMGR_MAP_KERNEL |
+                                         MEMMGR_MAP_RW |
+                                         MEMMGR_MAP_CACHE_DISABLED,
+                                         &retVal);
+  if (retVal == NO_ERROR)
   {
-    pMBR = (S_MBRData*)pBuffer;
-    if (pMBR->signature == MBR_SIGNATURE)
+    secRead = pDevice->pReadOperation(pDevice->pDriverData,
+                                      pTransferBuffer,
+                                      0,
+                                      sectorCount);
+
+    if (secRead == (ssize_t)sectorCount)
     {
-      retVal = NO_ERROR;
-      for (partId = 0; partId < MBR_PARTITION_COUNT; ++partId)
+      pMBR = (S_MBRData*)pTransferBuffer;
+      if (pMBR->signature == MBR_SIGNATURE)
       {
-        /* Check if the entry is unused */
-        if (pMBR->partitions[partId].sysId != 0 &&
-            pMBR->partitions[partId].sysId != 0xEE)
+        retVal = NO_ERROR;
+        for (partId = 0; partId < MBR_PARTITION_COUNT; ++partId)
         {
-          /* Create a new partition device */
-          pPartitionDevice = KMalloc(sizeof(S_DiskDevice), KMALLOC_FREE_POOL);
-          /* Fill the partition device structure */
-          pPartitionDevice->type = pDevice->type;
-          snprintf(pPartitionDevice->name,
-                  DISK_MGR_MAX_PATH_LENGTH,
-                  "%s%d",
-                  pDevice->name,
-                  partId + 1);
-          pPartitionDevice->pReadOperation = pDevice->pReadOperation;
-          pPartitionDevice->pWriteOperation = pDevice->pWriteOperation;
-          pPartitionDevice->pIOCTLOperation = pDevice->pIOCTLOperation;
-          pPartitionDevice->pDriverData = pDevice->pDriverData;
-          pPartitionDevice->subDeviceCount = 0;
-          pPartitionDevice->pSubDevices = NULL;
-          pPartitionDevice->startSector = pMBR->partitions[partId].lbaStart;
-          pPartitionDevice->numberOfSectors = pMBR->partitions[partId].size;
-          pPartitionDevice->sectorSize = pDevice->sectorSize;
-          pPartitionDevice->pDeviceMutex = pDevice->pDeviceMutex;
-          pPartitionDevice->pTransferBuffer = pDevice->pTransferBuffer;
-          diskDriver = RegisterVFSDriver(pPartitionDevice->name,
-                                          pPartitionDevice,
-                                          _VFSOpen,
-                                          _VFSClose,
-                                          _VFSRead,
-                                          _VFSWrite,
-                                          _VFSReadDir,
-                                          _VFSIOCTL);
-          if (diskDriver != VFS_DRIVER_INVALID)
+          /* Check if the entry is unused */
+          if (pMBR->partitions[partId].sysId != 0 &&
+              pMBR->partitions[partId].sysId != 0xEE)
           {
-            /* Add the partition device to the list of sub-devices */
-            KERNEL_LOCK(sDisksManagerLock);
-            pPartitionDevice->pNext = pDevice->pSubDevices;
-            pDevice->pSubDevices = pPartitionDevice;
-            ++(pDevice->subDeviceCount);
-            KERNEL_UNLOCK(sDisksManagerLock);
-          }
-          else
-          {
-            KFree(pPartitionDevice);
-            retVal = ERR_UNAUTHORIZED_ACTION;
-            break;
+            /* Create a new partition device */
+            pPartitionDevice = KMalloc(sizeof(S_DiskDevice), KMALLOC_FREE_POOL);
+            /* Fill the partition device structure */
+            pPartitionDevice->type = pDevice->type;
+            snprintf(pPartitionDevice->name,
+                    DISK_MGR_MAX_PATH_LENGTH,
+                    "%s%d",
+                    pDevice->name,
+                    partId + 1);
+            pPartitionDevice->pReadOperation = pDevice->pReadOperation;
+            pPartitionDevice->pWriteOperation = pDevice->pWriteOperation;
+            pPartitionDevice->pIOCTLOperation = pDevice->pIOCTLOperation;
+            pPartitionDevice->pDriverData = pDevice->pDriverData;
+            pPartitionDevice->subDeviceCount = 0;
+            pPartitionDevice->pSubDevices = NULL;
+            pPartitionDevice->startSector = pMBR->partitions[partId].lbaStart;
+            pPartitionDevice->numberOfSectors = pMBR->partitions[partId].size;
+            pPartitionDevice->sectorSize = pDevice->sectorSize;
+            diskDriver = RegisterVFSDriver(pPartitionDevice->name,
+                                            pPartitionDevice,
+                                            _VFSOpen,
+                                            _VFSClose,
+                                            _VFSRead,
+                                            _VFSWrite,
+                                            _VFSReadDir,
+                                            _VFSIOCTL);
+            if (diskDriver != VFS_DRIVER_INVALID)
+            {
+              /* Add the partition device to the list of sub-devices */
+              KERNEL_LOCK(sDisksManagerLock);
+              pPartitionDevice->pNext = pDevice->pSubDevices;
+              pDevice->pSubDevices = pPartitionDevice;
+              ++(pDevice->subDeviceCount);
+              KERNEL_UNLOCK(sDisksManagerLock);
+            }
+            else
+            {
+              KFree(pPartitionDevice);
+              retVal = ERR_UNAUTHORIZED_ACTION;
+              break;
+            }
           }
         }
       }
     }
-    else
-    {
-      retVal = ERR_NOT_SUPPORTED;
-    }
+
+    retVal = MemoryKernelFree(pTransferBuffer, mappingSize);
+    DISKMGR_ASSERT(retVal == NO_ERROR,
+                    "Failed to free transfer buffer",
+                    retVal);
   }
   else
   {
@@ -1004,6 +988,7 @@ static E_Return _DetectAndAttachMBRPartitions(S_DiskDevice* pDevice)
 static E_Return _DetectAndAttachGPTPartitions(S_DiskDevice* pDevice)
 {
   E_Return             retVal;
+  E_Return             error;
   T_VFSDriver          diskDriver;
   S_GPTTableHeader     pGPTHeader;
   S_GPTPartitionEntry* pGPTEntry;
@@ -1017,150 +1002,164 @@ static E_Return _DetectAndAttachGPTPartitions(S_DiskDevice* pDevice)
   uint8_t*             pEntryBuffer;
   size_t               sectorCount;
   uint32_t             i;
+  size_t               mappingSize[2];
 
-  /* Read the MBR */
-  sectorCount = sizeof(S_MBRData) / pDevice->sectorSize;
-  if (sizeof(S_MBRData) % pDevice->sectorSize != 0)
+  /* Read the GPT header */
+  sectorCount = sizeof(S_GPTTableHeader) / pDevice->sectorSize;
+  if (sizeof(S_GPTTableHeader) % pDevice->sectorSize != 0)
   {
     ++sectorCount;
   }
-  pHeaderBuffer = pDevice->pTransferBuffer;
-  secRead = pDevice->pReadOperation(pDevice->pDriverData,
-                                    pHeaderBuffer,
-                                    1,
-                                    sectorCount);
+  mappingSize[0] = ALIGN_UP(sectorCount * pDevice->sectorSize, KERNEL_PAGE_SIZE);
+  pHeaderBuffer = MemoryKernelAllocate(mappingSize[0],
+                                       MEMMGR_MAP_KERNEL |
+                                       MEMMGR_MAP_RW |
+                                       MEMMGR_MAP_CACHE_DISABLED,
+                                       &retVal);
 
-  if (secRead == (ssize_t)sectorCount)
+  if (retVal == NO_ERROR)
   {
-    memcpy(&pGPTHeader, pHeaderBuffer, sizeof(S_GPTTableHeader));
-    if (pGPTHeader.signature == GPT_SIGNATURE)
+    secRead = pDevice->pReadOperation(pDevice->pDriverData,
+                                      pHeaderBuffer,
+                                      1,
+                                      sectorCount);
+    if (secRead == (ssize_t)sectorCount)
     {
-      /* Compute the header CRC */
-      savedCrc = pGPTHeader.crc32Header;
-      pGPTHeader.crc32Header = 0;
-      crc32Val = _GPTCrcAdd(GPT_CRC_START_VAL,
-                            (uint8_t*)&pGPTHeader,
-                            (uint8_t*)&pGPTHeader.reserved1 -
-                            (uint8_t*)&pGPTHeader);
-      crc32Val = _GPTCrcEnd(crc32Val);
-      if(crc32Val == savedCrc)
+      memcpy(&pGPTHeader, pHeaderBuffer, sizeof(S_GPTTableHeader));
+      if (pGPTHeader.signature == GPT_SIGNATURE)
       {
-        KERNEL_DEBUG(DISK_MGR_DEBUG_ENABLED,
-                     MODULE_NAME,
-                     "GPT header CRC32 matched: %x vs %x",
-                     savedCrc,
-                     crc32Val);
-
-        partitionTableSize = pGPTHeader.partitionCount *
-                              pGPTHeader.partitionArrayEntrySize;
-
-        sectorCount = partitionTableSize / pDevice->sectorSize;
-        if (partitionTableSize % pDevice->sectorSize != 0)
+        /* Compute the header CRC */
+        savedCrc = pGPTHeader.crc32Header;
+        pGPTHeader.crc32Header = 0;
+        crc32Val = _GPTCrcAdd(GPT_CRC_START_VAL,
+                              (uint8_t*)&pGPTHeader,
+                              (uint8_t*)&pGPTHeader.reserved1 -
+                              (uint8_t*)&pGPTHeader);
+        crc32Val = _GPTCrcEnd(crc32Val);
+        if(crc32Val == savedCrc &&
+           pGPTHeader.partitionArrayEntrySize >= 128 &&
+           pGPTHeader.partitionCount <= 1024)
         {
-          ++sectorCount;
-        }
+          KERNEL_DEBUG(DISK_MGR_DEBUG_ENABLED,
+                      MODULE_NAME,
+                      "GPT header CRC32 matched: %x vs %x",
+                      savedCrc,
+                      crc32Val);
 
-        pEntryBuffer = (void*)pDevice->pTransferBuffer;
-        secRead = pDevice->pReadOperation(pDevice->pDriverData,
-                                          pEntryBuffer,
-                                          pGPTHeader.partitionArrayLBA,
-                                          sectorCount);
 
-        if (secRead == (ssize_t)sectorCount)
-        {
-          for (partId = 0; partId < pGPTHeader.partitionCount; ++partId)
+          partitionTableSize = pGPTHeader.partitionCount *
+                               pGPTHeader.partitionArrayEntrySize;
+
+          sectorCount = partitionTableSize / pDevice->sectorSize;
+          if (partitionTableSize % pDevice->sectorSize != 0)
           {
-            pGPTEntry = (S_GPTPartitionEntry*)(pEntryBuffer +
-                                    partId *
-                                    pGPTHeader.partitionArrayEntrySize);
-            if (pGPTEntry->startingLBA != 0 &&
-                pGPTEntry->endingLBA != 0)
+            ++sectorCount;
+          }
+          mappingSize[1] = ALIGN_UP(sectorCount * pDevice->sectorSize,
+                                    KERNEL_PAGE_SIZE);
+          pEntryBuffer = MemoryKernelAllocate(mappingSize[1],
+                                               MEMMGR_MAP_KERNEL |
+                                               MEMMGR_MAP_RW |
+                                               MEMMGR_MAP_CACHE_DISABLED,
+                                               &retVal);
+          if (retVal == NO_ERROR)
+          {
+            secRead = pDevice->pReadOperation(pDevice->pDriverData,
+                                              pEntryBuffer,
+                                              pGPTHeader.partitionArrayLBA,
+                                              sectorCount);
+
+            if (secRead == (ssize_t)sectorCount)
             {
-              /* Found a valid partition */
-              for (i = 0; i < 16; ++i)
+              for (partId = 0; partId < pGPTHeader.partitionCount; ++partId)
               {
-                if (pGPTEntry->typeGUID[i] != 0)
+                pGPTEntry = (S_GPTPartitionEntry*)(pEntryBuffer +
+                                                   partId *
+                                        pGPTHeader.partitionArrayEntrySize);
+                if (pGPTEntry->startingLBA != 0 && pGPTEntry->endingLBA != 0)
                 {
-                  break;
-                }
-              }
-              if (i != 16)
-              {
-                /* Create a new partition device */
-                pPartitionDevice = KMalloc(sizeof(S_DiskDevice),
-                                            KMALLOC_FREE_POOL);
-                /* Fill the partition device structure */
-                pPartitionDevice->type = pDevice->type;
-                snprintf(pPartitionDevice->name,
-                        DISK_MGR_MAX_PATH_LENGTH,
-                        "%s%d",
-                        pDevice->name,
-                        partId + 1);
-                pPartitionDevice->pReadOperation = pDevice->pReadOperation;
-                pPartitionDevice->pWriteOperation = pDevice->pWriteOperation;
-                pPartitionDevice->pIOCTLOperation = pDevice->pIOCTLOperation;
-                pPartitionDevice->pDriverData = pDevice->pDriverData;
-                pPartitionDevice->subDeviceCount = 0;
-                pPartitionDevice->pSubDevices = NULL;
-                pPartitionDevice->startSector = pGPTEntry->startingLBA;
-                pPartitionDevice->numberOfSectors =
-                  (pGPTEntry->endingLBA - pGPTEntry->startingLBA) + 1;
-                pPartitionDevice->sectorSize = pDevice->sectorSize;
-                pPartitionDevice->pDeviceMutex = pDevice->pDeviceMutex;
-                pPartitionDevice->pTransferBuffer = pDevice->pTransferBuffer;
-                diskDriver = RegisterVFSDriver(pPartitionDevice->name,
-                                                pPartitionDevice,
-                                                _VFSOpen,
-                                                _VFSClose,
-                                                _VFSRead,
-                                                _VFSWrite,
-                                                _VFSReadDir,
-                                                _VFSIOCTL);
-                if (diskDriver != VFS_DRIVER_INVALID)
-                {
-                  /* Add the partition device to the list of sub-devices */
-                  KERNEL_LOCK(sDisksManagerLock);
-                  pPartitionDevice->pNext = pDevice->pSubDevices;
-                  pDevice->pSubDevices = pPartitionDevice;
-                  ++(pDevice->subDeviceCount);
-                  KERNEL_UNLOCK(sDisksManagerLock);
-                }
-                else
-                {
-                  KFree(pPartitionDevice);
-                  retVal = ERR_UNAUTHORIZED_ACTION;
-                  break;
+                  /* Found a valid partition */
+                  for (i = 0; i < 16; ++i)
+                  {
+                    if (pGPTEntry->typeGUID[i] != 0)
+                    {
+                      break;
+                    }
+                  }
+                  if (i != 16)
+                  {
+                    /* Create a new partition device */
+                    pPartitionDevice = KMalloc(sizeof(S_DiskDevice),
+                                                KMALLOC_FREE_POOL);
+                    /* Fill the partition device structure */
+                    pPartitionDevice->type = pDevice->type;
+                    snprintf(pPartitionDevice->name,
+                            DISK_MGR_MAX_PATH_LENGTH,
+                            "%s%d",
+                            pDevice->name,
+                            partId + 1);
+                    pPartitionDevice->pReadOperation = pDevice->pReadOperation;
+                    pPartitionDevice->pWriteOperation = pDevice->pWriteOperation;
+                    pPartitionDevice->pIOCTLOperation = pDevice->pIOCTLOperation;
+                    pPartitionDevice->pDriverData = pDevice->pDriverData;
+                    pPartitionDevice->subDeviceCount = 0;
+                    pPartitionDevice->pSubDevices = NULL;
+                    pPartitionDevice->startSector = pGPTEntry->startingLBA;
+                    pPartitionDevice->numberOfSectors =
+                      (pGPTEntry->endingLBA - pGPTEntry->startingLBA) + 1;
+                    pPartitionDevice->sectorSize = pDevice->sectorSize;
+                    diskDriver = RegisterVFSDriver(pPartitionDevice->name,
+                                                    pPartitionDevice,
+                                                    _VFSOpen,
+                                                    _VFSClose,
+                                                    _VFSRead,
+                                                    _VFSWrite,
+                                                    _VFSReadDir,
+                                                    _VFSIOCTL);
+                    if (diskDriver != VFS_DRIVER_INVALID)
+                    {
+                      /* Add the partition device to the list of sub-devices */
+                      KERNEL_LOCK(sDisksManagerLock);
+                      pPartitionDevice->pNext = pDevice->pSubDevices;
+                      pDevice->pSubDevices = pPartitionDevice;
+                      ++(pDevice->subDeviceCount);
+                      KERNEL_UNLOCK(sDisksManagerLock);
+                    }
+                    else
+                    {
+                      KFree(pPartitionDevice);
+                      retVal = ERR_UNAUTHORIZED_ACTION;
+                      break;
+                    }
+                  }
                 }
               }
             }
+            else
+            {
+              retVal = ERR_IO_INVALID;
+            }
+            error = MemoryKernelFree(pEntryBuffer, mappingSize[1]);
+            DISKMGR_ASSERT(error == NO_ERROR,
+                           "Failed to free transfer buffer",
+                          error);
           }
         }
         else
         {
-          retVal = ERR_IO_INVALID;
+          retVal = ERR_INVALID_VALUE;
         }
-      }
-      else
-      {
-        KERNEL_DEBUG(DISK_MGR_DEBUG_ENABLED,
-                      MODULE_NAME,
-                      "GPT header CRC32 did not match: %x vs %x",
-                      savedCrc,
-                      crc32Val);
-
-        retVal = ERR_IO_INVALID;
       }
     }
     else
     {
-      retVal = ERR_NOT_SUPPORTED;
+      retVal = ERR_IO_INVALID;
     }
+    error = MemoryKernelFree(pHeaderBuffer, mappingSize[0]);
+    DISKMGR_ASSERT(error == NO_ERROR,
+                   "Failed to free transfer buffer",
+                   error);
   }
-  else
-  {
-    retVal = ERR_IO_INVALID;
-  }
-
   return retVal;
 }
 
@@ -1248,6 +1247,9 @@ E_Return DiskManagerAddDevice(const E_DiskType           kDeviceType,
   uint32_t           pathLength;
   T_VFSDriver        diskDriver;
   S_DiskDevice*      pNewDevice;
+  char               tmp;
+  char*              startPrefix;
+  size_t             sufixLength;
 
   /* Check parameters */
   if (kDeviceType < DISK_TYPE_COUNT &&
@@ -1275,15 +1277,29 @@ E_Return DiskManagerAddDevice(const E_DiskType           kDeviceType,
            sDisksAllocatedPrefices[kDeviceType],
            prefixLength);
     pathLength += prefixLength;
-    while (index >= 27)
+
+    startPrefix = pNewDevice->name + pathLength;
+    sufixLength = 0;
+    while (index > 25 && pathLength < DISK_MGR_MAX_PATH_LENGTH - 13)
     {
-      pNewDevice->name[pathLength] = 'a' + (index % 27);
-      index /= 27;
+      pNewDevice->name[pathLength] = 'a' + (index % 26);
+      index /= 26;
+      --index;
       ++pathLength;
+      ++sufixLength;
     }
-    pNewDevice->name[pathLength] = 'a' + (index % 27);
+    pNewDevice->name[pathLength] = 'a' + (index % 26);
     ++pathLength;
     pNewDevice->name[pathLength] = 0;
+
+    for (index = 0; index < sufixLength / 2; ++index)
+    {
+      tmp = *startPrefix;
+      *startPrefix = pNewDevice->name[sufixLength - index - 1];
+      pNewDevice->name[sufixLength - index - 1] = tmp;
+      ++startPrefix;
+    }
+
 
     /* Create a new device structure */
     pNewDevice->type                  = kDeviceType;
@@ -1296,63 +1312,40 @@ E_Return DiskManagerAddDevice(const E_DiskType           kDeviceType,
     pNewDevice->pDriverData           = pDriverData;
     pNewDevice->pSubDevices           = NULL;
     pNewDevice->subDeviceCount        = 0;
-    pNewDevice->pDeviceMutex          = KMalloc(sizeof(S_KernelMutex),
-                                                KMALLOC_FREE_POOL);
-    retVal = KernelMutexInit(pNewDevice->pDeviceMutex,
-                             KMUTEX_FLAG_QUEUING_PRIO);
-    DISKMGR_ASSERT(retVal == NO_ERROR,
-                   "Failed to initialize device mutex",
-                   ERR_UNAUTHORIZED_ACTION);
 
-    /* Allocate the device buffers */
-    /* TODO: Remove that and use dynamic allocation on the command requests */
-    pNewDevice->pTransferBuffer = MemoryKernelAllocate(TRANSFER_BUFFER_SIZE,
-                                                       MEMMGR_MAP_RW |
-                                                       MEMMGR_MAP_KERNEL,
-                                                       &retVal);
-    if (retVal == NO_ERROR)
+    /* Register the new device */
+    diskDriver = RegisterVFSDriver(pNewDevice->name,
+                                    pNewDevice,
+                                    _VFSOpen,
+                                    _VFSClose,
+                                    _VFSRead,
+                                    _VFSWrite,
+                                    _VFSReadDir,
+                                    _VFSIOCTL);
+    if (diskDriver != VFS_DRIVER_INVALID)
     {
-      /* Register the new device */
-      diskDriver = RegisterVFSDriver(pNewDevice->name,
-                                     pNewDevice,
-                                     _VFSOpen,
-                                     _VFSClose,
-                                     _VFSRead,
-                                     _VFSWrite,
-                                     _VFSReadDir,
-                                     _VFSIOCTL);
-      if (diskDriver != VFS_DRIVER_INVALID)
+      /* Detect and attach partitions delayed */
+      retVal = KWorkerSubmitTask(_DetectAndAttachPartitions,
+                                  pNewDevice,
+                                  NULL);
+      if (retVal == NO_ERROR)
       {
-        /* Detect and attach partitions delayed */
-        retVal = KWorkerSubmitTask(_DetectAndAttachPartitions,
-                                   pNewDevice,
-                                   NULL);
-        if (retVal == NO_ERROR)
-        {
-          KERNEL_LOCK(sDisksManagerLock);
-          *pDiskDriver = diskDriver;
-          pNewDevice->pDiskDriver = diskDriver;
-          pNewDevice->pNext = sDisksList;
-          sDisksList = pNewDevice;
-          KERNEL_UNLOCK(sDisksManagerLock);
-        }
-        else
-        {
-          KFree(pNewDevice->pDeviceMutex);
-          KFree(pNewDevice);
-        }
+        KERNEL_LOCK(sDisksManagerLock);
+        *pDiskDriver = diskDriver;
+        pNewDevice->pDiskDriver = diskDriver;
+        pNewDevice->pNext = sDisksList;
+        sDisksList = pNewDevice;
+        KERNEL_UNLOCK(sDisksManagerLock);
       }
       else
       {
-        KFree(pNewDevice->pDeviceMutex);
         KFree(pNewDevice);
-        retVal = ERR_UNAUTHORIZED_ACTION;
       }
     }
     else
     {
-      KFree(pNewDevice->pDeviceMutex);
       KFree(pNewDevice);
+      retVal = ERR_UNAUTHORIZED_ACTION;
     }
   }
   else
@@ -1404,7 +1397,6 @@ E_Return DiskManagerRemoveDevice(T_VFSDriver diskDriver)
 
         /* Free the device structure */
         pDevice->pDiskDriver = VFS_DRIVER_INVALID;
-        KFree(pDevice->pDeviceMutex);
         KFree(pDevice);
       }
       break;
