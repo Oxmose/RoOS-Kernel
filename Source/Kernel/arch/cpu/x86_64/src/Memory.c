@@ -2014,18 +2014,11 @@ static uintptr_t _MapTranslationTable(void)
   }
 
   /* Get the number of frames needed for the mapping */
-  nbEntries = (size / KERNEL_MEM_2MB);
-  if (size % KERNEL_MEM_2MB != 0)
-  {
-    ++nbEntries;
-  }
+  nbEntries = (size + KERNEL_MEM_2MB - 1) / KERNEL_MEM_2MB;
 
   /* Get the frames count */
-  frameCount = nbEntries / KERNEL_PGDIR_ENTRY_COUNT;
-  if (nbEntries % KERNEL_PGDIR_ENTRY_COUNT != 0)
-  {
-    ++frameCount;
-  }
+  frameCount = (nbEntries + KERNEL_PGDIR_ENTRY_COUNT - 1) /
+               KERNEL_PGDIR_ENTRY_COUNT;
   MEM_ASSERT(frameCount < 512,
              "Kernel does not support physical memory over 511GB",
              ERR_NOT_SUPPORTED,
@@ -3040,7 +3033,7 @@ void MemoryInit(void)
              false);
 
   /* Registers the page fault handler */
-  error = InterruptRegister(PAGE_FAULT_EXC_LINE, _PageFaultHandler, false);
+  error = InterruptRegister(PAGE_FAULT_EXC_LINE, _PageFaultHandler);
   MEM_ASSERT(error == NO_ERROR,
              "Failed to register the page fault handler",
              error,
@@ -4039,13 +4032,7 @@ bool MemoryIsMappedWithFlags(const void*    kVirtualAddress,
   /* Align address to page boundary */
   alignedAddress = ALIGN_DOWN((uintptr_t)kVirtualAddress, KERNEL_PAGE_SIZE);
   alignedSize = kSize + ((uintptr_t)kVirtualAddress - alignedAddress);
-  pageCount = alignedSize / KERNEL_PAGE_SIZE;
-
-  if (alignedSize % KERNEL_PAGE_SIZE != 0)
-  {
-    ++pageCount;
-  }
-
+  pageCount = (alignedSize + KERNEL_PAGE_SIZE - 1) / KERNEL_PAGE_SIZE;
   pProcess = GetCurrentProcess();
   pMemData = (S_ProcessMemoryMetadata *)pProcess->pMemoryData;
   isMapped = _IsMapped(alignedAddress,

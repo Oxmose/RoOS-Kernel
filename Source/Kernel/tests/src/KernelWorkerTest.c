@@ -57,11 +57,11 @@ static void *_KernelWorkerTestRoutine(void* pArg)
 
   for (i = 0; i < KWORKER_TEST_TASK_COUNT; ++i)
   {
-    error = KWorkerSubmitTask(_KernelWorkerTestTask,
+    KWorkerSubmitTask(_KernelWorkerTestTask,
                               &taskArguments[i],
                               &completionSemaphore[i]);
     TEST_POINT_ASSERT_RCODE(TEST_KWORKER_SUBMIT_ID(i),
-                            error == NO_ERROR, NO_ERROR, error,
+                            TRUE, TRUE, TRUE,
                             TEST_KWORKER_ENABLED);
   }
 

@@ -49,8 +49,6 @@
  ******************************************************************************/
 /** @brief FDT property for acpi handle */
 #define PCIE_FDT_ACPI_NODE_PROP "acpi-node"
-/** @brief FDT property for irq range */
-#define PCIE_FDT_IRQ_NODE_PROP "irq-range"
 
 /** @brief Maximum number of PCIe buses */
 #define PCIE_MAX_BUS_COUNT 256
@@ -240,17 +238,6 @@ static void _GetFullProgIFString(const uint8_t kClassCode,
 static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList);
 
 /**
- * @brief Prepares the interrupts for the PCIe device.
- *
- * @details This function prepares the interrupts for the PCIe device. It will
- * check for the MSI or MSI-X capabilities of the device and configure the
- * interrupt controller accordingly.
- *
- * @param[in, out] pDevice The PCI device to prepare interrupts for.
- */
-static void _PrepareDeviceInterrupt(S_PCIDevice* pDevice);
-
-/**
  * @brief Attaches the PCIE driver to the system.
  *
  * @details Attaches the PCIE driver to the system. This function will
@@ -288,11 +275,6 @@ static S_Driver sX86PCIEDriver =
 
 /** @brief Pointer to the list of PCIe devices */
 static S_PCIDevice* spDevices = NULL;
-
-/** @brief The next interrupt line allocated. */
-uint8_t sNextInterruptLine = 0;
-/** @brief The maximum interrupt line available. */
-uint8_t sMaxInterruptLine = 0;
 
 /** @brief PCIe class code strings */
 const char* skpPCIEClassCodeStrings[PCIE_CLASS_TABLE_SIZE] =
@@ -1176,6 +1158,7 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList)
   uint8_t                progIF;
   uint8_t                headerType;
   uint32_t               registerValue;
+  bool                   isMultiFunction;
 
   if (kpPCIConfigList != NULL)
   {
@@ -1211,6 +1194,7 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList)
         {
           for (j = 0; j < PCIE_MAX_DEVICES_PER_BUS; ++j)
           {
+            isMultiFunction = false;
             for (k = 0; k < PCIE_MAX_FUNCTIONS_PER_DEVICE; ++k)
             {
               pFunction = (S_PCIFunction*)GET_FUNCTIONS_SPACE(
@@ -1219,6 +1203,18 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList)
                                           j,
                                           k,
                                           mapped);
+
+              if (k == 0)
+              {
+                /* Check if this is a multi-function device */
+                registerValue = _MMIORead32(&pFunction->cacheLineSize);
+                headerType = registerValue >> 16;
+                if ((headerType & 0x80) != 0)
+                {
+                  isMultiFunction = true;
+                }
+              }
+
               /* Read the vendor ID */
               registerValue = _MMIORead32(&pFunction->vendorID);
               vendorID = registerValue & 0xFFFF;
@@ -1251,28 +1247,25 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList)
                 subclass = registerValue >> 16;
                 classCode = registerValue >> 24;
 
-                pDevice->pFunction     = pFunction;
-                pDevice->msiBaseAddr   = 0;
-                pDevice->msiXBaseAddr  = 0;
-                pDevice->isMSIEnabled  = false;
-                pDevice->isMSIXEnabled = false;
-                pDevice->pDriver       = NULL;
+                pDevice->pFunction       = pFunction;
+                pDevice->bus             = i;
+                pDevice->slot            = j;
+                pDevice->function        = k;
+                pDevice->msiBaseAddr     = 0;
+                pDevice->msiXBaseAddr    = 0;
+                pDevice->isMSIEnabled    = false;
+                pDevice->isMSIXEnabled   = false;
+                pDevice->pDriver         = NULL;
+                pDevice->isMultiFunction = isMultiFunction;
                 _GetFullClassCodeString(classCode, subclass, progIF, pDevice);
 
                 pDevice->pNext = spDevices;
                 spDevices = pDevice;
               }
 
-              if (k == 0)
+              if (isMultiFunction == false)
               {
-                /* Check if this is a multi-function device */
-                registerValue = _MMIORead32(&pFunction->cacheLineSize);
-                headerType = registerValue >> 16;
-                if ((headerType & 0x80) == 0)
-                {
-                  /* Not a multi-function device */
-                  break;
-                }
+                break;
               }
             }
           }
@@ -1289,112 +1282,6 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList)
   }
 
   return retCode;
-}
-
-static void _PrepareDeviceInterrupt(S_PCIDevice* pDevice)
-{
-  E_Return  retCode;
-  uint16_t  status;
-  uint8_t   capabilitiesPtr;
-  uint32_t  capabilityHeader;
-  uint8_t   capabilityId;
-  uint32_t  commandReg;
-  void*     pCommandReg;
-  uint8_t   bir;
-  uint32_t  tableInfo;
-  uintptr_t barPhysAddr;
-  size_t    barSize;
-
-  pDevice->isMSIEnabled  = false;
-  pDevice->isMSIXEnabled = false;
-
-  /* Update the Command register */
-  pCommandReg = (void*)&pDevice->pFunction->command;
-  commandReg  = _MMIORead32(pCommandReg);
-  commandReg |= PCI_COMMAND_BUS_MASTER_ENABLE |
-                PCI_COMMAND_MEMORY_SPACE_ENABLE |
-                PCI_COMMAND_LEGACY_INTERRUPT_DISABLE;
-  _MMIOWrite32(pCommandReg, commandReg);
-
-  /* Check for MSI and MSI-X support */
-  pDevice->msiBaseAddr  = 0;
-  pDevice->msiXBaseAddr = 0;
-  commandReg = _MMIORead32(pCommandReg);
-  status     = commandReg >> 16;
-  if ((status & PCI_STATUS_CAPABILITIES_LIST) != 0)
-  {
-    commandReg = _MMIORead32(&pDevice->pFunction->capabilitiesPointer);
-    capabilitiesPtr = commandReg & 0xFF;
-    /* Process the capabilities pointer */
-    while (capabilitiesPtr != 0)
-    {
-      /* Read the capability ID */
-      capabilityHeader = _MMIORead32((void*)((uintptr_t)pDevice->pFunction +
-                                            capabilitiesPtr));
-      capabilityId = (uint8_t)(capabilityHeader & 0xFF);
-      if (capabilityId == PCI_CAPABILITY_ID_MSI)
-      {
-        pDevice->msiBaseAddr =(uintptr_t)pDevice->pFunction + capabilitiesPtr;
-      }
-      else if (capabilityId == PCI_CAPABILITY_ID_MSIX)
-      {
-        pDevice->msiXBaseAddr = (uintptr_t)pDevice->pFunction +
-                                capabilitiesPtr;
-      }
-      if (pDevice->msiBaseAddr != 0 && pDevice->msiXBaseAddr != 0)
-      {
-        break;
-      }
-      capabilitiesPtr = (uint8_t)((capabilityHeader >> 8) & 0xFF);
-    }
-  }
-
-  /* Now get the BAR MSI-X Table*/
-  if (pDevice->msiXBaseAddr != 0)
-  {
-    /* Get the BAR that the MSI-X is associated with */
-    tableInfo = _MMIORead32((void*)(pDevice->msiXBaseAddr + 4));
-    bir       = tableInfo & 0x7;
-    tableInfo = tableInfo & 0xFFFFFFF8;
-
-    barPhysAddr = PCIGetBARAddress(pDevice->pFunction, bir);
-    barSize     = PCIGetBARSize(pDevice->pFunction, bir);
-
-    if (barPhysAddr != 0 && barSize != 0)
-    {
-      /* Map the MSI-X table */
-      pDevice->pMSIXTable = MemoryKernelMap((void*)barPhysAddr,
-                                            barSize,
-                                            MEMMGR_MAP_HARDWARE |
-                                            MEMMGR_MAP_KERNEL   |
-                                            MEMMGR_MAP_RW,
-                                            &retCode);
-      if (retCode == NO_ERROR)
-      {
-        /* Add the offset of the table */
-        pDevice->pMSIXTable = (S_MSIXTableEntry*)
-                              ((uintptr_t)pDevice->pMSIXTable + tableInfo);
-      }
-      else
-      {
-        pDevice->msiXBaseAddr = 0;
-      }
-    }
-    else
-    {
-      pDevice->msiXBaseAddr = 0;
-    }
-  }
-
-  /* Allocate IRQ is needed */
-  if (pDevice->msiXBaseAddr != 0 || pDevice->msiBaseAddr != 0)
-  {
-    PCIE_ASSERT(sNextInterruptLine <= sMaxInterruptLine,
-                "No more IRQs available",
-                ERR_EXCEEDED_LIMIT);
-    pDevice->interruptLine = sNextInterruptLine;
-    sNextInterruptLine++;
-  }
 }
 
 static E_Return _Attach(const S_FDTNode* kpFdtNode)
@@ -1421,84 +1308,74 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
     kpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
     if (kpACPIDriver != NULL)
     {
-      kpUintProp = FDTGetProp(kpFdtNode, PCIE_FDT_IRQ_NODE_PROP, &propLen);
-      if (kpUintProp != NULL && propLen == sizeof(uint32_t) * 2)
+      /* Get all devices*/
+      retCode = _ProbeDevices(kpACPIDriver->pGetPCIConfigList());
+
+      if (retCode == NO_ERROR)
       {
-        sNextInterruptLine = FDTTOCPU32(*(kpUintProp));
-        sMaxInterruptLine  = FDTTOCPU32(*(kpUintProp + 1));
-
-        /* Get all devices*/
-        retCode = _ProbeDevices(kpACPIDriver->pGetPCIConfigList());
-
-        if (retCode == NO_ERROR)
+        /* Attach the drivers */
+        pDevice = spDevices;
+        while (pDevice != NULL)
         {
-          /* Attach the drivers */
-          pDevice = spDevices;
-          while (pDevice != NULL)
+          /* Get the head of the registered drivers section */
+          driverTableCursor = (uintptr_t)&_START_PCI_TABLE_ADDR;
+          pDriver = *(S_PCIDriver**)driverTableCursor;
+
+          /* Compare with the list of registered drivers */
+          while (pDriver != NULL)
           {
-            /* Get the head of the registered drivers section */
-            driverTableCursor = (uintptr_t)&_START_PCI_TABLE_ADDR;
-            pDriver = *(S_PCIDriver**)driverTableCursor;
+            registerValue = _MMIORead32(&pDevice->pFunction->vendorID);
+            vendorID      = registerValue & 0xFFFF;
+            deviceID      = registerValue >> 16;
+            registerValue = _MMIORead32(&pDevice->pFunction->revisionID);
+            devProgIf     = registerValue >> 8;
+            subclass      = registerValue >> 16;
+            classCode     = registerValue >> 24;
 
-            /* Compare with the list of registered drivers */
-            while (pDriver != NULL)
+            if (pDriver->devClass == classCode &&
+                (pDriver->devSubClass == subclass ||
+                  pDriver->devSubClass == 0xFF) &&
+                (pDriver->devProgIf == devProgIf ||
+                  pDriver->devProgIf == 0xFF))
             {
-              registerValue = _MMIORead32(&pDevice->pFunction->vendorID);
-              vendorID      = registerValue & 0xFFFF;
-              deviceID      = registerValue >> 16;
-              registerValue = _MMIORead32(&pDevice->pFunction->revisionID);
-              devProgIf     = registerValue >> 8;
-              subclass      = registerValue >> 16;
-              classCode     = registerValue >> 24;
+              KERNEL_DEBUG(PCIE_DRIVER_DEBUG_ENABLED,
+                          MODULE_NAME,
+                          "Attaching %s to device \\%04x\\%04x",
+                          pDriver->pName,
+                          vendorID,
+                          deviceID);
 
-              if (pDriver->devClass == classCode &&
-                  pDriver->devSubClass == subclass &&
-                  pDriver->devProgIf == devProgIf)
+              pDevice->pDriver = pDriver;
+              retCode = pDriver->pDriverAttach(pDevice);
+              if (retCode != NO_ERROR)
               {
-                _PrepareDeviceInterrupt(pDevice);
-
-                KERNEL_DEBUG(PCIE_DRIVER_DEBUG_ENABLED,
-                            MODULE_NAME,
-                            "Attaching %s to device \\%04x\\%04x",
-                            pDriver->pName,
-                            deviceID,
-                            vendorID);
-
-                pDevice->pDriver = pDriver;
-                retCode = pDriver->pDriverAttach(pDevice);
-                if (retCode != NO_ERROR)
-                {
-                  pDevice->pDriver = NULL;
-                  KERNEL_ERROR("%s failed to attach to device \\%04x\\%04x with"
-                              " error %d\n",
-                                pDriver->pName,
-                                deviceID,
-                                vendorID,
-                                retCode);
-                }
-                else
-                {
-                  KERNEL_INFO("%s attached to device \\%04x\\%04x\n",
+                pDevice->pDriver = NULL;
+                KERNEL_ERROR("%s failed to attach to device \\%04x\\%04x with"
+                            " error %d\n",
                               pDriver->pName,
+                              vendorID,
                               deviceID,
-                              vendorID);
-                }
+                              retCode);
               }
-              driverTableCursor += sizeof(uintptr_t);
-              pDriver = *(S_PCIDriver**)driverTableCursor;
+              else
+              {
+                KERNEL_INFO("%s attached to device \\%04x\\%04x\n",
+                            pDriver->pName,
+                            vendorID,
+                            deviceID);
+                break;
+              }
             }
-            pDevice = pDevice->pNext;
+            driverTableCursor += sizeof(uintptr_t);
+            pDriver = *(S_PCIDriver**)driverTableCursor;
           }
+          pDevice = pDevice->pNext;
         }
-      }
-      else
-      {
-        retCode = ERR_INVALID_VALUE;
       }
     }
     else
     {
-      retCode = ERR_NOT_FOUND;
+      retCode = ERR_INVALID_VALUE;
     }
   }
   else
@@ -1785,6 +1662,152 @@ E_Return PCISetupInterruptMSIX(S_PCIDevice*   pDevice,
   else
   {
     retCode = ERR_UNAUTHORIZED_ACTION;
+  }
+
+  return retCode;
+}
+
+E_Return PrepareDeviceMSIInterrupt(S_PCIDevice* pDevice)
+{
+  E_Return  retCode;
+  uint16_t  status;
+  uint8_t   capabilitiesPtr;
+  uint32_t  capabilityHeader;
+  uint8_t   capabilityId;
+  uint32_t  commandReg;
+  void*     pCommandReg;
+  uint8_t   bir;
+  uint32_t  tableInfo;
+  uintptr_t barPhysAddr;
+  size_t    barSize;
+
+  pDevice->isMSIEnabled  = false;
+  pDevice->isMSIXEnabled = false;
+
+  /* Update the Command register */
+  pCommandReg = (void*)&pDevice->pFunction->command;
+  commandReg  = _MMIORead32(pCommandReg);
+  commandReg |= PCI_COMMAND_BUS_MASTER_ENABLE |
+                PCI_COMMAND_MEMORY_SPACE_ENABLE |
+                PCI_COMMAND_LEGACY_INTERRUPT_DISABLE;
+  _MMIOWrite32(pCommandReg, commandReg);
+
+  /* Check for MSI and MSI-X support */
+  pDevice->msiBaseAddr  = 0;
+  pDevice->msiXBaseAddr = 0;
+  commandReg = _MMIORead32(pCommandReg);
+  status     = commandReg >> 16;
+  if ((status & PCI_STATUS_CAPABILITIES_LIST) != 0)
+  {
+    commandReg = _MMIORead32(&pDevice->pFunction->capabilitiesPointer);
+    capabilitiesPtr = commandReg & 0xFF;
+    /* Process the capabilities pointer */
+    while (capabilitiesPtr != 0)
+    {
+      /* Read the capability ID */
+      capabilityHeader = _MMIORead32((void*)((uintptr_t)pDevice->pFunction +
+                                            capabilitiesPtr));
+      capabilityId = (uint8_t)(capabilityHeader & 0xFF);
+      if (capabilityId == PCI_CAPABILITY_ID_MSI)
+      {
+        pDevice->msiBaseAddr = (uintptr_t)pDevice->pFunction + capabilitiesPtr;
+      }
+      else if (capabilityId == PCI_CAPABILITY_ID_MSIX)
+      {
+        pDevice->msiXBaseAddr = (uintptr_t)pDevice->pFunction +
+                                capabilitiesPtr;
+      }
+      if (pDevice->msiBaseAddr != 0 && pDevice->msiXBaseAddr != 0)
+      {
+        break;
+      }
+      capabilitiesPtr = (uint8_t)((capabilityHeader >> 8) & 0xFF);
+    }
+  }
+
+  /* Now get the BAR MSI-X Table*/
+  if (pDevice->msiXBaseAddr != 0)
+  {
+    /* Get the BAR that the MSI-X is associated with */
+    tableInfo = _MMIORead32((void*)(pDevice->msiXBaseAddr + 4));
+    bir       = tableInfo & 0x7;
+    tableInfo = tableInfo & 0xFFFFFFF8;
+
+    barPhysAddr = PCIGetBARAddress(pDevice->pFunction, bir);
+    barSize     = PCIGetBARSize(pDevice->pFunction, bir);
+
+    if (barPhysAddr != 0 && barSize != 0)
+    {
+      /* Map the MSI-X table */
+      pDevice->pMSIXTable = MemoryKernelMap((void*)barPhysAddr,
+                                            barSize,
+                                            MEMMGR_MAP_HARDWARE |
+                                            MEMMGR_MAP_KERNEL   |
+                                            MEMMGR_MAP_RW,
+                                            &retCode);
+      if (retCode == NO_ERROR)
+      {
+        /* Add the offset of the table */
+        pDevice->pMSIXTable = (S_MSIXTableEntry*)
+                              ((uintptr_t)pDevice->pMSIXTable + tableInfo);
+      }
+      else
+      {
+        pDevice->msiXBaseAddr = 0;
+      }
+    }
+    else
+    {
+      pDevice->msiXBaseAddr = 0;
+    }
+  }
+
+  /* Allocate IRQ is needed */
+  if (pDevice->msiXBaseAddr == 0 && pDevice->msiBaseAddr == 0)
+  {
+    retCode = ERR_NOT_SUPPORTED;
+    KERNEL_DEBUG(PCIE_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "Device %04X:%04X:%04X does not support MSI or MSI-X",
+                 pDevice->bus,
+                 pDevice->slot,
+                 pDevice->function);
+  }
+  else
+  {
+    retCode = NO_ERROR;
+  }
+
+  return retCode;
+}
+
+E_Return PrepareDeviceLegacyInterrupt(S_PCIDevice* pDevice)
+{
+  E_Return retCode;
+  uint32_t commandReg;
+  void*    pCommandReg;
+
+  /* Get the interrupt line and clear the INT emulation disable bit */
+  pDevice->irqLine = _MMIORead32(&pDevice->pFunction->interruptLine) & 0xFF;
+
+  if (pDevice->irqLine != 0xFF)
+  {
+    pCommandReg = (void*)&pDevice->pFunction->command;
+    commandReg  = _MMIORead32(pCommandReg);
+    commandReg |= PCI_COMMAND_BUS_MASTER_ENABLE |
+                  PCI_COMMAND_MEMORY_SPACE_ENABLE;
+    commandReg &= ~PCI_COMMAND_LEGACY_INTERRUPT_DISABLE;
+    _MMIOWrite32(pCommandReg, commandReg);
+
+    retCode = NO_ERROR;
+  }
+  else
+  {
+    KERNEL_ERROR("Device %04X:%04X:%04X does not have a valid IRQ line",
+                  pDevice->bus,
+                  pDevice->slot,
+                  pDevice->function);
+    retCode = ERR_NOT_SUPPORTED;
   }
 
   return retCode;

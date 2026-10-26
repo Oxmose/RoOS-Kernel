@@ -29,6 +29,7 @@
 #include <ACPI.h>
 #include <LAPIC.h>
 #include <Panic.h>
+#include <X64Cpu.h>
 #include <ProcFS.h>
 #include <Memory.h>
 #include <stdint.h>
@@ -54,8 +55,6 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/** @brief FDT property for interrupt offset */
-#define IOAPIC_FDT_INTOFF_PROP "int-offset"
 /** @brief FDT property for acpi handle */
 #define IOAPIC_FDT_ACPI_NODE_PROP "acpi-node"
 /** @brief FDT property for lapic handle */
@@ -100,6 +99,26 @@
 /** @brief IOAPIC Version register redirection value shift */
 #define IOAPIC_REDIR_SHIFT 16
 
+/** @brief IO-APIC delivery mode fixed. */
+#define IO_APIC_DELIVERY_FIXED (0 << 8)
+/** @brief IO-APIC delivery mode lowest priority. */
+#define IO_APIC_DELIVERY_LOWEST (1 << 8)
+/** @brief IO-APIC destination mode physical. */
+#define IO_APIC_DEST_PHYSICAL (0 << 11)
+/** @brief IO-APIC destination mode logical. */
+#define IO_APIC_DEST_LOGICAL (1 << 11)
+/** @brief IO-APIC polarity low. */
+#define IO_APIC_POLARITY_LOW (1 << 13)
+/** @brief IO-APIC polarity high. */
+#define IO_APIC_POLARITY_HIGH (0 << 13)
+/** @brief IO-APIC trigger mode edge. */
+#define IO_APIC_TRIGGER_EDGE (0 << 15)
+/** @brief IO-APIC trigger mode level. */
+#define IO_APIC_TRIGGER_LEVEL (1 << 15)
+/** @brief IO-APIC masked. */
+#define IO_APIC_MASKED (1 << 16)
+
+
 /** @brief Current module name */
 #define MODULE_NAME "X86 IO-APIC"
 
@@ -128,6 +147,17 @@ typedef struct S_IOAPICControler
   struct S_IOAPICControler* pNext;
 } S_IOAPICControler;
 
+/** @brief Interrupt node structure. */
+typedef struct S_InterruptNode
+{
+  /** @brief The IRQ number of the interrupt. */
+  uint8_t irqNumber;
+  /** @brief The trigger mode of the interrupt. */
+  uint8_t triggerMode;
+  /** @brief A pointer to the IO-APIC controller that handles this interrupt. */
+  S_IOAPICControler* pController;
+} S_InterruptNode;
+
 /*******************************************************************************
  * MACROS
  ******************************************************************************/
@@ -153,85 +183,6 @@ typedef struct S_IOAPICControler
  * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
 /**
- * @brief Attaches the IO-APIC driver to the system.
- *
- * @details Attaches the IO-APIC driver to the system. This function will use
- * the FDT to initialize the IO-APIC hardware and retreive the IO-APIC
- * parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
- *
- * @return The success state or the error code.
- */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
-
-/**
- * @brief Sets the IRQ mask for the desired IRQ number.
- *
- * @details Sets the IRQ mask for the IRQ number given as parameter.
- *
- * @param[in] kIRQNumber The IRQ number to enable/disable.
- * @param[in] kEnabled Must be set to true to enable the IRQ or false
- * to disable the IRQ.
- */
-static void _SetIRQMask(const uint32_t kIRQNumber, const bool kEnabled);
-
-/**
- * @brief Sets the IRQ EOI for the desired IRQ number.
- *
- * @details Sets the IRQ EOI for the IRQ number given as parameter.
- *
- * @param[in] kIRQNumber The IRQ number to set the EOI.
- */
-static void _SetIRQEOI(const uint32_t kIRQNumber);
-
-/**
- * @brief Sets the IRQ mask for the desired IRQ number on a given controller.
- *
- * @details Sets the IRQ mask for the IRQ number given as parameter on a given
- * controller.
- *
- * @param[in, out] pCtrl The controller to use.
- * @param[in] kIRQNumber The IRQ number to enable/disable.
- * @param[in] kEnabled Must be set to true to enable the IRQ or false
- * to disable the IRQ.
- */
-static inline void _SetIRQMaskFor(S_IOAPICControler* pCtrl,
-                                  const uint32_t     kIRQNumber,
-                                  const bool         kEnabled);
-
-/**
- * @brief Checks if the serviced interrupt is a spurious
- * interrupt. The function also handles the spurious interrupt.
- *
- * @details Checks if the serviced interrupt is a spurious
- * interrupt. The function also handles the spurious interrupt.
- *
- * @param[in] kIntNumber The interrupt number of the interrupt to
- * test.
- *
- * @return The function will return the interrupt type.
- * - INTERRUPT_TYPE_SPURIOUS if the current interrupt is a spurious one.
- * - INTERRUPT_TYPE_REGULAR if the current interrupt is a regular one.
- */
-static E_InterruptType _HandleSpurious(const uint32_t kIntNumber);
-
-/**
- * @brief Returns the interrupt line attached to an IRQ.
- *
- * @details Returns the interrupt line attached to an IRQ. -1 is returned
- * if the IRQ number is not supported by the driver.
- *
- * @param[in] kIRQNumber The IRQ number of which to get the interrupt
- * line.
- *
- * @return The interrupt line attached to an IRQ. -1 is returned if the IRQ
- * number is not supported by the driver.
- */
-static uint32_t _GetInterruptLine(const uint32_t kIRQNumber);
-
-/**
  * @brief Reads into the IO APIC controller memory.
  *
  * @details Reads into the IO APIC controller memory.
@@ -256,6 +207,46 @@ static inline uint32_t _Read(S_IOAPICControler* pCtrl,
 static inline void _Write(S_IOAPICControler* pCtrl,
                           const uint32_t     kRegister,
                           const uint32_t     kVal);
+
+
+/**
+ * @brief Attaches the IO-APIC driver to the system.
+ *
+ * @details Attaches the IO-APIC driver to the system. This function will use
+ * the FDT to initialize the IO-APIC hardware and retreive the IO-APIC
+ * parameters.
+ *
+ * @param[in] kpFdtNode The FDT node with the compatible declared
+ * by the driver.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _Attach(const S_FDTNode* kpFdtNode);
+
+/**
+ * @brief Sets the IRQ EOI for the desired IRQ number.
+ *
+ * @details Sets the IRQ EOI for the IRQ number given as parameter.
+ *
+ * @param[in] kIntNumber The interrupt number to set the EOI.
+ */
+static void _SetIRQEOI(const uint32_t kIntNumber);
+
+/**
+ * @brief Checks if the serviced interrupt is a spurious
+ * interrupt. The function also handles the spurious interrupt.
+ *
+ * @details Checks if the serviced interrupt is a spurious
+ * interrupt. The function also handles the spurious interrupt.
+ *
+ * @param[in] kIntNumber The interrupt number of the interrupt to
+ * test.
+ *
+ * @return The function will return the interrupt type.
+ * - INTERRUPT_TYPE_SPURIOUS if the current interrupt is a spurious one.
+ * - INTERRUPT_TYPE_REGULAR if the current interrupt is a regular one.
+ */
+static E_InterruptType _HandleSpurious(const uint32_t kIntNumber);
 
 /**
  * @brief Opens the ProcFS main entry.
@@ -337,17 +328,15 @@ static S_Driver sX86IOAPICDriver =
   .pName         = "X86 IO-APIC Driver",
   .pDescription  = "X86 IO-APIC Driver for roOs",
   .pCompatible   = "x86,x86-io-apic",
-  .pVersion      = "2.0",
+  .pVersion      = "3.0",
   .pDriverAttach = _Attach
 };
 
 /** @brief IO-APIC interrupt driver instance. */
 static S_InterruptDriver sIOAPICDriver =
 {
-  .pSetIRQMask          = _SetIRQMask,
-  .pSetIRQEOI           = _SetIRQEOI,
   .pHandleSpurious      = _HandleSpurious,
-  .pGetIRQInterruptLine = _GetInterruptLine
+  .pSetEndOfInterrupt   = _SetIRQEOI
 };
 
 /** @brief IO-APIC driver controller instance */
@@ -358,9 +347,6 @@ static const S_ACPIDriver* skpACPIDriver;
 
 /** @brief LAPIC driver handle */
 static S_LAPICDriver* pLAPICDriver;
-
-/** @brief IRQ interrupt offset */
-static uint8_t sIntOffset;
 
 /** @brief CPU's spurious interrupt line */
 static uint32_t sSpuriousIntLine;
@@ -388,11 +374,43 @@ static size_t sProcFSStringLength = 0;
  * FUNCTIONS
  ******************************************************************************/
 
+ static inline uint32_t _Read(S_IOAPICControler* pCtrl,
+                             const uint32_t     kRegister)
+{
+  uint32_t value;
+
+  KERNEL_LOCK(pCtrl->lock);
+
+  /* Set IOREGSEL */
+  _MMIOWrite32((void*)(pCtrl->baseAddr + IOREGSEL), kRegister);
+
+  /* Get register value */
+  value = _MMIORead32((void*)(pCtrl->baseAddr + IOWIN));
+
+  KERNEL_UNLOCK(pCtrl->lock);
+
+  return value;
+}
+
+static inline void _Write(S_IOAPICControler* pCtrl,
+                          const uint32_t     kRegister,
+                          const uint32_t     kVal)
+{
+  KERNEL_LOCK(pCtrl->lock);
+
+  /* Set IOREGSEL */
+  _MMIOWrite32((void*)(pCtrl->baseAddr + IOREGSEL), kRegister);
+
+  /* Set register value */
+  _MMIOWrite32((void*)(pCtrl->baseAddr + IOWIN), kVal);
+
+  KERNEL_UNLOCK(pCtrl->lock);
+}
+
 static E_Return _Attach(const S_FDTNode* kpFdtNode)
 {
   const uint32_t*     kpACPINodeProp;
   const uint32_t*     kpLAPICNodeProp;
-  const uint32_t*     kpUintProp;
   S_IOAPICControler*  pNewDrvCtrl;
   const S_IOAPICNode* kpIOAPICNode;
   E_Return            retCode;
@@ -403,21 +421,14 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
   uint32_t            ioapicVerRegister;
   uintptr_t           ioApicPhysAddr;
   size_t              toMap;
+  uint8_t             irqId;
 
   retCode       = NO_ERROR;
-  sIntOffset    = 0xFF;
   pLAPICDriver  = NULL;
   skpACPIDriver = NULL;
 
   /* Get CPU's spurious interrupt line */
   sSpuriousIntLine = CPUGetInterruptConfig()->spuriousInterruptLine;
-
-  /* Get IRQ offset */
-  kpUintProp = FDTGetProp(kpFdtNode, IOAPIC_FDT_INTOFF_PROP, &propLen);
-  IOAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-                "Invalid int-offset property",
-                ERR_INVALID_VALUE);
-  sIntOffset = (uint8_t)FDTTOCPU32(*kpUintProp);
 
   /* Get the handles */
   kpACPINodeProp = FDTGetProp(kpFdtNode,
@@ -466,8 +477,7 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
                   "Failed to map IO-APIC memory",
                   retCode);
 
-    pNewDrvCtrl->baseAddr |= kpIOAPICNode->ioApic.ioApicAddr &
-                              PAGE_SIZE_MASK;
+    pNewDrvCtrl->baseAddr |= kpIOAPICNode->ioApic.ioApicAddr & PAGE_SIZE_MASK;
     pNewDrvCtrl->mappingSize = toMap;
 
     /* Setup the controller */
@@ -481,10 +491,11 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
     pNewDrvCtrl->gsil = pNewDrvCtrl->gsil + 1 +
         ((ioapicVerRegister & IOAPIC_REDIR_MASK) >> IOAPIC_REDIR_SHIFT);
 
-    /* Disable all IRQ for this  IOAPIC */
+    /* Disable all IRQ for this IOAPIC */
     for (i = pNewDrvCtrl->gsib; i < pNewDrvCtrl->gsil; ++i)
     {
-      _SetIRQMaskFor(pNewDrvCtrl, i, false);
+      irqId = i - pNewDrvCtrl->gsib;
+      _Write(pNewDrvCtrl, IOREDTBLXL(irqId), IO_APIC_MASKED);
     }
 
     /* Go to next */
@@ -507,62 +518,11 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
   return retCode;
 }
 
-static void _SetIRQMask(const uint32_t kIRQNumber, const bool kEnabled)
+static void _SetIRQEOI(const uint32_t kIntNumber)
 {
-  uint32_t           remapIRQ;
-  S_IOAPICControler* pCtrl;
-
-  /* Get the remapped IRQ */
-  remapIRQ = skpACPIDriver->pGetRemapedIRQ(kIRQNumber);
-
-  /* Search for the correct IO APIC controller */
-  pCtrl = spDrvCtrl;
-  while (pCtrl != NULL)
-  {
-    if (pCtrl->gsib <= remapIRQ && pCtrl->gsil > remapIRQ)
-    {
-      break;
-    }
-    pCtrl = pCtrl->pNext;
-  }
-
-  IOAPIC_ASSERT(pCtrl != NULL, "No such IRQ", ERR_INVALID_PARAMETER);
-
-  _SetIRQMaskFor(pCtrl, remapIRQ, kEnabled);
-}
-
-static void _SetIRQEOI(const uint32_t kIRQNumber)
-{
+  (void)kIntNumber;
   /* Calls the LAPIC EOI function */
-  pLAPICDriver->pSetIRQEOI(kIRQNumber);
-}
-
-static inline void _SetIRQMaskFor(S_IOAPICControler* pCtrl,
-                                  const uint32_t     kIRQNumber,
-                                  const bool         kEnabled)
-{
-  uint32_t entryLow;
-  uint32_t remapIRQ;
-
-  IOAPIC_ASSERT(kIRQNumber >= pCtrl->gsib && kIRQNumber < pCtrl->gsil,
-                "No such IRQ for current IOAPIC",
-                ERR_INVALID_PARAMETER);
-
-  /* Update the IRQ for the table */
-  remapIRQ = kIRQNumber - pCtrl->gsib;
-
-  /* Set the mask, IO APIC uses physical destination only to CPU 0 */
-  entryLow = _GetInterruptLine(kIRQNumber);
-  if (kEnabled == false)
-  {
-    entryLow  |= (1 << 16);
-  }
-  else
-  {
-    entryLow  &= ~(1 << 16);
-  }
-
-  _Write(pCtrl, IOREDTBLXL(remapIRQ), entryLow);
+  pLAPICDriver->pSetIRQEOI();
 }
 
 static E_InterruptType _HandleSpurious(const uint32_t kIntNumber)
@@ -574,53 +534,11 @@ static E_InterruptType _HandleSpurious(const uint32_t kIntNumber)
   /* Check for LAPIC spurious interrupt. */
   if (kIntNumber == sSpuriousIntLine)
   {
-    sIOAPICDriver.pSetIRQEOI(kIntNumber);
+    sIOAPICDriver.pSetEndOfInterrupt(kIntNumber);
     intType = INTERRUPT_TYPE_SPURIOUS;
   }
 
   return intType;
-}
-
-static uint32_t _GetInterruptLine(const uint32_t kIRQNumber)
-{
-  uint32_t remapIRQ;
-
-  remapIRQ = skpACPIDriver->pGetRemapedIRQ(kIRQNumber);
-
-  return sIntOffset + remapIRQ;
-}
-
-static inline uint32_t _Read(S_IOAPICControler* pCtrl,
-                             const uint32_t     kRegister)
-{
-  uint32_t value;
-
-  KERNEL_LOCK(pCtrl->lock);
-
-  /* Set IOREGSEL */
-  _MMIOWrite32((void*)(pCtrl->baseAddr + IOREGSEL), kRegister);
-
-  /* Get register value */
-  value = _MMIORead32((void*)(pCtrl->baseAddr + IOWIN));
-
-  KERNEL_UNLOCK(pCtrl->lock);
-
-  return value;
-}
-
-static inline void _Write(S_IOAPICControler* pCtrl,
-                          const uint32_t     kRegister,
-                          const uint32_t     kVal)
-{
-  KERNEL_LOCK(pCtrl->lock);
-
-  /* Set IOREGSEL */
-  _MMIOWrite32((void*)(pCtrl->baseAddr + IOREGSEL), kRegister);
-
-  /* Set register value */
-  _MMIOWrite32((void*)(pCtrl->baseAddr + IOWIN), kVal);
-
-  KERNEL_UNLOCK(pCtrl->lock);
 }
 
 static void* _ProcFSOpen(void*       pDriverData,
@@ -725,7 +643,6 @@ static E_Return _CreateProcFSEntry(void)
                                    "Version: %d\n"
                                    "First Interrupt: %d\n"
                                    "Last Interrupt: %d\n"
-                                   "Interrupt Offset: %d\n"
                                    "Spurious Interrupt Line: %d\n",
                                    spDrvCtrl->baseAddr,
                                    spDrvCtrl->mappingSize,
@@ -733,12 +650,114 @@ static E_Return _CreateProcFSEntry(void)
                                    spDrvCtrl->version,
                                    spDrvCtrl->gsib,
                                    spDrvCtrl->gsil -1,
-                                   sIntOffset,
                                    sSpuriousIntLine);
   }
 
   return retCode;
 }
+
+void IOAPICSetupIRQ(const uint32_t            kIRQNumber,
+                    const uint32_t            kInterruptLine,
+                    const uint32_t            kLapicDestination,
+                    const E_IOAPICTriggerMode kTriggerMode,
+                    const E_IOAPICPolarity    kPolarity)
+{
+  uint8_t            irqRegisterLow;
+  uint8_t            irqRegisterHigh;
+  uint32_t           registerLow;
+  uint32_t           registerHigh;
+  uint32_t           remapIRQ;
+  S_IOAPICControler* pCtrl;
+
+  remapIRQ = skpACPIDriver->pGetRemapedIRQ(kIRQNumber);
+
+  /* Find the controller */
+  pCtrl = spDrvCtrl;
+  while (pCtrl != NULL)
+  {
+    if (remapIRQ >= pCtrl->gsib && remapIRQ < pCtrl->gsil)
+    {
+      break;
+    }
+    pCtrl = pCtrl->pNext;
+  }
+
+  IOAPIC_ASSERT(pCtrl != NULL,
+                "Failed to find the IO-APIC controller for the given IRQ",
+                ERR_INVALID_VALUE);
+
+  /* Update the IRQ number */
+  remapIRQ -= pCtrl->gsib;
+
+  /* Prepare the IRQ registers */
+  irqRegisterLow  = 0x10 + (uint8_t)(remapIRQ & 0xFF) * 2;
+  irqRegisterHigh = irqRegisterLow + 1;
+  registerLow     = kInterruptLine;
+  registerHigh    = (kLapicDestination << 24);
+
+  /* Setup the IRQ modes */
+  registerLow |= IO_APIC_DELIVERY_FIXED | IO_APIC_DEST_PHYSICAL;
+  if (kTriggerMode == IOAPIC_TRIGGER_MODE_EDGE)
+  {
+    registerLow |= IO_APIC_TRIGGER_EDGE;
+  }
+  else
+  {
+    registerLow |= IO_APIC_TRIGGER_LEVEL;
+  }
+  if (kPolarity == IOAPIC_POLARITY_LOW)
+  {
+    registerLow |= IO_APIC_POLARITY_LOW;
+  }
+  else
+  {
+    registerLow |= IO_APIC_POLARITY_HIGH;
+  }
+  _Write(pCtrl, irqRegisterHigh, registerHigh);
+  _Write(pCtrl, irqRegisterLow, registerLow);
+}
+
+void IOAPICDisableIRQ(const uint32_t kIRQNumber)
+{
+  uint8_t            irqRegisterLow;
+  uint8_t            irqRegisterHigh;
+  uint32_t           registerLow;
+  uint32_t           registerHigh;
+  uint32_t           remapIRQ;
+  S_IOAPICControler* pCtrl;
+
+  remapIRQ = skpACPIDriver->pGetRemapedIRQ(kIRQNumber);
+
+  /* Find the controller */
+  pCtrl = spDrvCtrl;
+  while (pCtrl != NULL)
+  {
+    if (remapIRQ >= pCtrl->gsib && remapIRQ < pCtrl->gsil)
+    {
+      break;
+    }
+    pCtrl = pCtrl->pNext;
+  }
+
+  IOAPIC_ASSERT(pCtrl != NULL,
+                "Failed to find the IO-APIC controller for the given IRQ",
+                ERR_INVALID_VALUE);
+
+  /* Update the IRQ number */
+  remapIRQ -= pCtrl->gsib;
+
+  /* Prepare the IRQ registers */
+  irqRegisterLow  = 0x10 + (uint8_t)(remapIRQ & 0xFF) * 2;
+  irqRegisterHigh = irqRegisterLow + 1;
+
+  /* Setup the IRQ modes */
+  registerLow = IO_APIC_MASKED;
+  registerHigh = 0;
+
+  _Write(pCtrl, irqRegisterHigh, registerHigh);
+  _Write(pCtrl, irqRegisterLow, registerLow);
+}
+
 /***************************** DRIVER REGISTRATION ****************************/
 DRIVERMGR_REG_FDT(sX86IOAPICDriver);
 

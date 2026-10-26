@@ -164,16 +164,6 @@ typedef struct
  */
 static E_Return _Attach(const S_FDTNode* kpFdtNode);
 
-/**
- * @brief Sets the IRQ mask for the desired IRQ number.
- *
- * @details Sets the IRQ mask for the IRQ number given as parameter.
- *
- * @param[in] kIRQNumber The IRQ number to enable/disable.
- * @param[in] kEnabled Must be set to true to enable the IRQ or false
- * to disable the IRQ.
- */
-static void _SetIRQMask(const uint32_t kIRQNumber, const bool kEnabled);
 
 /**
  * @brief Acknowleges an IRQ.
@@ -200,20 +190,6 @@ static void _SetIRQEOI(const uint32_t kIRQNumber);
  */
 static E_InterruptType _HandleSpurious(const uint32_t kIntNumber);
 
-/**
- * @brief Returns the interrupt line attached to an IRQ.
- *
- * @details Returns the interrupt line attached to an IRQ. -1 is returned
- * if the IRQ number is not supported by the driver.
- *
- * @param[in] kIRQNumber The IRQ number of which to get the interrupt
- * line.
- *
- * @return The interrupt line attached to an IRQ. -1 is returned if the IRQ
- * number is not supported by the driver.
- */
-static uint32_t _GetInterruptLine(const uint32_t kIRQNumber);
-
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
@@ -238,10 +214,8 @@ static S_Driver sX86PICDriver =
 /** @brief PIC interrupt driver instance. */
 static S_InterruptDriver sPicDriver =
 {
-  .pSetIRQMask          = _SetIRQMask,
-  .pSetIRQEOI           = _SetIRQEOI,
+  .pSetEndOfInterrupt   = _SetIRQEOI,
   .pHandleSpurious      = _HandleSpurious,
-  .pGetIRQInterruptLine = _GetInterruptLine
 };
 
 /** @brief PIC driver controller instance */
@@ -341,89 +315,6 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
   return NO_ERROR;
 }
 
-static void _SetIRQMask(const uint32_t kIRQNumber, const bool kEnabled)
-{
-  uint8_t  initMask;
-  uint32_t cascadingNumber;
-
-  PIC_ASSERT(kIRQNumber <= PIC_MAX_IRQ_LINE,
-             "Could not find PIC IRQ",
-             ERR_INVALID_VALUE);
-
-  KERNEL_LOCK(sDrvCtrl.lock);
-
-  /* Manage master PIC */
-  if (kIRQNumber < 8)
-  {
-    /* Retrieve initial mask */
-    initMask = CPUPortReadByte(sDrvCtrl.cpuMasterDataPort);
-
-    /* Set new mask value */
-    if (kEnabled == false)
-    {
-        initMask |= 1 << kIRQNumber;
-    }
-    else
-    {
-        initMask &= ~(1 << kIRQNumber);
-    }
-
-    /* Set new mask */
-    CPUPortWriteByte(initMask, sDrvCtrl.cpuMasterDataPort);
-  }
-
-  /* Manage slave PIC. WARNING, cascading will be enabled */
-  if (kIRQNumber > 7)
-  {
-    PIC_ASSERT(sDrvCtrl.hasSlave == true,
-               "Could not find PIC IRQ (chained)",
-               ERR_INVALID_VALUE);
-
-    /* Set new IRQ number */
-    cascadingNumber = kIRQNumber - 8;
-
-    /* Retrieve initial mask */
-    initMask = CPUPortReadByte(sDrvCtrl.cpuMasterDataPort);
-
-    /* Set new mask value */
-    initMask &= ~(1 << PIC_CASCADING_IRQ);
-
-    /* Set new mask */
-    CPUPortWriteByte(initMask, sDrvCtrl.cpuMasterDataPort);
-
-    /* Retrieve initial mask */
-    initMask = CPUPortReadByte(sDrvCtrl.cpuSlaveDataPort);
-
-    /* Set new mask value */
-    if (kEnabled == false)
-    {
-      initMask |= 1 << cascadingNumber;
-    }
-    else
-    {
-      initMask &= ~(1 << cascadingNumber);
-    }
-
-    /* Set new mask */
-    CPUPortWriteByte(initMask, sDrvCtrl.cpuSlaveDataPort);
-
-    /* If all is masked then disable cascading */
-    if (initMask == 0xFF)
-    {
-      /* Retrieve initial mask */
-      initMask = CPUPortReadByte(sDrvCtrl.cpuMasterDataPort);
-
-      /* Set new mask value */
-      initMask  |= 1 << PIC_CASCADING_IRQ;
-
-      /* Set new mask */
-      CPUPortWriteByte(initMask, sDrvCtrl.cpuMasterDataPort);
-    }
-  }
-
-  KERNEL_UNLOCK(sDrvCtrl.lock);
-}
-
 static void _SetIRQEOI(const uint32_t kIRQNumber)
 {
   KERNEL_LOCK(sDrvCtrl.lock);
@@ -519,15 +410,6 @@ static E_InterruptType _HandleSpurious(const uint32_t kIntNumber)
   KERNEL_UNLOCK(sDrvCtrl.lock);
 
   return type;
-}
-
-static uint32_t _GetInterruptLine(const uint32_t kIRQNumber)
-{
-  if (kIRQNumber > PIC_MAX_IRQ_LINE)
-  {
-    return 0xFFFFFFFF;
-  }
-  return kIRQNumber + PIC0_BASE_INTERRUPT_LINE;
 }
 
 /***************************** DRIVER REGISTRATION ****************************/

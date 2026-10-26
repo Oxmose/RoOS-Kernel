@@ -63,26 +63,14 @@ typedef bool (*T_InterruptHandler)(void);
  */
 typedef struct
 {
-  /** @brief The function should enable or diable an IRQ given the IRQ number
-   * used as parameter.
-   *
-   * @details The function should enable or diable an IRQ given the IRQ number
-   * used as parameter.
-   *
-   * @param[in] kIRQNumber The number of the IRQ to enable/disable.
-   * @param[in] kEnabled Must be set to true to enable the IRQ and false to
-   * disable the IRQ.
-   */
-  void (*pSetIRQMask)(const uint32_t kIRQNumber, const bool kEnabled);
-
   /**
-   * @brief The function should acknowleges an IRQ.
+   * @brief The function should acknowleges an interrupt.
    *
-   * @details The function should acknowleges an IRQ.
+   * @details The function should acknowleges an interrupt.
    *
-   * @param[in] kIRQNumber The irq number to acknowledge.
+   * @param[in] kInterruptNumber The interrupt number to acknowledge.
    */
-  void (*pSetIRQEOI)(const uint32_t kIRQNumber);
+  void (*pSetEndOfInterrupt)(const uint32_t kInterruptNumber);
 
   /**
    * @brief The function should check if the serviced interrupt is a spurious
@@ -98,19 +86,6 @@ typedef struct
    * - INTERRUPT_TYPE_REGULAR if the current interrupt is a regular one.
    */
   E_InterruptType (*pHandleSpurious)(const uint32_t kIntNumber);
-
-  /**
-   * @brief Returns the interrupt line attached to an IRQ.
-   *
-   * @details Returns the interrupt line attached to an IRQ. 0xFFFFFFFF is
-   * returned if the IRQ number is not supported by the driver.
-   *
-   * @param[in] kIRQNumber The IRQ line for the requested interrupt line.
-   *
-   * @return The interrupt line attached to an IRQ. 0xFFFFFFFF is returned if
-   * the IRQ number is not supported by the driver.
-   */
-  uint32_t (*pGetIRQInterruptLine)(const uint32_t kIRQNumber);
 } S_InterruptDriver;
 
 /*******************************************************************************
@@ -173,13 +148,11 @@ E_Return InterruptSetDriver(const S_InterruptDriver* kpDriver);
  *
  * @param[in] kInterruptId The interrupt to attach the handler to.
  * @param[in] kHandler The handler for the desired interrupt.
- * @param[in] kIsIRQ Tells if the interrupt is an IRQ.
  *
  * @return The success state or the error code.
  */
 E_Return InterruptRegister(const uint32_t           kInterruptId,
-                           const T_InterruptHandler kHandler,
-                           const bool               kIsIRQ);
+                           const T_InterruptHandler kHandler);
 
 /**
  * @brief Unregisters a new interrupt handler for the desired interrupt line.
@@ -189,11 +162,10 @@ E_Return InterruptRegister(const uint32_t           kInterruptId,
  * and less than the maximal one.
  *
  * @param[in] kInterruptId The interrupt line to deattach the handler from.
- * @param[in] kIsIRQ Tells if the interrupt is an IRQ.
  *
  * @return The success state or the error code.
  */
-E_Return InterruptRemove(const uint32_t kInterruptId, const bool kIsIRQ);
+E_Return InterruptRemove(const uint32_t kInterruptId);
 
 /**
  * @brief Restores the CPU interrupts state.
@@ -216,37 +188,35 @@ void InterruptRestore(const uint32_t kPreviousState);
 uint32_t InterruptDisable(void);
 
 /**
- * @brief Sets the IRQ mask for the IRQ number given as parameter.
- *
- * @details Sets the IRQ mask for the IRQ number given as parameter.
- *
- * @param[in] kInterruptId The IRQ id to enable/disable.
- * @param[in] kEnabled Must be set to true to enable the IRQ or false
- * to disable the IRQ.
- */
-void InterruptSetIRQMask(const uint32_t kIRQNumber, const bool kEnabled);
-
-/**
  * @brief Acknowleges an interrupt.
  *
  * @details Acknowleges an interrupt. Used for hardware interrupts.
- *
- * @param[in] kInterruptId The interrupt number to acknowledge.
+ * @param[in] kTriggerMode The trigger mode of the interrupt.
  */
 void InterruptSetEOI(const uint32_t kInterruptId);
 
 /**
- * @brief Returns the interrupt line attached to an IRQ.
+ * @brief Allocates an interrupt line.
  *
- * @details Returns the interrupt line attached to an IRQ. 0xFFFFFFFF is
- * returned if the IRQ number is not supported by the driver.
+ * @details Allocates an interrupt line. The interrupt line is allocated from
+ * the available interrupt lines. The function will return the allocated
+ * interrupt line or -1 if no interrupt line is available.
  *
- * @param[in] kIRQNumber The IRQ number to get the interrupt line for.
- *
- * @return The interrupt line attached to an IRQ. 0xFFFFFFFF is returned if the
- * IRQ number is not supported by the driver.
+ * @return The allocated interrupt line is returned or -1 if no interrupt line
+ * is available.
  */
-uint32_t InterruptGetIRQIntLine(const uint32_t kIRQNumber);
+int32_t AllocateInterruptLine(void);
+
+/**
+ * @brief Frees an interrupt line.
+ *
+ * @details Frees an interrupt line. The interrupt line is freed and can be
+ * allocated again. The function will return an error code if the interrupt line
+ * is not valid or if the interrupt line is not allocated.
+ *
+ * @param[in] kInterruptId The interrupt line to free.
+ */
+void FreeInterruptLine(const int32_t kInterruptId);
 
 #endif /* #ifndef __CORE_INTERRUPTS_H_ */
 

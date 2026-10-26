@@ -897,11 +897,8 @@ static E_Return _DetectAndAttachMBRPartitions(S_DiskDevice* pDevice)
   void*         pTransferBuffer;
 
   /* Read the MBR */
-  sectorCount = sizeof(S_MBRData) / pDevice->sectorSize;
-  if (sizeof(S_MBRData) % pDevice->sectorSize != 0)
-  {
-    ++sectorCount;
-  }
+  sectorCount = (sizeof(S_MBRData) + pDevice->sectorSize - 1) /
+                pDevice->sectorSize;
   mappingSize = ALIGN_UP(sectorCount * pDevice->sectorSize, KERNEL_PAGE_SIZE);
   pTransferBuffer = MemoryKernelAllocate(mappingSize,
                                          MEMMGR_MAP_KERNEL |
@@ -1006,11 +1003,8 @@ static E_Return _DetectAndAttachGPTPartitions(S_DiskDevice* pDevice)
   size_t               mappingSize[2];
 
   /* Read the GPT header */
-  sectorCount = sizeof(S_GPTTableHeader) / pDevice->sectorSize;
-  if (sizeof(S_GPTTableHeader) % pDevice->sectorSize != 0)
-  {
-    ++sectorCount;
-  }
+  sectorCount = (sizeof(S_GPTTableHeader) + pDevice->sectorSize - 1) /
+                pDevice->sectorSize;
   mappingSize[0] = ALIGN_UP(sectorCount * pDevice->sectorSize, KERNEL_PAGE_SIZE);
   pHeaderBuffer = MemoryKernelAllocate(mappingSize[0],
                                        MEMMGR_MAP_KERNEL |
@@ -1051,11 +1045,8 @@ static E_Return _DetectAndAttachGPTPartitions(S_DiskDevice* pDevice)
           partitionTableSize = pGPTHeader.partitionCount *
                                pGPTHeader.partitionArrayEntrySize;
 
-          sectorCount = partitionTableSize / pDevice->sectorSize;
-          if (partitionTableSize % pDevice->sectorSize != 0)
-          {
-            ++sectorCount;
-          }
+          sectorCount = (partitionTableSize + pDevice->sectorSize - 1) /
+                        pDevice->sectorSize;
           mappingSize[1] = ALIGN_UP(sectorCount * pDevice->sectorSize,
                                     KERNEL_PAGE_SIZE);
           pEntryBuffer = MemoryKernelAllocate(mappingSize[1],
@@ -1326,22 +1317,15 @@ E_Return DiskManagerAddDevice(const E_DiskType           kDeviceType,
     if (diskDriver != VFS_DRIVER_INVALID)
     {
       /* Detect and attach partitions delayed */
-      retVal = KWorkerSubmitTask(_DetectAndAttachPartitions,
-                                  pNewDevice,
-                                  NULL);
-      if (retVal == NO_ERROR)
-      {
-        KERNEL_LOCK(sDisksManagerLock);
-        *pDiskDriver = diskDriver;
-        pNewDevice->pDiskDriver = diskDriver;
-        pNewDevice->pNext = sDisksList;
-        sDisksList = pNewDevice;
-        KERNEL_UNLOCK(sDisksManagerLock);
-      }
-      else
-      {
-        KFree(pNewDevice);
-      }
+      KWorkerSubmitTask(_DetectAndAttachPartitions, pNewDevice, NULL);
+      KERNEL_LOCK(sDisksManagerLock);
+      *pDiskDriver = diskDriver;
+      pNewDevice->pDiskDriver = diskDriver;
+      pNewDevice->pNext = sDisksList;
+      sDisksList = pNewDevice;
+      KERNEL_UNLOCK(sDisksManagerLock);
+
+      retVal = NO_ERROR;
     }
     else
     {

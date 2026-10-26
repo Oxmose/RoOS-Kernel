@@ -534,7 +534,6 @@ void KernelPanic(const uint32_t kErrorCode,
     _PrintHeader(kpVCPU, kFromInterrupt);
     _PrintCpuState(kpVCPU);
     _PrintCpuFlags(kpVCPU);
-    _PrintStackTrace(kpVCPU);
 
     /* Print panic information */
     _PanicPrintf("\n                              ==== Information ====\n");
@@ -550,6 +549,8 @@ void KernelPanic(const uint32_t kErrorCode,
     {
       _PanicPrintf("%s (Error %d)\n", skpPanicMsg, sPanicCode);
     }
+
+    _PrintStackTrace(kpVCPU);
 
 
 

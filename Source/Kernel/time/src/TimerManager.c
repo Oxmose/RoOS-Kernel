@@ -81,7 +81,18 @@
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/* None */
+/** @brief A node in the periodic task table. */
+typedef struct S_TimerPeriodicNode
+{
+  /** @brief Pointer to the task function. */
+  S_TimerPeriodicTask* pInfo;
+  /** @brief Next release time of the task in nanoseconds. */
+  uint64_t nextReleaseTime;
+
+  /** @brief Pointer to the next node in the periodic task table. */
+  struct S_TimerPeriodicNode* pNext;
+} S_TimerPeriodicNode;
+
 
 
 /*******************************************************************************
@@ -224,18 +235,47 @@ static S_KernelQueue* spAuxTimersQueue = NULL;
 /** @brief Active wait counter per CPU. */
 static volatile uint64_t* spActiveWait;
 
+/** @brief The table of periodic tasks */
+static S_TimerPeriodicNode* spPeriodicTaskTable = NULL;
+
+/** @brief The lock for the periodic task table */
+static S_KernelSpinlock sPeriodicTaskTableLock;
+
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
+
 static bool _MainTimerHandler(void)
 {
-  uint8_t cpuId;
-
+  uint8_t              cpuId;
+  uint64_t             currentTimeNs;
+  S_TimerPeriodicTask* pTask;
+  S_TimerPeriodicNode* pNode;
   cpuId = CPUGetId();
 
   /* Add a tick count */
   ++spSysTickCount[cpuId];
 
+  /* Execute periodic tasks */
+  currentTimeNs = TimeGetUptime();
+  KERNEL_LOCK(sPeriodicTaskTableLock);
+  pNode = spPeriodicTaskTable;
+  while (pNode != NULL)
+  {
+    if (currentTimeNs >= pNode->nextReleaseTime)
+    {
+      pTask = pNode->pInfo;
+      /* Update the next execution time */
+      pNode->nextReleaseTime = currentTimeNs + pTask->periodNs;
+
+      /* Call the task */
+      pTask->pTask(pTask->pArg);
+    }
+    pNode = pNode->pNext;
+  }
+  KERNEL_UNLOCK(sPeriodicTaskTableLock);
+
+  /* Call the main timer's tick manager */
   if (sSysMainTimer.pTickManager != NULL)
   {
     sSysMainTimer.pTickManager(sSysMainTimer.pDriverCtrl);
@@ -284,12 +324,12 @@ static void _AddAuxTimer(const S_KernelTimer* kpTimer)
 
 void TimeManagerInit(void)
 {
-  E_Return             retCode;
-  const S_FDTNode*     kpTimerNode;
-  const uint32_t*      kpUintProp;
-  size_t               propLen;
-  size_t               i;
-  const S_KernelTimer* kpTimer;
+  E_Return              retCode;
+  const S_FDTNode*      kpTimerNode;
+  const uint32_t*       kpUintProp;
+  size_t                propLen;
+  size_t                i;
+  const S_KernelTimer*  kpTimer;
 
   /* Get the number of CPUs */
   sCpuCount = CPUGetCount();
@@ -387,6 +427,9 @@ void TimeManagerInit(void)
       _AddAuxTimer(kpTimer);
     }
   }
+
+  /* Create the threads table */
+  KERNEL_SPINLOCK_INIT(sPeriodicTaskTableLock);
 }
 
 uint64_t TimeGetUptime(void)
@@ -507,6 +550,55 @@ void TimeWaitNoScheduler(const uint64_t kNS)
     while (sSysLifetimeTimer.pGetTimeNs(sSysLifetimeTimer.pDriverCtrl) <
            currTime + kNS){}
   }
+}
+
+T_TimerHandle TimeManagerAddTask(S_TimerPeriodicTask* pTask,
+                                 const uint32_t       kPeriodNs)
+{
+  S_TimerPeriodicNode* pNode;
+
+  pNode = KMalloc(sizeof(S_TimerPeriodicNode), KMALLOC_FREE_POOL);
+
+  pTask->periodNs = kPeriodNs;
+  pNode->pInfo = pTask;
+  pNode->nextReleaseTime = TimeGetUptime() + kPeriodNs;
+
+  KERNEL_LOCK(sPeriodicTaskTableLock);
+  pNode->pNext = spPeriodicTaskTable;
+  spPeriodicTaskTable = pNode;
+  KERNEL_UNLOCK(sPeriodicTaskTableLock);
+
+  return pNode;
+}
+
+void TimeManagerRemoveTask(T_TimerHandle taskHandle)
+{
+  S_TimerPeriodicNode* pNode;
+  S_TimerPeriodicNode* pPrevious;
+
+  pNode = (S_TimerPeriodicNode*)taskHandle;
+
+  KERNEL_LOCK(sPeriodicTaskTableLock);
+  if (pNode == spPeriodicTaskTable)
+  {
+    spPeriodicTaskTable = pNode->pNext;
+  }
+  else
+  {
+    pPrevious = spPeriodicTaskTable;
+    while (pPrevious != NULL && pPrevious->pNext != pNode)
+    {
+      pPrevious = pPrevious->pNext;
+    }
+
+    if (pPrevious != NULL)
+    {
+      pPrevious->pNext = pNode->pNext;
+    }
+  }
+  KERNEL_UNLOCK(sPeriodicTaskTableLock);
+
+  KFree(pNode);
 }
 
 /************************************ EOF *************************************/

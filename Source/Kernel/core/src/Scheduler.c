@@ -62,7 +62,7 @@
 #define IDLE_THREAD_NAME "ROOS_IDLE\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
 
 /** @brief Scheduler requests queue size in number of elements */
-#define SCHEDULER_REQUEST_QUEUE_SIZE 250
+#define SCHEDULER_REQUEST_QUEUE_SIZE 255
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -1001,7 +1001,6 @@ static void _UpdateContextStatistics(S_ScheduleContext* pContext)
 
   /* Update the index */
   pContext->stats.timesIdx = (timeIdx + 1) % CPU_LOAD_TICK_WINDOW;
-
 }
 
 static void* _AllocThreadTable(const size_t kSize)
@@ -1020,7 +1019,6 @@ void SchedulerInit(void)
   uint32_t              j;
   uint32_t              cpuCount;
   E_Return              errorCode;
-  uint32_t              schedInt;
   S_FastQueue*          pQueue;
   uint64_t              currentTime;
   S_UHashtableAllocator allocator;
@@ -1089,14 +1087,6 @@ void SchedulerInit(void)
     /* Create the Idle thread for the context */
     _CreateIdleThread(ppSchedulerContext[i], i, spMainProcess);
   }
-
-  /* Register the scheduler interrupt  */
-  schedInt  = CPUGetInterruptConfig()->schedulerInterruptLine;
-  errorCode = InterruptRegister(schedInt, SchedulerSchedule, false);
-  SCHED_ASSERT(errorCode == NO_ERROR,
-               "Failed to register scheduler interrupt",
-               errorCode,
-               false);
 
   sIsInit = true;
 

@@ -10,7 +10,7 @@
 ################################################################################
 
 QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 256M -vga std -global VGA.vgamem_mb=16 \
-			-smp 4 -serial stdio -machine q35 \
+			-smp 1 -serial stdio -machine q35 \
 			-drive if=none,format=raw,file=../Peripherals/hddmbr.img,id=disk0 \
 			-drive if=none,format=raw,file=../Peripherals/hddgpt.img,id=disk1 \
 			-device ahci,id=ahci0 \
@@ -18,7 +18,9 @@ QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 256M -vga std -global V
 			-device ide-hd,bus=ahci0.1,drive=disk1 \
 			-drive if=none,id=stick,format=raw,file=../Peripherals/usb.img \
 			-device nec-usb-xhci,id=xhci \
-			-device usb-storage,bus=xhci.0,drive=stick
+			-device usb-storage,bus=xhci.0,drive=stick \
+			-netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
+			-device e1000,netdev=net0,id=nic0
 
 QEMUOPTSTEST = -cpu EPYC -rtc base=localtime -m 256M \
 			-smp 4 -serial stdio -machine q35 \
@@ -29,7 +31,10 @@ QEMUOPTSTEST = -cpu EPYC -rtc base=localtime -m 256M \
 			-device ide-hd,bus=ahci0.1,drive=disk1 \
 			-drive if=none,id=stick,format=raw,file=../Peripherals/usb.img \
 			-device nec-usb-xhci,id=xhci \
-			-device usb-storage,bus=xhci.0,drive=stick
+			-device usb-storage,bus=xhci.0,drive=stick \
+			-netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
+			-device e1000,netdev=net0,id=nic0
+
 #-d int,cpu_reset,guest_errors,unimp,invalid_mem,tid -D outlog%d.txt
 
 QEMU = qemu-system-x86_64

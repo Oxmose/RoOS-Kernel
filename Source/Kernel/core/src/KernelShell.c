@@ -34,6 +34,8 @@
 #include <Critical.h>
 #include <VirtualFS.h>
 #include <Scheduler.h>
+#include <SystemBSP.h>
+#include <NetManager.h>
 #include <KernelHeap.h>
 #include <KernelError.h>
 #include <KernelOutput.h>
@@ -90,6 +92,8 @@ static void _ShellPanic(const char* args);
 static void _ShellSleep(const char* args);
 static void _ShellGetMapping(const char* args);
 static void _ShellDrawTest(const char* args);
+static void _ShellReadDisk(const char* args);
+static void _ShellSystemShutdown(const char* args);
 static void _ShellExecuteCommand(void);
 static void _ShellGetCommand(void);
 
@@ -135,6 +139,8 @@ static const S_ShellCommand sCommands[] =
   {"sleep", "Sleeps for ns time", _ShellSleep},
   {"map", "Get a thread memory mapping", _ShellGetMapping},
   {"draw", "Draw a test pattern", _ShellDrawTest},
+  {"rdisk", "Read a disk", _ShellReadDisk},
+  {"shutdown", "Shutdown the system", _ShellSystemShutdown},
   {"help", "Display this help", _ShellHelp},
   {NULL, NULL, NULL}
 };
@@ -193,8 +199,288 @@ static void _ReadDisk(const char* pPath)
     KPrintf("Error closing file: %s\n", pPath);
   }
 }
-
+static uint8_t sPacketBuffer[2048] __attribute__((aligned(64)));
 static void _ShellTest(const char* args)
+{
+  (void)args;
+  int32_t  fd;
+  ssize_t  ret;
+  uint64_t macAddress;
+  S_NetworkStatistics stats;
+  bool     linkStatus;
+
+  fd = VFSOpen("/dev/net/enp0s4", O_RDWR, 0);
+  if (fd < 0)
+  {
+    fd = VFSOpen("/dev/net/enp0s3", O_RDWR, 0);
+
+    if (fd < 0)
+    {
+      KPrintf("Failed to open /dev/net/enp0s3 and /dev/net/enp0s4s\n");
+      return;
+    }
+  }
+
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_LINK_STATUS, &linkStatus);
+  if (ret != 0)
+  {
+    KPrintf("Failed to get link status for /dev/net/enp0s3\n");
+  }
+  else
+  {
+    KPrintf("Link status for /dev/net/enp0s4: %s\n", linkStatus ? "up" : "down");
+  }
+
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_DOWN, NULL);
+  if (ret != 0)
+  {
+    KPrintf("Failed to bring down interface /dev/net/enp0s4\n");
+  }
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_UP, NULL);
+  if (ret != 0)
+  {
+    KPrintf("Failed to bring up interface /dev/net/enp0s4\n");
+  }
+
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_LINK_STATUS, &linkStatus);
+  if (ret != 0)
+  {
+    KPrintf("Failed to get link status for /dev/net/enp0s4\n");
+  }
+  else
+  {
+    KPrintf("Link status for /dev/net/enp0s4: %s\n", linkStatus ? "up" : "down");
+  }
+
+  macAddress = 0;
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_MAC_ADDRESS, &macAddress);
+  KPrintf("MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",
+          macAddress & 0xFF,
+          (macAddress >> 8) & 0xFF,
+          (macAddress >> 16) & 0xFF,
+          (macAddress >> 24) & 0xFF,
+          (macAddress >> 32) & 0xFF,
+          (macAddress >> 40) & 0xFF);
+
+  macAddress = 0;
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_SET_MAC_ADDRESS, &macAddress);
+  KPrintf("Set MAC Address to: %02X:%02X:%02X:%02X:%02X:%02X, Result: %d\n",
+          macAddress & 0xFF,
+          (macAddress >> 8) & 0xFF,
+          (macAddress >> 16) & 0xFF,
+          (macAddress >> 24) & 0xFF,
+          (macAddress >> 32) & 0xFF,
+          (macAddress >> 40) & 0xFF,
+          ret);
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_MAC_ADDRESS, &macAddress);
+  KPrintf("MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",
+          macAddress & 0xFF,
+          (macAddress >> 8) & 0xFF,
+          (macAddress >> 16) & 0xFF,
+          (macAddress >> 24) & 0xFF,
+          (macAddress >> 32) & 0xFF,
+          (macAddress >> 40) & 0xFF);
+
+
+  macAddress = 0xFFFFFFFFFFFF;
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_SET_MAC_ADDRESS, &macAddress);
+  KPrintf("Set MAC Address to: %02X:%02X:%02X:%02X:%02X:%02X, Result: %d\n",
+          macAddress & 0xFF,
+          (macAddress >> 8) & 0xFF,
+          (macAddress >> 16) & 0xFF,
+          (macAddress >> 24) & 0xFF,
+          (macAddress >> 32) & 0xFF,
+          (macAddress >> 40) & 0xFF,
+          ret);
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_MAC_ADDRESS, &macAddress);
+  KPrintf("MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",
+          macAddress & 0xFF,
+          (macAddress >> 8) & 0xFF,
+          (macAddress >> 16) & 0xFF,
+          (macAddress >> 24) & 0xFF,
+          (macAddress >> 32) & 0xFF,
+          (macAddress >> 40) & 0xFF);
+
+  macAddress = 0x123456789ABF;
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_SET_MAC_ADDRESS, &macAddress);
+  KPrintf("Set MAC Address to: %02X:%02X:%02X:%02X:%02X:%02X, Result: %d\n",
+          macAddress & 0xFF,
+          (macAddress >> 8) & 0xFF,
+          (macAddress >> 16) & 0xFF,
+          (macAddress >> 24) & 0xFF,
+          (macAddress >> 32) & 0xFF,
+          (macAddress >> 40) & 0xFF,
+          ret);
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_MAC_ADDRESS, &macAddress);
+  KPrintf("MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",
+          macAddress & 0xFF,
+          (macAddress >> 8) & 0xFF,
+          (macAddress >> 16) & 0xFF,
+          (macAddress >> 24) & 0xFF,
+          (macAddress >> 32) & 0xFF,
+          (macAddress >> 40) & 0xFF);
+
+  macAddress = 0x123456789AB8;
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_SET_MAC_ADDRESS, &macAddress);
+  KPrintf("Set MAC Address to: %02X:%02X:%02X:%02X:%02X:%02X, Result: %d\n",
+          macAddress & 0xFF,
+          (macAddress >> 8) & 0xFF,
+          (macAddress >> 16) & 0xFF,
+          (macAddress >> 24) & 0xFF,
+          (macAddress >> 32) & 0xFF,
+          (macAddress >> 40) & 0xFF,
+          ret);
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_MAC_ADDRESS, &macAddress);
+  KPrintf("MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",
+          macAddress & 0xFF,
+          (macAddress >> 8) & 0xFF,
+          (macAddress >> 16) & 0xFF,
+          (macAddress >> 24) & 0xFF,
+          (macAddress >> 32) & 0xFF,
+          (macAddress >> 40) & 0xFF);
+
+  for (int i = 0; i < 2; ++i)
+  {
+    SleepNs(1000000000, NULL);
+    memcpy(sPacketBuffer, "Hello, Network!", 15);
+    ret = VFSWrite(fd, sPacketBuffer, 15);
+    KPrintf("Wrote %d bytes to /dev/net/enp0s4\n", ret);
+
+  }
+
+  SleepNs(5000000000, NULL);
+
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_STATS, &stats);
+  if (ret != sizeof(S_NetworkStatistics))
+  {
+    KPrintf("Failed to get network statistics\n");
+  }
+  else
+  {
+    KPrintf("Network Statistics:\n");
+    KPrintf("  RX Packets: %llu\n", (unsigned long long)stats.rxPackets);
+    KPrintf("  TX Packets: %llu\n", (unsigned long long)stats.txPackets);
+    KPrintf("  RX Bytes: %llu\n", (unsigned long long)stats.rxBytes);
+    KPrintf("  TX Bytes: %llu\n", (unsigned long long)stats.txBytes);
+    KPrintf("  Multicast: %llu\n", (unsigned long long)stats.multicast);
+    KPrintf("  Collisions: %llu\n", (unsigned long long)stats.collisions);
+    KPrintf("  RX Errors: %llu\n", (unsigned long long)stats.rxErrors);
+    KPrintf("  TX Errors: %llu\n", (unsigned long long)stats.txErrors);
+    KPrintf("  RX Dropped: %llu\n", (unsigned long long)stats.rxDropped);
+    KPrintf("  TX Dropped: %llu\n", (unsigned long long)stats.txDropped);
+    KPrintf("  RX Length Errors: %llu\n", (unsigned long long)stats.rxLengthErrors);
+    KPrintf("  RX Over Errors: %llu\n", (unsigned long long)stats.rxOverErrors);
+    KPrintf("  RX CRC Errors: %llu\n", (unsigned long long)stats.rxCrcErrors);
+    KPrintf("  RX Frame Errors: %llu\n", (unsigned long long)stats.rxFrameErrors);
+    KPrintf("  RX FIFO Errors: %llu\n", (unsigned long long)stats.rxFifoErrors);
+    KPrintf("  RX Missed Errors: %llu\n", (unsigned long long)stats.rxMissedErrors);
+    KPrintf("  TX Aborted Errors: %llu\n", (unsigned long long)stats.txAbortedErrors);
+    KPrintf("  TX Carrier Errors: %llu\n", (unsigned long long)stats.txCarrierErrors);
+    KPrintf("  TX FIFO Errors: %llu\n", (unsigned long long)stats.txFifoErrors);
+    KPrintf("  TX Heartbeat Errors: %llu\n", (unsigned long long)stats.txHeartbeatErrors);
+    KPrintf("  TX Window Errors: %llu\n", (unsigned long long)stats.txWindowErrors);
+    KPrintf("  RX Compressed: %llu\n", (unsigned long long)stats.rxCompressed);
+    KPrintf("  TX Compressed: %llu\n", (unsigned long long)stats.txCompressed);
+    KPrintf("  RX No Handler: %llu\n", (unsigned long long)stats.rxNoHandler);
+  }
+
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_RESET_STATS, NULL);
+  if (ret != 0)
+  {
+    KPrintf("Failed to get network statistics\n");
+  }
+
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_STATS, &stats);
+  if (ret != sizeof(S_NetworkStatistics))
+  {
+    KPrintf("Failed to get network statistics\n");
+  }
+  else
+  {
+    KPrintf("Network Statistics:\n");
+    KPrintf("  RX Packets: %llu\n", (unsigned long long)stats.rxPackets);
+    KPrintf("  TX Packets: %llu\n", (unsigned long long)stats.txPackets);
+    KPrintf("  RX Bytes: %llu\n", (unsigned long long)stats.rxBytes);
+    KPrintf("  TX Bytes: %llu\n", (unsigned long long)stats.txBytes);
+    KPrintf("  Multicast: %llu\n", (unsigned long long)stats.multicast);
+    KPrintf("  Collisions: %llu\n", (unsigned long long)stats.collisions);
+    KPrintf("  RX Errors: %llu\n", (unsigned long long)stats.rxErrors);
+    KPrintf("  TX Errors: %llu\n", (unsigned long long)stats.txErrors);
+    KPrintf("  RX Dropped: %llu\n", (unsigned long long)stats.rxDropped);
+    KPrintf("  TX Dropped: %llu\n", (unsigned long long)stats.txDropped);
+    KPrintf("  RX Length Errors: %llu\n", (unsigned long long)stats.rxLengthErrors);
+    KPrintf("  RX Over Errors: %llu\n", (unsigned long long)stats.rxOverErrors);
+    KPrintf("  RX CRC Errors: %llu\n", (unsigned long long)stats.rxCrcErrors);
+    KPrintf("  RX Frame Errors: %llu\n", (unsigned long long)stats.rxFrameErrors);
+    KPrintf("  RX FIFO Errors: %llu\n", (unsigned long long)stats.rxFifoErrors);
+    KPrintf("  RX Missed Errors: %llu\n", (unsigned long long)stats.rxMissedErrors);
+    KPrintf("  TX Aborted Errors: %llu\n", (unsigned long long)stats.txAbortedErrors);
+    KPrintf("  TX Carrier Errors: %llu\n", (unsigned long long)stats.txCarrierErrors);
+    KPrintf("  TX FIFO Errors: %llu\n", (unsigned long long)stats.txFifoErrors);
+    KPrintf("  TX Heartbeat Errors: %llu\n", (unsigned long long)stats.txHeartbeatErrors);
+    KPrintf("  TX Window Errors: %llu\n", (unsigned long long)stats.txWindowErrors);
+    KPrintf("  RX Compressed: %llu\n", (unsigned long long)stats.rxCompressed);
+    KPrintf("  TX Compressed: %llu\n", (unsigned long long)stats.txCompressed);
+    KPrintf("  RX No Handler: %llu\n", (unsigned long long)stats.rxNoHandler);
+  }
+
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_DOWN, NULL);
+  if (ret != 0)
+  {
+    KPrintf("Failed to bring down interface /dev/net/enp0s4\n");
+  }
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_DOWN, NULL);
+  if (ret != 0)
+  {
+    KPrintf("Failed to bring down interface /dev/net/enp0s4\n");
+  }
+
+  SleepNs(1000000000, NULL);
+
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_UP, NULL);
+  if (ret != 0)
+  {
+    KPrintf("Failed to bring up interface /dev/net/enp0s4\n");
+  }
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_UP, NULL);
+  if (ret != 0)
+  {
+    KPrintf("Failed to bring up interface /dev/net/enp0s4\n");
+  }
+
+  for (int i = 0; i < 2; ++i)
+  {
+    SleepNs(1000000000, NULL);
+    memcpy(sPacketBuffer, "Hello, Network!", 15);
+    ret = VFSWrite(fd, sPacketBuffer, 15);
+    KPrintf("Wrote %d bytes to /dev/net/enp0s4\n", ret);
+
+  }
+
+  for (int i = 0; i < 10; ++i)
+  {
+    SleepNs(1000000000, NULL);
+     ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_LINK_STATUS, &linkStatus);
+    if (ret != 0)
+    {
+      KPrintf("Failed to get link status for /dev/net/enp0s4\n");
+    }
+    else
+    {
+      KPrintf("Link status for /dev/net/enp0s4: %s\n", linkStatus ? "up" : "down");
+    }
+  }
+
+  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_DOWN, NULL);
+  if (ret != 0)
+  {
+    KPrintf("Failed to bring down interface /dev/net/enp0s4\n");
+  }
+
+  KPrintf("Kernel Shell Test Command Executed\n");
+}
+
+static void _ShellReadDisk(const char* args)
 {
   (void)args;
   _ReadDisk("/dev/storage/sda1");
@@ -207,7 +493,7 @@ static void _ShellTest(const char* args)
   _ReadDisk("/dev/storage/sdb6");
   _ReadDisk("/dev/storage/sdb7");
 
-  KPrintf("Kernel Shell Test Command Executed\n");
+  KPrintf("Kernel Shell Read Disk Command Executed\n");
 }
 
 static void _ShellCat(const char* args)
@@ -541,6 +827,13 @@ static void _ShellDrawTest(const char* args)
   }
 
   VFSClose(graphicCardFd);
+}
+
+static void _ShellSystemShutdown(const char* args)
+{
+  (void)args;
+  KPrintf("Shutting down the system...\n");
+  SystemShutdown();
 }
 
 

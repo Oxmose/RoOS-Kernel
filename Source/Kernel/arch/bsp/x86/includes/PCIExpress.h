@@ -85,6 +85,16 @@ typedef struct
   uint32_t expansionROMBaseAddress;
   /** @brief The capabilities pointer of the PCI function. */
   uint8_t  capabilitiesPointer;
+  /** @brief The reserved bytes of the PCI function. */
+  uint8_t  reserved[7];
+  /** @brief The interrupt line of the PCI function. */
+  uint8_t  interruptLine;
+  /** @brief The interrupt pin of the PCI function. */
+  uint8_t  interruptPin;
+  /** @brief The minimum grant of the PCI function. */
+  uint8_t  minimumGrant;
+  /** @brief The maximum latency of the PCI function. */
+  uint8_t  maximumLatency;
 } __attribute__((packed)) S_PCIFunction;
 
 /** @brief Structure representing an individual entry in the MSI-X Table */
@@ -126,8 +136,16 @@ typedef struct S_PCIDevice
   bool isMSIEnabled;
   /** @brief Indicates if MSIX is enabled for the device. */
   bool isMSIXEnabled;
-  /** @brief The interrupt line for the device. */
-  uint8_t interruptLine;
+  /** @brief The bus number of the device. */
+  uint8_t bus;
+  /** @brief The slot number of the device. */
+  uint8_t slot;
+  /** @brief The function number of the device. */
+  uint8_t function;
+  /** @brief Indicates if the device is a multi-function device. */
+  bool isMultiFunction;
+  /** @brief The IRQ pin for the device. */
+  uint8_t irqLine;
   /** @brief Next device in the list */
   struct S_PCIDevice* pNext;
 } S_PCIDevice;
@@ -302,6 +320,34 @@ E_Return PCISetupInterruptMSIX(S_PCIDevice*   pDevice,
                                const uint32_t kInterruptLine,
                                const uint8_t  kVector,
                                const bool     kIsEnabled);
+
+/**
+ * @brief Prepares the interrupts for the PCIe device.
+ *
+ * @details This function prepares the interrupts for the PCIe device. It will
+ * check for the MSI or MSI-X capabilities of the device and configure the
+ * interrupt controller accordingly.
+ *
+ * @param[in, out] pDevice The PCI device to prepare interrupts for.
+ *
+ * @return The function returns an E_Return value indicating the success or
+ * failure of the operation.
+ */
+E_Return PrepareDeviceMSIInterrupt(S_PCIDevice* pDevice);
+
+/**
+ * @brief Prepares the interrupts for the legacy PCI device.
+ *
+ * @details This function prepares the interrupts for the legacy PCI device.
+ * It will enable the interrupt in the IOAPIC and configure the interrupt
+ * controller accordingly.
+ *
+ * @param[in, out] pDevice The PCI device to prepare interrupts for.
+ *
+ * @return The function returns an E_Return value indicating the success or
+ * failure of the operation.
+ */
+E_Return PrepareDeviceLegacyInterrupt(S_PCIDevice* pDevice);
 
 #endif /* #ifndef __X86_PCIEXPRESS_H_ */
 

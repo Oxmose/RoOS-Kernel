@@ -220,7 +220,7 @@ void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
     if (pendingSignals != 0)
     {
       /* Get the next signal */
-      for (i = 0; i < THREAD_SIG_MAX_VALUE; i++)
+      for (i = 0; i < THREAD_SIG_MAX_VALUE; ++i)
       {
         if ((pendingSignals & (1 << i)) != 0)
         {

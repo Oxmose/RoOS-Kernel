@@ -321,10 +321,8 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode);
  * @brief Sets END OF INTERRUPT for the current CPU Local APIC.
  *
  * @details Sets END OF INTERRUPT for the current CPU Local APIC.
- *
- * @param[in] kInterruptLine The interrupt line for which the EOI should be set.
  */
-static void _SetIrqEOI(const uint32_t kInterruptLine);
+static void _SetIrqEOI(void);
 
 /**
  * @brief Returns the base address of the local APIC.
@@ -857,11 +855,8 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
   return retCode;
 }
 
-static void _SetIrqEOI(const uint32_t kInterruptLine)
+static void _SetIrqEOI(void)
 {
-  /* Interrupt line is not used by LAPIC */
-  (void)kInterruptLine;
-
   _Write(sDrvCtrl.baseAddr, LAPIC_EOI, 0);
 }
 
@@ -1290,7 +1285,7 @@ static E_Return _TimerSetHandler(void* pDrvCtrl, T_InterruptHandler handler)
     pLAPICTimerCtrl = GET_CONTROLER(pDrvCtrl);
     _TimerDisable(pDrvCtrl);
 
-    err = InterruptRegister(pLAPICTimerCtrl->interruptNumber, handler, false);
+    err = InterruptRegister(pLAPICTimerCtrl->interruptNumber, handler);
     if (err == NO_ERROR)
     {
       _TimerEnable(pDrvCtrl);

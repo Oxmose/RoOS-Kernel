@@ -48,10 +48,12 @@
 /** @brief Structure that contains the CPU interrupts configuration. */
 typedef struct
 {
+  /** @brief Total number of interrupt lines. */
+  uint32_t totalInterruptLines;
   /** @brief Minimal interrupt line */
-  uint32_t minInterruptLine;
+  uint32_t minFreeInterruptLine;
   /** @brief Maximal interrupt line */
-  uint32_t maxInterruptLine;
+  uint32_t maxFreeInterruptLine;
   /** @brief Kernel scheduling interrupt line */
   uint32_t schedulerInterruptLine;
   /** @brief Spurious interrupts line id */

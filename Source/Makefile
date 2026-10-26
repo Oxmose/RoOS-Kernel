@@ -52,6 +52,7 @@ endif
 	@make -C $(KERNEL_SRC_DIR)/core
 	@make -C $(KERNEL_SRC_DIR)/time
 	@make -C $(KERNEL_SRC_DIR)/io
+	@make -C $(KERNEL_SRC_DIR)/net
 	@make -C $(KERNEL_SRC_DIR)/fs
 	@make -C $(KERNEL_SRC_DIR)/user
 
@@ -128,6 +129,7 @@ endif
 	@make -C $(KERNEL_SRC_DIR)/core clean
 	@make -C $(KERNEL_SRC_DIR)/time clean
 	@make -C $(KERNEL_SRC_DIR)/io clean
+	@make -C $(KERNEL_SRC_DIR)/net clean
 	@make -C $(KERNEL_SRC_DIR)/fs clean
 	@make -C $(KERNEL_SRC_DIR)/user clean
 

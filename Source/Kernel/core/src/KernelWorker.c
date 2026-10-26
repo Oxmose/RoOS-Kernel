@@ -25,7 +25,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <Scheduler.h>
-#include <KernelQueue.h>
+#include <FastQueue.h>
 #include <KernelError.h>
 #include <KernelSemaphore.h>
 
@@ -47,6 +47,8 @@
 #define KWORKER_THREAD_PRIORITY 1
 /** @brief Stack size for the kernel worker threads. */
 #define KWORKER_THREAD_STACK_SIZE 4096
+/** @brief Size of the task queue for the kernel worker. */
+#define KWORKER_TASK_QUEUE_SIZE 511
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -113,20 +115,20 @@ static void* _KernelWorkerThreadRoutine(void* pArgs);
 
 /************************** Static global variables ***************************/
 /** @brief Pointer to the task queue for the kernel worker. */
-static S_KernelQueue* spTaskQueue;
+static S_FastQueue* spTaskQueue;
 /** @brief Task semaphore for the kernel worker. */
 static S_KernelSemaphore sTaskSemaphore;
 /** @brief Task queue lock */
-S_KernelSpinlock sTaskQueueLock = KERNEL_SPINLOCK_INIT_VALUE;
+static S_KernelSpinlock sTaskQueueLock = KERNEL_SPINLOCK_INIT_VALUE;
 
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
 static void* _KernelWorkerThreadRoutine(void* pArgs)
 {
-  E_Return            retCode;
-  S_KernelQueueNode*  pNode;
-  S_KernelWorkerTask* pTask;
+  E_Return           retCode;
+  S_KernelWorkerTask task;
+  bool               taskAvailable;
 
   (void)pArgs;
 
@@ -141,30 +143,25 @@ static void* _KernelWorkerThreadRoutine(void* pArgs)
 
     /* Get the task */
     KERNEL_LOCK(sTaskQueueLock);
-    pNode = KQueuePop(spTaskQueue);
+    taskAvailable = FQueuePop(spTaskQueue, &task);
     KERNEL_UNLOCK(sTaskQueueLock);
-    KWORKER_ASSERT(pNode != NULL && pNode->pData != NULL,
+    KWORKER_ASSERT(taskAvailable == true,
                    "Failed to dequeue task from the task queue.",
                    ERR_INVALID_VALUE,
                    false);
 
     /* Execute the task */
-    pTask = (S_KernelWorkerTask*)pNode->pData;
-    pTask->pTask(pTask->pArg);
+    task.pTask(task.pArg);
 
     /* Signal task completion */
-    if (pTask->pCompletionSemaphore != NULL)
+    if (task.pCompletionSemaphore != NULL)
     {
-      retCode = KernelSemaphorePost(pTask->pCompletionSemaphore);
+      retCode = KernelSemaphorePost(task.pCompletionSemaphore);
       KWORKER_ASSERT(retCode == NO_ERROR,
                      "Failed to signal task completion semaphore.",
                      retCode,
                      false);
     }
-
-    /* Free the task structure */
-    KFree(pTask);
-    KQueueDestroyNode(&pNode);
   }
 
   /* Kernel worker thread is not allowed to return */
@@ -210,7 +207,8 @@ void KWorkerInit(void)
   }
 
   /* Initialize the task queue */
-  spTaskQueue = KQueueCreate(NULL);
+  spTaskQueue = FQueueCreate(KWORKER_TASK_QUEUE_SIZE,
+                             sizeof(S_KernelWorkerTask));
 
   /* Initialize the task semaphore */
   retCode = KernelSemaphoreInit(&sTaskSemaphore,
@@ -222,24 +220,21 @@ void KWorkerInit(void)
                  false);
 }
 
-E_Return KWorkerSubmitTask(T_KernelWorkerTask task,
-                           void*              pArg,
-                           S_KernelSemaphore* pCompletionSemaphore)
+void KWorkerSubmitTask(T_KernelWorkerTask task,
+                       void*              pArg,
+                       S_KernelSemaphore* pCompletionSemaphore)
 {
-  S_KernelWorkerTask* pNewTask;
-  S_KernelQueueNode*  pNode;
-  E_Return            retCode;
+  S_KernelWorkerTask newTask;
+  E_Return           retCode;
 
   /* Create the task structure */
-  pNewTask = KMalloc(sizeof(S_KernelWorkerTask), KMALLOC_FREE_POOL);
-  pNewTask->pTask = task;
-  pNewTask->pArg = pArg;
-  pNewTask->pCompletionSemaphore = pCompletionSemaphore;
+  newTask.pTask = task;
+  newTask.pArg = pArg;
+  newTask.pCompletionSemaphore = pCompletionSemaphore;
 
   /* Enqueue the task */
-  pNode = KQueueCreateNode(pNewTask, NULL);
   KERNEL_LOCK(sTaskQueueLock);
-  KQueuePush(pNode, spTaskQueue);
+  FQueuePush(spTaskQueue, &newTask);
   KERNEL_UNLOCK(sTaskQueueLock);
 
   /* Signal the task semaphore */
@@ -248,8 +243,6 @@ E_Return KWorkerSubmitTask(T_KernelWorkerTask task,
                  "Failed to signal task semaphore.",
                  retCode,
                  false);
-
-  return NO_ERROR;
 }
 
 /************************************ EOF *************************************/
