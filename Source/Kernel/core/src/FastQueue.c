@@ -93,16 +93,23 @@
 S_FastQueue* FQueueCreate(const size_t kElementCount, const size_t kElementSize)
 {
   S_FastQueue* pNewQueue;
+  size_t       maxSize;
 
   /* Create new queue */
   pNewQueue = KMalloc(sizeof(S_FastQueue), KMALLOC_FREE_POOL);
   pNewQueue->pBuffer = KMalloc((kElementCount + 1) * kElementSize,
                                KMALLOC_FREE_POOL);
 
+  maxSize = kElementCount + 1;
+
+  FQUEUE_ASSERT((maxSize != 0) && ((maxSize & (maxSize - 1)) == 0),
+                "FAST Queues must have a size of 2^n - 1",
+                ERR_INVALID_PARAMETER);
+
   /* Init the structure */
   pNewQueue->head = 0;
   pNewQueue->tail = 0;
-  pNewQueue->maxSize     = kElementCount + 1;
+  pNewQueue->maxSize     = maxSize;
   pNewQueue->elementSize = kElementSize;
 
   return pNewQueue;
@@ -124,7 +131,7 @@ void FQueuePush(S_FastQueue* pQueue, const void* kpData)
   size_t nextIdx;
 
   /* Get the next write index */
-  nextIdx = (pQueue->head + 1) % pQueue->maxSize;
+  nextIdx = (pQueue->head + 1) & (pQueue->maxSize - 1);
 
   FQUEUE_ASSERT(nextIdx != pQueue->tail,
                 "Full Fast Queue",
@@ -159,7 +166,7 @@ bool FQueuePop(S_FastQueue* pQueue, void* pData)
     CPUMemoryFenceAcquire();
 
     /* Get the next read index */
-    pQueue->tail = (pQueue->tail + 1) % pQueue->maxSize;
+    pQueue->tail = (pQueue->tail + 1) & (pQueue->maxSize - 1);
 
     available = true;
   }

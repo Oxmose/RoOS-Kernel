@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <IOAPIC.h>
 #include <Critical.h>
 #include <KernelHeap.h>
 #include <DeviceTree.h>
@@ -93,6 +94,9 @@
 #define CMOS_REG_B 0x0B
 /** @brief CMOS C register id. */
 #define CMOS_REG_C 0x0C
+
+/** @brief RTC IRQ number */
+#define RTC_IRQ_NUMBER 8
 
 /** @brief Current module name */
 #define MODULE_NAME "X86 RTC"
@@ -440,7 +444,10 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
                 "Invalid RTC property.",
                 ERR_INVALID_VALUE);
 
-    spDrvCtrl->irqNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
+    spDrvCtrl->irqNumber = AllocateInterruptLine();
+    RTC_ASSERT(spDrvCtrl->irqNumber >= 0,
+               "Failed to allocate interrupt line.",
+               ERR_EXCEEDED_LIMIT);
 
     /* Get communication ports */
     kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_COMM_PROP, &propLen);
@@ -553,7 +560,11 @@ static void _Enable(void* pDrvCtrl)
 
   if (pRtcCtrl->disabledNesting == 0 && pRtcCtrl->selectedFrequency != 0)
   {
-    InterruptSetIRQMask(pRtcCtrl->irqNumber, true);
+        IOAPICSetupIRQ(RTC_IRQ_NUMBER,
+                       spDrvCtrl->irqNumber,
+                       CPUGetLAPICId(),
+                       IOAPIC_TRIGGER_MODE_EDGE,
+                       IOAPIC_POLARITY_HIGH);
   }
 
   KERNEL_UNLOCK(pRtcCtrl->lock);
@@ -572,7 +583,7 @@ static void _Disable(void* pDrvCtrl)
     ++pRtcCtrl->disabledNesting;
   }
 
-  InterruptSetIRQMask(pRtcCtrl->irqNumber, false);
+  IOAPICDisableIRQ(RTC_IRQ_NUMBER);
 
   KERNEL_UNLOCK(pRtcCtrl->lock);
 }
@@ -679,7 +690,7 @@ static E_Return _SetHandler(void* pDrvCtrl, T_InterruptHandler handler)
     pRtcCtrl = GET_CONTROLER(pDrvCtrl);
 
     KERNEL_LOCK(pRtcCtrl->lock);
-    err = InterruptRegister(pRtcCtrl->irqNumber, handler, true);
+    err = InterruptRegister(pRtcCtrl->irqNumber, handler);
     KERNEL_UNLOCK(pRtcCtrl->lock);
   }
   else

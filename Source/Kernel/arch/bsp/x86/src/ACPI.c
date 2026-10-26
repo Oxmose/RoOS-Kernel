@@ -29,6 +29,7 @@
 #include <string.h>
 #include <ProcFS.h>
 #include <Memory.h>
+#include <SystemBSP.h>
 #include <DeviceTree.h>
 #include <KernelHeap.h>
 #include <KernelError.h>
@@ -59,24 +60,98 @@
 /** @brief Module name */
 #define MODULE_NAME "X86 ACPI"
 
-/** @brief ACPI memory signature: RSDP. */
-#define ACPI_RSDP_SIG 0x2052545020445352
-/** @brief ACPI memory signature: RSDT. */
-#define ACPI_RSDT_SIG 0x54445352
-/** @brief ACPI memory signature: XSDT. */
-#define ACPI_XSDT_SIG 0x54445358
-/** @brief ACPI memory signature: FACP. */
-#define ACPI_FACP_SIG 0x50434146
-/** @brief ACPI memory signature: FACS. */
-#define ACPI_FACS_SIG 0x53434146
-/** @brief ACPI memory signature: APIC. */
-#define ACPI_APIC_SIG 0x43495041
-/** @brief ACPI memory signature: DSDT. */
-#define ACPI_DSDT_SIG 0x54445344
-/** @brief ACPI memory signature: HPET. */
-#define ACPI_HPET_SIG 0x54455048
-/** @brief ACPI memory signature: MCFG. */
-#define ACPI_MCFG_SIG 0x4746434D
+/** @brief ACPI table: Root System Description Pointer */
+#define ACPI_RSDP_SIG 0x2052545020445352ULL /* "RSD PTR " (64-bit signature) */
+/** @brief ACPI table: Root System Description Table */
+#define ACPI_RSDT_SIG 0x54445352 /* "RSDT" */
+/** @brief ACPI table: Extended System Description Table */
+#define ACPI_XSDT_SIG 0x54445358 /* "XSDT" */
+/** @brief ACPI table: Fixed ACPI Description Table */
+#define ACPI_FADT_SIG 0x50434146 /* "FACP" */
+/** @brief ACPI table: Firmware ACPI Control Structure */
+#define ACPI_FACS_SIG 0x53434146 /* "FACS" */
+/** @brief ACPI table: Differentiated System Description Table */
+#define ACPI_DSDT_SIG 0x54445344 /* "DSDT" */
+/** @brief ACPI table: Secondary System Description Table */
+#define ACPI_SSDT_SIG 0x54445353 /* "SSDT" */
+/** @brief ACPI table: Multiple APIC Description Table */
+#define ACPI_MADT_SIG 0x43495041 /* "APIC" */
+/** @brief ACPI table: Smart Battery Specification Table */
+#define ACPI_SBST_SIG 0x54534253 /* "SBST" */
+/** @brief ACPI table: System Resource Affinity Table */
+#define ACPI_SRAT_SIG 0x54415253 /* "SRAT" */
+/** @brief ACPI table: System Locality Distance Information Table */
+#define ACPI_SLIT_SIG 0x54494C53 /* "SLIT" */
+/** @brief ACPI table: Memory Power State Table */
+#define ACPI_MPST_SIG 0x5453504D /* "MPST" */
+/** @brief ACPI table: NVDIMM Firmware Interface Table */
+#define ACPI_NFIT_SIG 0x5449464E /* "NFIT" */
+/** @brief ACPI table: Heterogeneous Memory Attribute Table */
+#define ACPI_HMAT_SIG 0x54414D48 /* "HMAT" */
+/** @brief ACPI table: Processor Properties Topology Table */
+#define ACPI_PPTT_SIG 0x54545050 /* "PPTT" */
+/** @brief ACPI table: Platform Health Performance Monitoring Table */
+#define ACPI_PHAT_SIG 0x54414850 /* "PHAT" */
+/** @brief ACPI table: Cache Coherency Interconnect Topology Table */
+#define ACPI_CCIT_SIG 0x54494343 /* "CCIT" */
+/** @brief ACPI table: Component Measurement Log Table */
+#define ACPI_CMLT_SIG 0x544C4D43 /* "CMLT" */
+/** @brief ACPI table: Boot Error Record Table */
+#define ACPI_BERT_SIG 0x54524542 /* "BERT" */
+/** @brief ACPI table: Error Injection Table */
+#define ACPI_EINJ_SIG 0x4A4E4945 /* "EINJ" */
+/** @brief ACPI table: Error Record Serialization Table */
+#define ACPI_ERST_SIG 0x54535245 /* "ERST" */
+/** @brief ACPI table: Hardware Error Source Table */
+#define ACPI_HEST_SIG 0x54534548 /* "HEST" */
+/** @brief ACPI table: Platform Communications Channel Table */
+#define ACPI_PCCT_SIG 0x54434350 /* "PCCT" */
+/** @brief ACPI table: Boot Graphics Resource Table */
+#define ACPI_BGRT_SIG 0x54524742 /* "BGRT" */
+/** @brief ACPI table: Corrected Platform Error Polling Table */
+#define ACPI_CPEP_SIG 0x50455043 /* "CPEP" */
+/** @brief ACPI table: CSR Descriptor Table */
+#define ACPI_CSRT_SIG 0x54525343 /* "CSRT" */
+/** @brief ACPI table: Debug Port Table 2 */
+#define ACPI_DBG2_SIG 0x32474244 /* "DBG2" */
+/** @brief ACPI table: Debug Port Table 1 */
+#define ACPI_DBGP_SIG 0x50474244 /* "DBGP" */
+/** @brief ACPI table: Data Management Table */
+#define ACPI_DMAR_SIG 0x52414D44 /* "DMAR" */
+/** @brief ACPI table: Direct Memory Access Remapping Table */
+#define ACPI_DRTM_SIG 0x4D545244 /* "DRTM" */
+/** @brief ACPI table: Embedded Controller Boot Resources Table */
+#define ACPI_ECDT_SIG 0x54444345 /* "ECDT" */
+/** @brief ACPI table: Firmware Performance Data Table */
+#define ACPI_FPDT_SIG 0x54445046 /* "FPDT" */
+/** @brief ACPI table: Generic Timer Description Table */
+#define ACPI_GTDT_SIG 0x54445447 /* "GTDT" */
+/** @brief ACPI table: Memory Map Resource Allocation Table */
+#define ACPI_MCFG_SIG 0x4746434D /* "MCFG" */
+/** @brief ACPI table: Maximum System Characteristics Table */
+#define ACPI_MSCT_SIG 0x5443534D /* "MSCT" */
+/** @brief ACPI table: PCI Root Bridge Digital Properties Table */
+#define ACPI_PRMT_SIG 0x544D5250 /* "PRMT" */
+/** @brief ACPI table: RAS Extensibility Architecture Table */
+#define ACPI_RAST_SIG 0x54534152 /* "RAST" */
+/** @brief ACPI table: Serial Port Console Redirection Table */
+#define ACPI_SPCR_SIG 0x52435053 /* "SPCR" */
+/** @brief ACPI table: Watchdog Action Table */
+#define ACPI_WDAT_SIG 0x54414457 /* "WDAT" */
+/** @brief ACPI table: Windows SMM Security Mitigations Table */
+#define ACPI_WSMT_SIG 0x544D5357 /* "WSMT" */
+/** @brief ACPI table: High Precision Event Timer Table */
+#define ACPI_HPET_SIG 0x54455048 /* "HPET" */
+/** @brief ACPI table: Trusted Platform Module 2 Table */
+#define ACPI_TPM2_SIG 0x324D5054 /* "TPM2" */
+/** @brief ACPI table: CXL Early Discovery Table */
+#define ACPI_CEDT_SIG 0x54444543 /* "CEDT" */
+/** @brief ACPI table: I/O Virtualization Table (ACPI 6.6 New addition) */
+#define ACPI_IOVT_SIG 0x54564F49 /* "IOVT" */
+/** @brief ACPI table: Software Licensing Table (ACPI 6.6 New addition) */
+#define ACPI_SWFT_SIG 0x54465753 /* "SWFT" */
+/** @brief ACPI table: Keypad Configuration Table (ACPI 6.6 New addition) */
+#define ACPI_KEYP_SIG 0x5059454B /* "KEYP" */
 
 /** @brief APIC type: local APIC. */
 #define APIC_TYPE_LOCAL_APIC 0x0
@@ -104,6 +179,14 @@
 #define HPET_FLAGS_CS_SHIFT 13
 /** @brief HPET Flags legacy replacement IRQ shift */
 #define HPET_FLAGS_IRQ_SHIFT 15
+
+/** @brief S5 package name */
+#define S5_PACKAGE_NAME 0x5F35535F
+/** @brief _PRT package name */
+#define PRT_PACKAGE_NAME 0x5452505F
+
+/** @brief Address space: System Memory */
+#define ADDR_SPACE_SYSTEM_MEMORY 0
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -325,6 +408,8 @@ typedef struct
 {
   /** @brief DSDT header */
   S_ACPIHeader header;
+  /** @brief DSDT AML code */
+  uint8_t aml[];
 }  __attribute__((__packed__)) S_DSDT;
 
 /** @brief ACPI MADT descriptor.
@@ -484,7 +569,28 @@ typedef struct
   uint32_t version;
   /** @brief ACPI base address */
   uintptr_t baseAddress;
+  /** @brief Copy of the FADT structure. */
+  S_FADT fadt;
+  /** @brief Shutdown register values */
+  uint16_t shutdownRegValue[2];
 } S_ACPIControler;
+
+/** @brief AML package structure. */
+typedef struct
+{
+  /** @brief Package name operation */
+  uint8_t nameOp;
+  /** @brief Package signature */
+  uint32_t signature;
+  /** @brief Package type */
+  uint8_t type;
+  /** @brief Package length */
+  uint8_t length;
+  /** @brief Package elements count */
+  uint8_t elementsCount;
+  /** @brief Package elements */
+  uint8_t elements[];
+} __attribute__((__packed__)) S_Package;
 
 /*******************************************************************************
  * MACROS
@@ -655,6 +761,16 @@ static void _ParseHPET(const S_ACPIHPETDescriptor* kpHpetPtr);
  * @param[in] kpMcfgPtr The address of the MCFG entry to parse.
  */
 static void _ParseMCFG(const S_MCFGDescriptor* kpMcfgPtr);
+
+/**
+ * @brief Parses the APIC entries of the DSDT table.
+ *
+ * @details Parse the APIC entries of the DSDT table.The function will parse
+ * each entry and add the DSDT node to the list of detected DSDT entries.
+ *
+ * @param[in] pDsdtPtr The address of the DSDT entry to parse.
+ */
+static void _ParseDSDT(S_DSDT* pDsdtPtr);
 
 /**
  * @brief Returns the number of LAPIC detected in the system.
@@ -1264,21 +1380,284 @@ static void _ParseDT(const S_ACPIHeader* kpHeader, const uintptr_t kPhysAddr)
               errCode);
 
   descPtr = descAddr | (kPhysAddr & PAGE_SIZE_MASK);
-  if (*((uint32_t*)kpHeader->pSignature) == ACPI_FACP_SIG)
+  if (*((uint32_t*)kpHeader->pSignature) == ACPI_FADT_SIG)
   {
     _ParseFADT((S_FADT*)descPtr);
   }
-  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_APIC_SIG)
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_FACS_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "FACS found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_SSDT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "SSDT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_MADT_SIG)
   {
     _ParseMADT((S_MADT*)descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_SBST_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "SBST found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_SRAT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "SRAT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_SLIT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "SLIT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_MPST_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "MPST found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_NFIT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "NFIT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_HMAT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "HMAT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_PPTT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "PPTT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_PHAT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "PHAT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_CCIT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "CCIT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_CMLT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "CMLT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_BERT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "BERT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_EINJ_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "EINJ found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_ERST_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "ERST found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_HEST_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "HEST found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_PCCT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "PCCT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_BGRT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "BGRT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_CPEP_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "CPEP found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_CSRT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "CSRT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_DBG2_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "DBG2 found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_DBGP_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "DBGP found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_DMAR_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "DMAR found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_DRTM_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "DRTM found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_ECDT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "ECDT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_FPDT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "FPDT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_GTDT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "GTDT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_MCFG_SIG)
+  {
+    _ParseMCFG((S_MCFGDescriptor*)descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_MSCT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "MSCT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_PRMT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "PRMT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_RAST_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "RAST found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_SPCR_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "SPCR found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_WDAT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "WDAT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_WSMT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "WSMT found at 0x%p",
+                 descPtr);
   }
   else if (*((uint32_t*)kpHeader->pSignature) == ACPI_HPET_SIG)
   {
     _ParseHPET((S_ACPIHPETDescriptor*)descPtr);
   }
-  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_MCFG_SIG)
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_TPM2_SIG)
   {
-    _ParseMCFG((S_MCFGDescriptor*)descPtr);
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "TPM2 found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_CEDT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "CEDT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_IOVT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "IOVT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_SWFT_SIG)
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "SWFT found at 0x%p",
+                 descPtr);
+  }
+  else if (*((uint32_t*)kpHeader->pSignature) == ACPI_KEYP_SIG)
+  {
+
   }
   else
   {
@@ -1296,8 +1675,16 @@ static void _ParseDT(const S_ACPIHeader* kpHeader, const uintptr_t kPhysAddr)
 
 static void _ParseFADT(const S_FADT* kpFadtPtr)
 {
-  int32_t  sum;
-  uint32_t i;
+  int32_t     sum;
+  uint32_t    i;
+  uintptr_t   dsdtAddr;
+  S_GAddress* pDsdtGAddress;
+  S_DSDT*     pDsdt;
+  void*       pDsdtMap;
+  size_t      toMap;
+  size_t      initSize;
+  E_Return    errCode;
+  uintptr_t   offset;
 
   ACPI_ASSERT(kpFadtPtr != NULL,
               "Tried to parse a NULL FADT",
@@ -1316,9 +1703,94 @@ static void _ParseFADT(const S_FADT* kpFadtPtr)
   }
 
   ACPI_ASSERT((sum & 0xFF) == 0, "FADT Checksum failed", ERR_INVALID_VALUE);
-  ACPI_ASSERT(*((uint32_t*)kpFadtPtr->header.pSignature) == ACPI_FACP_SIG,
+  ACPI_ASSERT(*((uint32_t*)kpFadtPtr->header.pSignature) == ACPI_FADT_SIG,
               "FADT Signature comparison failed",
               ERR_INVALID_VALUE);
+
+  /* Save the FADT pointer */
+  memcpy(&sDrvCtrl.fadt, kpFadtPtr, sizeof(S_FADT));
+
+
+  /* Parse the DSDT */
+  dsdtAddr = 0;
+  if (kpFadtPtr->header.length >= 148)
+  {
+    pDsdtGAddress = (S_GAddress*)&kpFadtPtr->xDsdt;
+    if (pDsdtGAddress->addressSpace == ADDR_SPACE_SYSTEM_MEMORY)
+    {
+      if (pDsdtGAddress->address != 0)
+      {
+        KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                     MODULE_NAME,
+                     "    FADT DSDT address is 0x%p",
+                     pDsdtGAddress->address);
+        dsdtAddr = (uintptr_t)pDsdtGAddress->address;
+
+      }
+      else
+      {
+        KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                     MODULE_NAME,
+                     "    FADT DSDT address is 32 Bits");
+      }
+    }
+    else
+    {
+      KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                   MODULE_NAME,
+                   "    FADT DSDT address is 32 Bits");
+    }
+  }
+  else
+  {
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "    FADT DSDT address is 32 Bits");
+  }
+
+  /* Fallback to the 32-bit DSDT address in the FADT */
+  if (dsdtAddr == 0)
+  {
+    dsdtAddr = (uintptr_t)kpFadtPtr->dsdt;
+  }
+
+  KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "    FADT DSDT address is 0x%p",
+               dsdtAddr);
+  initSize = KERNEL_PAGE_SIZE;
+  offset = dsdtAddr & PAGE_SIZE_MASK;
+  if (offset < sizeof(S_ACPIHeader))
+  {
+    initSize += KERNEL_PAGE_SIZE;
+  }
+  pDsdtMap = MemoryKernelMap((void*)((uintptr_t)dsdtAddr & ~PAGE_SIZE_MASK),
+                          initSize,
+                          MEMMGR_MAP_HARDWARE |
+                          MEMMGR_MAP_KERNEL   |
+                          MEMMGR_MAP_RO,
+                          &errCode);
+  ACPI_ASSERT(errCode == NO_ERROR, "Failed to map DSDT", errCode);
+
+  pDsdt = (S_DSDT*)((uintptr_t)pDsdtMap + offset);
+  toMap = ((uintptr_t)pDsdt & PAGE_SIZE_MASK) + pDsdt->header.length;
+  if (toMap % KERNEL_PAGE_SIZE)
+  {
+    toMap = (toMap + KERNEL_PAGE_SIZE) & ~PAGE_SIZE_MASK;
+  }
+  errCode = MemoryKernelUnmap(pDsdtMap, initSize);
+  ACPI_ASSERT(errCode == NO_ERROR, "Failed to unmap DSDT", errCode);
+
+  pDsdtMap = MemoryKernelMap((void*)((uintptr_t)dsdtAddr & ~PAGE_SIZE_MASK),
+                             toMap,
+                             MEMMGR_MAP_HARDWARE |
+                             MEMMGR_MAP_KERNEL   |
+                             MEMMGR_MAP_RW,
+                             &errCode);
+  pDsdt = (S_DSDT*)((uintptr_t)pDsdtMap + offset);
+  ACPI_ASSERT(errCode == NO_ERROR, "Failed to map DSDT", errCode);
+
+  _ParseDSDT(pDsdt);
 }
 
 static void _ParseMADT(const S_MADT* kpMadtPtr)
@@ -1336,7 +1808,7 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
   S_InterruptOverrideNode* pIntOverrideListCursor;
 
   ACPI_ASSERT(kpMadtPtr != NULL,
-              "Tried to parse a NULL APIC",
+              "Tried to parse a NULL MADT",
               ERR_INVALID_PARAMETER);
 
   /* Verify checksum */
@@ -1351,9 +1823,9 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
                "ACPI MADT at 0x%p",
                kpMadtPtr);
 
-  ACPI_ASSERT((sum & 0xFF) == 0, "APIC checksum failed", ERR_INVALID_VALUE);
-  ACPI_ASSERT(*((uint32_t*)kpMadtPtr->header.pSignature) == ACPI_APIC_SIG,
-              "Invalid APIC signature",
+  ACPI_ASSERT((sum & 0xFF) == 0, "MADT checksum failed", ERR_INVALID_VALUE);
+  ACPI_ASSERT(*((uint32_t*)kpMadtPtr->header.pSignature) == ACPI_MADT_SIG,
+              "Invalid MADT signature",
               ERR_INVALID_VALUE);
 
   madtEntry = (uintptr_t)(kpMadtPtr + 1);
@@ -1391,7 +1863,8 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
     {
       KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
                    MODULE_NAME,
-                   "    IO-APIC");
+                   "    IO-APIC %d Detected",
+                   sDrvCtrl.detectedIOAPICCount);
 
       /* Create new IO APIC node */
       pIOApicNode = KMalloc(sizeof(S_IOAPICNode), KMALLOC_NO_FREE_POOL);
@@ -1540,6 +2013,78 @@ static void _ParseMCFG(const S_MCFGDescriptor* kpMcfgPtr)
                  pNode->pciConfig.endBusNumber);
 
     ADD_TO_LIST(sDrvCtrl.pPCIConfigList, pCursor, pNode);
+  }
+}
+
+uint32_t parse_aml_pkg_length(const uint8_t* stream, uint32_t* offset);
+uint32_t parse_aml_pkg_length(const uint8_t* stream, uint32_t* offset) {
+    uint8_t lead_byte = stream[*offset];
+    (*offset)++;
+
+    // Rule 1: Standard 1-byte length
+    // If bits 6 and 7 are 0, the length is just the lower 6 bits (max value 63)
+    if ((lead_byte & 0xC0) == 0) {
+        return lead_byte & 0x3F;
+    }
+
+    // Rule 2: Multi-byte length (2, 3, or 4 bytes follow)
+    // Bits 6-7 tell us how many extra bytes represent this integer
+    uint8_t extra_bytes = (lead_byte >> 6) & 0x03;
+    uint32_t length = lead_byte & 0x0F; // Initialize with the lower 4 bits
+
+    for (uint8_t i = 0; i < extra_bytes; i++) {
+        length |= (stream[*offset] << (4 + (i * 8)));
+        (*offset)++; // Advance the stream index past this length byte
+    }
+
+    return length;
+}
+
+static void _ParseDSDT(S_DSDT* pDsdtPtr)
+{
+  int32_t          sum;
+  uint32_t         i;
+  uint8_t*         memCursor;
+  S_Package*       pPackage;
+
+  ACPI_ASSERT(pDsdtPtr != NULL, "Parse a NULL DSDT", ERR_INVALID_PARAMETER);
+
+  /* Verify checksum */
+  sum = 0;
+  for (i = 0; i < pDsdtPtr->header.length; ++i)
+  {
+    sum += ((uint8_t*)pDsdtPtr)[i];
+  }
+
+  KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "ACPI DSDT at 0x%p",
+               pDsdtPtr);
+
+  ACPI_ASSERT((sum & 0xFF) == 0, "DSDT Checksum failed", ERR_INVALID_VALUE);
+  ACPI_ASSERT(*((uint32_t*)pDsdtPtr->header.pSignature) == ACPI_DSDT_SIG,
+              "DSDT Signature comparison failed",
+              ERR_INVALID_VALUE);
+
+  /* Search for the S5 sequence to get the register values */
+  memCursor = pDsdtPtr->aml;
+  for (i = 0;
+       i < pDsdtPtr->header.length - sizeof(S_ACPIHeader) - sizeof(uint32_t);
+       ++i)
+  {
+    /* Check if we found the S5 package */
+    if (*((uint32_t*)&memCursor[i]) == S5_PACKAGE_NAME)
+    {
+      pPackage = (S_Package*)&memCursor[i-1];
+      sDrvCtrl.shutdownRegValue[0] = (uint16_t)pPackage->elements[1];
+      sDrvCtrl.shutdownRegValue[1] = (uint16_t)pPackage->elements[3];
+
+      KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                   MODULE_NAME,
+                   "    Found S5 Package Shutdown Values: 0x%04X, 0x%04X",
+                   sDrvCtrl.shutdownRegValue[0],
+                   sDrvCtrl.shutdownRegValue[1]);
+    }
   }
 }
 
@@ -1729,6 +2274,46 @@ static E_Return _CreateProcFSEntry(void)
 
   return retCode;
 }
+
+void SystemShutdown(void)
+{
+  uint16_t value;
+
+  KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "Shutting down the system via ACPI");
+
+  value = 0x2000 | (sDrvCtrl.shutdownRegValue[0] << 10);
+  KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "Writing 0x%04X to PM1a Control Block at 0x%p",
+               value,
+               sDrvCtrl.fadt.pm1aControlBlock);
+
+
+  CPUPortWriteWord(value, sDrvCtrl.fadt.pm1aControlBlock);
+
+  /* Second word if needed */
+  if (sDrvCtrl.shutdownRegValue[1] != 0 &&
+      sDrvCtrl.fadt.pm1bControlBlock != 0)
+  {
+    value = 0x2000 | (sDrvCtrl.shutdownRegValue[1] << 10);
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "Writing 0x%04X to PM1b Control Block at 0x%p",
+                 value,
+                 sDrvCtrl.fadt.pm1bControlBlock);
+
+    CPUPortWriteWord(value, sDrvCtrl.fadt.pm1bControlBlock);
+  }
+
+  while (1)
+  {
+    CPUInterruptDisable();
+    CPUHalt();
+  }
+}
+
 
 /***************************** DRIVER REGISTRATION ****************************/
 DRIVERMGR_REG_FDT(sX86ACPIDriver);

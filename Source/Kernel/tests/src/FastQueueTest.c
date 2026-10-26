@@ -132,15 +132,15 @@ static void* FastQueuesTestRoutine(void* args)
   uint32_t sentinel = 0xDEADBEEF;
   bool available;
 
-  queue = FQueueCreate(3, sizeof(uint32_t));
+  queue = FQueueCreate(7, sizeof(uint32_t));
   TEST_POINT_ASSERT_UDWORD(TEST_FASTQUEUE_CREATE_ID(0),
                            queue != NULL,
                            (uint64_t)1,
                            (uint64_t)(uintptr_t)queue,
                            TEST_OS_FAST_QUEUES_ENABLED);
   TEST_POINT_ASSERT_UDWORD(TEST_FASTQUEUE_CREATE_ID(1),
-                           queue->maxSize == 4,
-                           (uint64_t)4,
+                           queue->maxSize == 8,
+                           (uint64_t)8,
                            (uint64_t)queue->maxSize,
                            TEST_OS_FAST_QUEUES_ENABLED);
   TEST_POINT_ASSERT_UDWORD(TEST_FASTQUEUE_CREATE_ID(2),
@@ -287,7 +287,7 @@ static void* FastQueuesTestRoutine(void* args)
     void* returnValue;
     uint32_t i;
 
-    concurrencyQueue = FQueueCreate(8, sizeof(uint32_t));
+    concurrencyQueue = FQueueCreate(7, sizeof(uint32_t));
     TEST_POINT_ASSERT_UDWORD(TEST_FASTQUEUE_CONCURRENCY_ID(0),
                              concurrencyQueue != NULL,
                              (uint64_t)1,

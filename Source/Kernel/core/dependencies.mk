@@ -5,4 +5,5 @@ DEP_INCLUDES += -I ../arch/bsp/includes
 DEP_INCLUDES += -I ../time/includes
 DEP_INCLUDES += -I ../io/includes
 DEP_INCLUDES += -I ../fs/includes
+DEP_INCLUDES += -I ../net/includes
 DEP_INCLUDES += -I ../tests/includes

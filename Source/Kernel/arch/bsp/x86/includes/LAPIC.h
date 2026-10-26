@@ -45,11 +45,8 @@ typedef struct
    * @brief Sets END OF INTERRUPT for the current CPU Local APIC.
    *
    * @details Sets END OF INTERRUPT for the current CPU Local APIC.
-   *
-   * @param[in] kInterruptLine The interrupt line for which the EOI should be
-   * set.
    */
-  void (*pSetIRQEOI)(const uint32_t kInterruptLine);
+  void (*pSetIRQEOI)(void);
 
   /**
    * @brief Returns the base address of the local APIC.

@@ -570,71 +570,49 @@ void CPURegisterExceptions(void)
   E_Return error;
 
   error = InterruptRegister(DIVISION_BY_ZERO_EXC_LINE,
-                            _FPExceptionHandler,
-                            false);
+                            _FPExceptionHandler);
   error |= InterruptRegister(DEBUG_EXC_LINE,
-                             _DebugExceptionHandler,
-                             false);
+                             _DebugExceptionHandler);
   error |= InterruptRegister(BREAKPOINT_EXC_LINE,
-                             _BreakpointExceptionHandler,
-                             false);
+                             _BreakpointExceptionHandler);
   error |= InterruptRegister(OVERFLOW_EXC_LINE,
-                             _OverflowExceptionHandler,
-                             false);
+                             _OverflowExceptionHandler);
   error |= InterruptRegister(BOUND_RANGE_EXCEEDED_EXC_LINE,
-                             _BoundRangeExceptionHandler,
-                             false);
+                             _BoundRangeExceptionHandler);
   error |= InterruptRegister(INVALID_INSTRUCTION_EXC_LINE,
-                             _InvalidInstructionHandler,
-                             false);
+                             _InvalidInstructionHandler);
   error |= InterruptRegister(DEVICE_NOT_AVAILABLE_EXC_LINE,
-                             _DeviceNotAvailableExceptionHandler,
-                             false);
+                             _DeviceNotAvailableExceptionHandler);
   error |= InterruptRegister(DOUBLE_FAULT_EXC_LINE,
-                             _DoubleFaultHandler,
-                             false);
+                             _DoubleFaultHandler);
   error |= InterruptRegister(COPROC_SEGMENT_OVERRUN_EXC_LINE,
-                             _CoprocSegmentOverrunExceptionHandler,
-                             false);
+                             _CoprocSegmentOverrunExceptionHandler);
   error |= InterruptRegister(INVALID_TSS_EXC_LINE,
-                             _InvalidTSSExceptionHandler,
-                             false);
+                             _InvalidTSSExceptionHandler);
   error |= InterruptRegister(SEGMENT_NOT_PRESENT_EXC_LINE,
-                             _SegmentNotPresentExceptionHandler,
-                             false);
+                             _SegmentNotPresentExceptionHandler);
   error |= InterruptRegister(STACK_SEGMENT_FAULT_EXC_LINE,
-                             _StackSegmentFaultExceptionHandler,
-                             false);
+                             _StackSegmentFaultExceptionHandler);
   error |= InterruptRegister(GENERAL_PROTECTION_FAULT_EXC_LINE,
-                             _GeneralProtectionExceptionHandler,
-                             false);
+                             _GeneralProtectionExceptionHandler);
   error |= InterruptRegister(X87_FLOATING_POINT_EXC_LINE,
-                             _FPExceptionHandler,
-                             false);
+                             _FPExceptionHandler);
   error |= InterruptRegister(ALIGNEMENT_CHECK_EXC_LINE,
-                             _AlignementCheckExceptionHandler,
-                             false);
+                             _AlignementCheckExceptionHandler);
   error |= InterruptRegister(MACHINE_CHECK_EXC_LINE,
-                             _MachineCheckExceptionHandler,
-                             false);
+                             _MachineCheckExceptionHandler);
   error |= InterruptRegister(SIMD_FLOATING_POINT_EXC_LINE,
-                             _SIMDFPExceptionHandler,
-                             false);
+                             _SIMDFPExceptionHandler);
   error |= InterruptRegister(VIRTUALIZATION_EXC_LINE,
-                             _VirtualizationExceptionHandler,
-                             false);
+                             _VirtualizationExceptionHandler);
   error |= InterruptRegister(CONTROL_PROTECTION_EXC_LINE,
-                             _ControlProtectionExceptionHandler,
-                             false);
+                             _ControlProtectionExceptionHandler);
   error |= InterruptRegister(HYPERVISOR_INJECTION_EXC_LINE,
-                             _HypervisorInjectionExceptionHandler,
-                             false);
+                             _HypervisorInjectionExceptionHandler);
   error |= InterruptRegister(VMM_COMMUNICATION_EXC_LINE,
-                             _VMMCommunicationExceptionHandler,
-                             false);
+                             _VMMCommunicationExceptionHandler);
   error |= InterruptRegister(SECURITY_EXC_LINE,
-                             _SecurityExceptionHandler,
-                             false);
+                             _SecurityExceptionHandler);
 
   CPU_ASSERT(error == NO_ERROR, "Failed to register CPU exceptions.", error);
 }

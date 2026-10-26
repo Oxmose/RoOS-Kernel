@@ -11,6 +11,7 @@ DEP_LIBS += -llibc
 DEP_LIBS += -lapi
 DEP_LIBS += -ltime
 DEP_LIBS += -lio
+DEP_LIBS += -lnet
 DEP_LIBS += -lfs
 DEP_LIBS += -luser
 DEP_LIBS += --whole-archive -lrawdtb
@@ -25,6 +26,7 @@ DEP_MODULES += -L../core/bin
 DEP_MODULES += -L../libs/bin
 DEP_MODULES += -L../time/bin
 DEP_MODULES += -L../io/bin
+DEP_MODULES += -L../net/bin
 DEP_MODULES += -L../fs/bin
 DEP_MODULES += -L../user/bin
 ifeq ($(TESTS), TRUE)

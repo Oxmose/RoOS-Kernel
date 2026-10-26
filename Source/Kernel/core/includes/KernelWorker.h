@@ -28,15 +28,11 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/** @brief Invalid task handle */
-#define KWORKER_TASK_INVALID ((T_TaskHandle)0)
+/* None */
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/** @brief Task handle type. */
-typedef void* T_TaskHandle;
-
 /**
  * @brief Kernel worker task type.
  *
@@ -87,12 +83,10 @@ void KWorkerInit(void);
  * @param[in] pArg The argument to pass to the task function.
  * @param[in] pCompletionSemaphore The semaphore to signal when the task is
  * complete. Can be NULL if no completion signal is needed.
- *
- * @return The error or success status of the task submission.
  */
-E_Return KWorkerSubmitTask(T_KernelWorkerTask task,
-                           void*              pArg,
-                           S_KernelSemaphore* pCompletionSemaphore);
+void KWorkerSubmitTask(T_KernelWorkerTask task,
+                       void*              pArg,
+                       S_KernelSemaphore* pCompletionSemaphore);
 
 #endif /* #ifndef __CORE_KERNELWORKER_H_ */
 

@@ -2077,6 +2077,8 @@ typedef struct S_AHCIControler
   S_PCIDevice* pDevice;
   /** @brief Pointer to the generic S_AHCIPortControler structure */
   S_AHCIPortControler ports[AHCI_MAX_PORTS];
+  /** @brief The interrupt line used by the AHCI controller */
+  uint32_t interruptLine;
   /** @brief Pointer to the next driver control structure */
   struct S_AHCIControler* pNext;
 } S_AHCIControler;
@@ -2224,14 +2226,13 @@ static E_Return _InitAHCIController(S_GenericHostControl* pHostControl);
  * interrupt vectors and enables the interrupt mechanism to allow the controller
  * to signal events to the operating system.
  *
- * @param[in] pDevice Pointer to the PCI device structure representing the AHCI
- * controller.
+ * @param[in] pCtrl Pointer to the AHCI controller structure.
  * @param[in] pHostControl Pointer to the generic host control structure of the
  * AHCI controller.
  *
  * @return The success state or the error code.
  */
-static E_Return _InitAHCIInterrupts(S_PCIDevice*          pDevice,
+static E_Return _InitAHCIInterrupts(S_AHCIControler*      pCtrl,
                                     S_GenericHostControl* pHostControl);
 
 /**
@@ -2797,14 +2798,7 @@ static E_Return _AllocateAHCIPortResources(S_AHCIControler* pDrvCtrl,
                 FIS_RECEIVE_AREA_SIZE +
                 COMMAND_TABLE_COUNT *
                 (COMMAND_TABLE_SIZE + PRDT_SIZE * PRDT_COUNT));
-    if (allocSize % KERNEL_PAGE_SIZE == 0)
-    {
-      pageCount = allocSize / KERNEL_PAGE_SIZE;
-    }
-    else
-    {
-      pageCount = (allocSize / KERNEL_PAGE_SIZE) + 1;
-    }
+    pageCount = (allocSize + KERNEL_PAGE_SIZE - 1) / KERNEL_PAGE_SIZE;
     cmdListPhysAddr = MemoryAllocFrames(pageCount);
     if (cmdListPhysAddr != 0)
     {
@@ -3262,35 +3256,58 @@ static E_Return _InitAHCIController(S_GenericHostControl* pHostControl)
   return err;
 }
 
-static E_Return _InitAHCIInterrupts(S_PCIDevice*          pDevice,
+static E_Return _InitAHCIInterrupts(S_AHCIControler*      pCtrl,
                                     S_GenericHostControl* pHostControl)
 {
   E_Return err;
   uint32_t globalHostControl;
+  bool     msiXEnabled;
+  int32_t  interruptLine;
 
-  /* Try to setup MSI-X */
-  err = PCISetupInterruptMSIX(pDevice, pDevice->interruptLine, 0, true);
+  interruptLine = AllocateInterruptLine();
 
-  if (err == ERR_NOT_SUPPORTED)
-  {
-    /* Try to setup MSI */
-    err = PCISetupInterruptMSI(pDevice, pDevice->interruptLine, true);
-  }
-
+  /* Prepare interrupt */
+  err = PrepareDeviceMSIInterrupt(pCtrl->pDevice);
   if (err == NO_ERROR)
   {
-    /* Register the interrupt handler */
-    err = InterruptRegister(pDevice->interruptLine,
-                            _AHCIInterruptHandler,
-                            false);
+    /* Try to setup MSI-X */
+    msiXEnabled = true;
+    err = PCISetupInterruptMSIX(pCtrl->pDevice, interruptLine, 0, true);
+
+    if (err == ERR_NOT_SUPPORTED)
+    {
+      msiXEnabled = false;
+      /* Try to setup MSI */
+      err = PCISetupInterruptMSI(pCtrl->pDevice, interruptLine, true);
+    }
+
     if (err == NO_ERROR)
     {
-      /* Set the interrupt enable in the controller */
-      globalHostControl = _MMIORead32(&pHostControl->globalHostControl);
-      globalHostControl |= AHCI_GLOBAL_HOST_CONTROL_AHCI_IE;
-      _MMIOWrite32(&pHostControl->globalHostControl, globalHostControl);
+      /* Register the interrupt handler */
+      err = InterruptRegister(interruptLine, _AHCIInterruptHandler);
+      if (err == NO_ERROR)
+      {
+        pCtrl->interruptLine = interruptLine;
 
-      InterruptSetEOI(pDevice->interruptLine);
+        /* Set the interrupt enable in the controller */
+        globalHostControl = _MMIORead32(&pHostControl->globalHostControl);
+        globalHostControl |= AHCI_GLOBAL_HOST_CONTROL_AHCI_IE;
+        _MMIOWrite32(&pHostControl->globalHostControl, globalHostControl);
+
+        InterruptSetEOI(interruptLine);
+      }
+      else
+      {
+        if (msiXEnabled == true)
+        {
+          PCISetupInterruptMSIX(pCtrl->pDevice, interruptLine, 0, false);
+        }
+        else
+        {
+          PCISetupInterruptMSI(pCtrl->pDevice, interruptLine, false);
+        }
+        FreeInterruptLine(interruptLine);
+      }
     }
   }
 
@@ -3602,23 +3619,23 @@ static E_Return _Attach(S_PCIDevice* pDevice)
 
       if (err == NO_ERROR)
       {
-        err = _InitAHCIInterrupts(pDevice, pHostControl);
+        pDrvCtrl = (S_AHCIControler*)KMalloc(sizeof(S_AHCIControler),
+                                             KMALLOC_FREE_POOL);
+        memset(pDrvCtrl, 0, sizeof(S_AHCIControler));
+
+        /* Initialize the driver control structure */
+        KERNEL_SPINLOCK_INIT(pDrvCtrl->lock);
+        pDrvCtrl->pBARBaseAddr = pHostControl;
+        pDrvCtrl->pDevice = pDevice;
+        pDevice->pDriver->pDriverData = pDrvCtrl;
+
+        err = _InitAHCIInterrupts(pDrvCtrl, pHostControl);
         KERNEL_DEBUG(AHCI_DRIVER_DEBUG_ENABLED,
                      MODULE_NAME,
                      "AHCI controller interrupts initialized | Status: %x",
                      err);
         if (err == NO_ERROR)
         {
-          pDrvCtrl = (S_AHCIControler*)KMalloc(sizeof(S_AHCIControler),
-          KMALLOC_FREE_POOL);
-
-          /* Initialize the driver control structure */
-          memset(pDrvCtrl, 0, sizeof(S_AHCIControler));
-          KERNEL_SPINLOCK_INIT(pDrvCtrl->lock);
-          pDrvCtrl->pBARBaseAddr = pHostControl;
-          pDrvCtrl->pDevice = pDevice;
-          pDevice->pDriver->pDriverData = pDrvCtrl;
-
           /* Initialize the ports */
           _InitAHCIPorts(pDrvCtrl);
           /* Identify the AHCI ports */
@@ -3626,6 +3643,10 @@ static E_Return _Attach(S_PCIDevice* pDevice)
 
           pDrvCtrl->pNext = spDrvCtrl;
           spDrvCtrl = pDrvCtrl;
+        }
+        else
+        {
+          KFree(pDrvCtrl);
         }
       }
 
@@ -3664,10 +3685,10 @@ static bool _AHCIInterruptHandler(void)
   pDrvCtrl = spDrvCtrl;
   while (pDrvCtrl != NULL)
   {
-    if (pDrvCtrl->pDevice->interruptLine == status)
+    if (pDrvCtrl->interruptLine == status)
     {
       /* Set EOI */
-      InterruptSetEOI(pDrvCtrl->pDevice->interruptLine);
+      InterruptSetEOI(pDrvCtrl->interruptLine);
       break;
     }
     pDrvCtrl = pDrvCtrl->pNext;
@@ -3957,12 +3978,7 @@ static E_AHCIOpResult _ReadSATAPort(S_AHCIPortControler* pPortCtrl,
   {
     totalBytes = kSectorCount * pPortCtrl->devInfo.satadInfo.sectorSize;
     /* Calculate how many PRDT entries are needed */
-    prdtCount = totalBytes / PRDT_ENTRY_MAX_SIZE;
-    if (totalBytes % PRDT_ENTRY_MAX_SIZE != 0)
-    {
-      prdtCount++;
-    }
-
+    prdtCount = (totalBytes + PRDT_ENTRY_MAX_SIZE - 1) / PRDT_ENTRY_MAX_SIZE;
     /* Setup the command header */
     pCmdHeader = (S_AHCICommandHeader*)pPortCtrl->pMem;
     cmdValue = sizeof(S_FISRegisterH2D) / sizeof(uint32_t) |
@@ -4082,11 +4098,7 @@ static E_AHCIOpResult _WriteSATAPort(S_AHCIPortControler* pPortCtrl,
   {
     totalBytes = kSectorCount * pPortCtrl->devInfo.satadInfo.sectorSize;
     /* Calculate how many PRDT entries are needed */
-    prdtCount = totalBytes / PRDT_ENTRY_MAX_SIZE;
-    if (totalBytes % PRDT_ENTRY_MAX_SIZE != 0)
-    {
-      prdtCount++;
-    }
+    prdtCount = (totalBytes + PRDT_ENTRY_MAX_SIZE - 1) / PRDT_ENTRY_MAX_SIZE;
 
     /* Setup the command header */
     pCmdHeader = (S_AHCICommandHeader*)pPortCtrl->pMem;
@@ -4338,11 +4350,7 @@ static bool _CheckAndPopulateParameters(void*          pDriverData,
         isValid = false;
       }
 
-      prdtCount = totalBytes / PRDT_ENTRY_MAX_SIZE;
-      if (totalBytes % PRDT_ENTRY_MAX_SIZE != 0)
-      {
-        prdtCount++;
-      }
+      prdtCount = (totalBytes + PRDT_ENTRY_MAX_SIZE - 1) / PRDT_ENTRY_MAX_SIZE;
       if (prdtCount > PRDT_COUNT)
       {
         isValid = false;

@@ -236,6 +236,34 @@ typedef struct
   long int tvNsec;
 } S_TimeSpec;
 
+/**
+ * @brief Timer periodic task structure.
+ *
+ * @details Timer periodic task structure. This structure is used to store the
+ * information for the timer manager. The task will be executed at every tick of
+ * the timer in the timer ISR context. The task will be executed in the context
+ * of the timer ISR, so it should be a short and fast operation. The task should
+ * not block or perform any long operations. The
+ *
+ * @param[in] pArg The argument to pass to the task function.
+ */
+typedef void (*T_TimerPeriodicTask)(void* pArg);
+
+/** @brief Type for a timer handle. */
+typedef void* T_TimerHandle;
+
+/** @brief Structure for a periodic timer task. */
+typedef struct
+{
+  /** @brief Pointer to the task function. */
+  T_TimerPeriodicTask pTask;
+  /** @brief Pointer to the argument for the task function. */
+  void* pArg;
+  /** @brief Period of the task in nanoseconds. */
+  uint64_t periodNs;
+} S_TimerPeriodicTask;
+
+
 /*******************************************************************************
  * MACROS
  ******************************************************************************/
@@ -316,6 +344,35 @@ uint64_t TimeGetTicks(const uint8_t kCpuId);
  * running. Otherwise the function will have undefined behavior.
  */
 void TimeWaitNoScheduler(const uint64_t kNs);
+
+/**
+ * @brief Adds a periodic task to the timer manager.
+ *
+ * @details Adds a periodic task to the timer manager. The task will be executed
+ * at every tick of the timer in the timer ISR context. The task will be
+ * executed in the context of the timer ISR, so it should be a short and fast
+ * operation. The task should not block or perform any long operations. The task
+ * will be executed in the context of the timer ISR, so it should be a short and
+ * fast operation. The task should not block or perform any long operations.
+ *
+ * @param[in] pTask Pointer to the periodic task function.
+ * @param[in] kPeriodNs The period of the task in nanoseconds.
+ *
+ * @return A handle to the added task, which can be used to remove it later.
+ */
+T_TimerHandle TimeManagerAddTask(S_TimerPeriodicTask* pTask,
+                                 const uint32_t       kPeriodNs);
+
+/**
+ * @brief Removes a periodic task from the timer manager.
+ *
+ * @details Removes a periodic task from the timer manager. The task will no
+ * longer be executed at every tick of the timer in the timer ISR context.
+ *
+ * @param[in] taskHandle The handle of the task to remove, as returned by
+ * TimeManagerAddTask.
+ */
+void TimeManagerRemoveTask(T_TimerHandle taskHandle);
 
 #endif /* #ifndef __TIME_TIME_MANAGER_H_ */
 

@@ -65,6 +65,27 @@
 /** @brief  IOCTL Device Command: Flush */
 #define VFS_IOCTL_DEV_FLUSH 102
 
+/** @brief IOCTL Network Command: Bring Interface Up */
+#define VFS_IOCTL_NET_IFACE_UP 200
+/** @brief IOCTL Network Command: Bring Interface Down */
+#define VFS_IOCTL_NET_IFACE_DOWN 201
+/** @brief IOCTL Network Command: Get Network Statistics */
+#define VFS_IOCTL_NET_GET_STATS 202
+/** @brief IOCTL Network Command: Reset Network Statistics */
+#define VFS_IOCTL_NET_RESET_STATS 203
+/** @brief IOCTL Network Command: Set MAC Address */
+#define VFS_IOCTL_NET_SET_MAC_ADDRESS 204
+/** @brief IOCTL Network Command: Get MAC Address */
+#define VFS_IOCTL_NET_GET_MAC_ADDRESS 205
+/** @brief IOCTL Network Command: Set Loopback Mode */
+#define VFS_IOCTL_NET_SET_LOOPBACK_MODE 206
+/** @brief IOCTL Network Command: Get Link Status */
+#define VFS_IOCTL_NET_GET_LINK_STATUS 207
+/** @brief IOCTL Network Command: Set Auto-Negotiation */
+#define VFS_IOCTL_NET_SET_AUTONEG 208
+/** @brief IOCTL Network Command: Force Speed and Duplex */
+#define VFS_IOCTL_NET_FORCE_SPD_DPX 209
+
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/

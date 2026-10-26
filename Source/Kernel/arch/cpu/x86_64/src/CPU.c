@@ -174,15 +174,15 @@
  * CPU Interrupt Lines
  **************************/
 /** @brief Minimal customizable accepted interrupt line. */
-#define MIN_INTERRUPT_LINE 0x00
+#define MIN_INTERRUPT_LINE 0x20
 /** @brief Maximal customizable accepted interrupt line. */
 #define MAX_INTERRUPT_LINE (IDT_ENTRY_COUNT - 1)
 /** @brief Defines the spurious interrupt line */
 #define SPURIOUS_INT_LINE MAX_INTERRUPT_LINE
 /** @brief Defines the software interrupt number for scheduling. */
-#define SCHEDULER_SW_INT_LINE 0x21
+#define SCHEDULER_SW_INT_LINE 0x20
 /** @brief Defines the interrupt line used to handle IPIs */
-#define CPU_IPI_INT_LINE 0x22
+#define CPU_IPI_INT_LINE 0x21
 
 /***************************
  * Misc CPU Definitions
@@ -208,7 +208,7 @@
 #define CPU_IPI_SEND_TO_CPU_MASK (CPU_IPI_SEND_TO(0xFFFFFFFF));
 
 /** @brief Size in number of elements of the IPI queues */
-#define IPI_QUEUE_SIZE 50
+#define IPI_QUEUE_SIZE 63
 
 /** @brief Magic values for signaling from syscall */
 #define SIGNAL_FROM_SYSCALL_MAGIC 0xA5A5AD00D1FCA110
@@ -865,11 +865,12 @@ static uintptr_t sIntHandlerTable[IDT_ENTRY_COUNT] =
 /** @brief Defines the CPU interrupt configuration */
 const S_CPUInterruptConfiguration ksInterruptConfig =
 {
-  .minInterruptLine       = MIN_INTERRUPT_LINE,
-  .maxInterruptLine       = MAX_INTERRUPT_LINE,
+  .totalInterruptLines    = IDT_ENTRY_COUNT,
+  .minFreeInterruptLine   = MIN_INTERRUPT_LINE,
+  .maxFreeInterruptLine   = MAX_INTERRUPT_LINE,
   .schedulerInterruptLine = SCHEDULER_SW_INT_LINE,
   .spuriousInterruptLine  = SPURIOUS_INT_LINE,
-  .ipiInterruptLine       = CPU_IPI_INT_LINE
+  .ipiInterruptLine       = CPU_IPI_INT_LINE,
 };
 
 /** @brief CPU driver instance. */
@@ -1282,8 +1283,7 @@ static void _InitializeIPI(void)
 
   /* Register the IPI interrupt */
   error = InterruptRegister(ksInterruptConfig.ipiInterruptLine,
-                            _IPIInterruptHandler,
-                            false);
+                            _IPIInterruptHandler);
   CPU_ASSERT(error == NO_ERROR, "Failed to register IPI interrupt", error);
 }
 

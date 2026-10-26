@@ -34,6 +34,7 @@
 #include <VirtualFS.h>
 #include <KernelHeap.h>
 #include <DeviceTree.h>
+#include <NetManager.h>
 #include <DiskManager.h>
 #include <DebugOutput.h>
 #include <KernelShell.h>
@@ -174,6 +175,10 @@ void X64KernelEntry(void)
   /* Initialize the drivers */
   DriverManagerInit(false);
   KERNEL_SUCCESS("Drivers initialized.\n");
+
+  /* Initialize the network manager */
+  NetManagerInit();
+  KERNEL_SUCCESS("Network manager initialized.\n");
 
   /* Initialize the console */
   ConsoleInit();

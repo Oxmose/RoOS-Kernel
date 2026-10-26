@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stddef.h>
+#include <IOAPIC.h>
 #include <VirtualFS.h>
 #include <DeviceTree.h>
 #include <Interrupts.h>
@@ -53,8 +54,6 @@
 
 /** @brief FDT property for comm ports */
 #define KBD_FDT_COMM_PROP "comm"
-/** @brief FDT property for interrupt  */
-#define KBD_FDT_INT_PROP "interrupts"
 /** @brief FDT property for device path */
 #define KBD_FDT_DEVICE_PROP "device"
 
@@ -74,6 +73,9 @@
 #define KEY_LSHIFT 0x0400
 /** @brief Keyboard specific key code: right shift. */
 #define KEY_RSHIFT 0x0500
+
+/** @brief The IRQ number for the keyboard. */
+#define KEYBOARD_IRQ_NUMBER 1
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -460,6 +462,7 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
   size_t          propLen;
   E_Return        retCode;
   E_Return        error;
+  int32_t         interruptLine;
 
   if (sKeyboardInitialized == false)
   {
@@ -473,17 +476,6 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
     {
       sInputCtrl.cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
       sInputCtrl.cpuDataPort = (uint16_t)FDTTOCPU32(*(kpUintProp + 1));
-    }
-    else
-    {
-      retCode = ERR_INVALID_VALUE;
-    }
-
-    /* Get IRQ lines */
-    kpUintProp = FDTGetProp(kpFdtNode, KBD_FDT_INT_PROP, &propLen);
-    if (kpUintProp != NULL && propLen == sizeof(uint32_t) * 2)
-    {
-      sInputCtrl.irqNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
     }
     else
     {
@@ -505,51 +497,71 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
                                     0);
       if (retCode == NO_ERROR)
       {
-        /* Register the interrupt */
-        retCode = InterruptRegister(sInputCtrl.irqNumber,
-                                    _KeyboardInterruptHandler,
-                                    true);
-
-        /* If we are already registered, error */
-        if (retCode == NO_ERROR)
+        interruptLine = AllocateInterruptLine();
+        if (interruptLine >= 0)
         {
-          /* Register the driver */
-          sInputCtrl.vfsDriver = RegisterVFSDriver(kpStrProp,
-                                                   &sInputCtrl,
-                                                   _KeyboardVFSOpen,
-                                                   _KeyboardVFSClose,
-                                                   _KeyboardVFSRead,
-                                                   NULL,
-                                                   NULL,
-                                                   NULL);
-          if (sInputCtrl.vfsDriver != VFS_DRIVER_INVALID)
+          IOAPICSetupIRQ(KEYBOARD_IRQ_NUMBER,
+                         interruptLine,
+                         CPUGetLAPICId(),
+                         IOAPIC_TRIGGER_MODE_EDGE,
+                         IOAPIC_POLARITY_HIGH);
+          sInputCtrl.irqNumber = interruptLine;
+          /* Register the interrupt */
+          retCode = InterruptRegister(interruptLine, _KeyboardInterruptHandler);
+
+          /* If we are already registered, error */
+          if (retCode == NO_ERROR)
           {
-            /* Set typematic settings */
-            while ((CPUPortReadByte(sInputCtrl.cpuCommPort) & 2) != 0){}
-            CPUPortWriteByte(0xF3, sInputCtrl.cpuDataPort);
-            while ((CPUPortReadByte(sInputCtrl.cpuCommPort) & 2) != 0){}
-            CPUPortWriteByte(0x20, sInputCtrl.cpuDataPort);
-            while ((CPUPortReadByte(sInputCtrl.cpuCommPort) & 2) != 0){}
-            CPUPortReadByte(sInputCtrl.cpuDataPort);
+            /* Register the driver */
+            sInputCtrl.vfsDriver = RegisterVFSDriver(kpStrProp,
+                                                     &sInputCtrl,
+                                                     _KeyboardVFSOpen,
+                                                     _KeyboardVFSClose,
+                                                     _KeyboardVFSRead,
+                                                     NULL,
+                                                     NULL,
+                                                     NULL);
+            if (sInputCtrl.vfsDriver != VFS_DRIVER_INVALID)
+            {
+              /* Set typematic settings */
+              while ((CPUPortReadByte(sInputCtrl.cpuCommPort) & 2) != 0){}
+              CPUPortWriteByte(0xF3, sInputCtrl.cpuDataPort);
+              while ((CPUPortReadByte(sInputCtrl.cpuCommPort) & 2) != 0){}
+              CPUPortWriteByte(0x20, sInputCtrl.cpuDataPort);
+              while ((CPUPortReadByte(sInputCtrl.cpuCommPort) & 2) != 0){}
+              CPUPortReadByte(sInputCtrl.cpuDataPort);
 
-            /* Set the interrupt mask */
-            InterruptSetIRQMask(sInputCtrl.irqNumber, true);
-            InterruptSetEOI(sInputCtrl.irqNumber);
+              /* Set the interrupt mask */
+              InterruptSetEOI(sInputCtrl.irqNumber);
 
-            /* Initialize the lock */
-            KERNEL_SPINLOCK_INIT(sInputCtrl.bufferLock);
+              /* Initialize the lock */
+              KERNEL_SPINLOCK_INIT(sInputCtrl.bufferLock);
 
-            /* Init buffer */
-            sInputCtrl.inputBufferStartCursor = 0;
-            sInputCtrl.inputBufferEndCursor   = 0;
+              /* Init buffer */
+              sInputCtrl.inputBufferStartCursor = 0;
+              sInputCtrl.inputBufferEndCursor   = 0;
+            }
+            else
+            {
+              IOAPICDisableIRQ(KEYBOARD_IRQ_NUMBER);
+              FreeInterruptLine(interruptLine);
+
+              error = InterruptRemove(sInputCtrl.irqNumber);
+              KBD_ASSERT(error == NO_ERROR,
+                          "Failed to unregister keyboard interrupt",
+                          error);
+              error = KernelSemaphoreDestroy(&sInputCtrl.inputBufferSem);
+              KBD_ASSERT(error == NO_ERROR,
+                        "Failed to destroy keyboard semaphore",
+                        error);
+
+              retCode = ERR_UNAUTHORIZED_ACTION;
+            }
           }
           else
           {
-            retCode = ERR_UNAUTHORIZED_ACTION;
-            error = InterruptRemove(sInputCtrl.irqNumber, true);
-            KBD_ASSERT(error == NO_ERROR,
-                        "Failed to unregister keyboard interrupt",
-                        error);
+            IOAPICDisableIRQ(KEYBOARD_IRQ_NUMBER);
+            FreeInterruptLine(interruptLine);
             error = KernelSemaphoreDestroy(&sInputCtrl.inputBufferSem);
             KBD_ASSERT(error == NO_ERROR,
                       "Failed to destroy keyboard semaphore",
@@ -560,8 +572,8 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
         {
           error = KernelSemaphoreDestroy(&sInputCtrl.inputBufferSem);
           KBD_ASSERT(error == NO_ERROR,
-                     "Failed to destroy keyboard semaphore",
-                     error);
+                    "Failed to destroy keyboard semaphore",
+                    error);
         }
       }
     }

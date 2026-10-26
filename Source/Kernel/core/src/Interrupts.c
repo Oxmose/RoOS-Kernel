@@ -77,16 +77,6 @@
 /*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
-
-/**
- * @brief Initial placeholder for the IRQ mask driver.
- *
- * @param kIRQNumber Unused.
- * @param enabled Unused.
- */
-static void _InitDriverSetIRQMask(const uint32_t kIRQNumber,
-                                  const bool     kEnabled);
-
 /**
  * @brief Initial placeholder for the IRQ EOI driver.
  *
@@ -100,13 +90,6 @@ static void _InitDriverSetIRQEOI(const uint32_t kIRQNumber);
  * @param kIntNumber Unused.
  */
 static E_InterruptType _InitDriverHandleSpurious(const uint32_t kIntNumber);
-
-/**
- * @brief Initial placeholder for the get int line driver.
- *
- * @param kIRQNumber Unused.
- */
-static uint32_t _InitDriverGetIRQIntLine(const uint32_t kIRQNumber);
 
 /**
  * @brief Kernel's spurious interrupt handler.
@@ -137,17 +120,17 @@ static S_InterruptDriver sInterruptDriver;
 /** @brief Stores the CPU's interrupt configuration. */
 static const S_CPUInterruptConfiguration* kspCpuInterruptConfig;
 
+/** @brief Stores the interrupt allocation map. */
+static uint64_t* spInterruptAllocMap;
+/** @brief Stores the size of the interrupt allocation map. */
+static uint32_t sInterruptAllocMapSize;
+
+/** @brief Stores the interrupt lock. */
+static S_KernelSpinlock sInterruptLock = KERNEL_SPINLOCK_INIT_VALUE;
+
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-
-static void _InitDriverSetIRQMask(const uint32_t kIRQNumber,
-                                  const bool     kEnabled)
-{
-  (void)kIRQNumber;
-  (void)kEnabled;
-}
-
 static void _InitDriverSetIRQEOI(const uint32_t kIRQNumber)
 {
   (void)kIRQNumber;
@@ -157,12 +140,6 @@ static E_InterruptType _InitDriverHandleSpurious(const uint32_t kIntNumber)
 {
   (void)kIntNumber;
   return INTERRUPT_TYPE_REGULAR;
-}
-
-static uint32_t _InitDriverGetIRQIntLine(const uint32_t kIRQNumber)
-{
-  (void)kIRQNumber;
-  return 0;
 }
 
 static void _SpuriousHandler(void)
@@ -185,7 +162,7 @@ void InterruptMainHandler(void)
   if (sInterruptDriver.pHandleSpurious(intId) != INTERRUPT_TYPE_SPURIOUS)
   {
     /* Select custom handlers */
-    if (intId <= kspCpuInterruptConfig->maxInterruptLine &&
+    if (intId < kspCpuInterruptConfig->totalInterruptLines &&
         spHandlerTable[intId] != NULL)
     {
       handler = spHandlerTable[intId];
@@ -228,23 +205,53 @@ void InterruptMainHandler(void)
 
 void InterruptInit(void)
 {
-  size_t tableSize;
+  size_t   tableSize;
+  uint32_t i;
 
   /* Get the CPU interrupt configuration */
   kspCpuInterruptConfig = CPUGetInterruptConfig();
 
   tableSize = sizeof(T_InterruptHandler) *
-              kspCpuInterruptConfig->maxInterruptLine + 1;
+              kspCpuInterruptConfig->totalInterruptLines;
 
   /* Allocate and blank custom interrupt handlers */
   spHandlerTable = KMalloc(tableSize, KMALLOC_NO_FREE_POOL);
   memset(spHandlerTable, 0, tableSize);
 
+  /* Setup the interrupts allocator */
+  tableSize = kspCpuInterruptConfig->totalInterruptLines / 64;
+  if ((kspCpuInterruptConfig->totalInterruptLines & 63) != 0)
+  {
+    tableSize++;
+  }
+  sInterruptAllocMapSize = tableSize;
+  tableSize *= sizeof(uint64_t);
+  spInterruptAllocMap = KMalloc(tableSize, KMALLOC_NO_FREE_POOL);
+  memset(spInterruptAllocMap, 0, tableSize);
+
+  /* Setup the non free interrupt lines from begining */
+  for (i = 0; i < kspCpuInterruptConfig->minFreeInterruptLine; ++i)
+  {
+    spInterruptAllocMap[i / 64] |= (1ULL << (i & 63));
+  }
+  /* Setup the non free interrupt lines to the end */
+  for (i = kspCpuInterruptConfig->maxFreeInterruptLine + 1;
+       i < tableSize / sizeof(uint64_t);
+       ++i)
+  {
+    spInterruptAllocMap[i / 64] |= (1ULL << (i & 63));
+  }
+  /* Setup the special interrupt lines */
+  i = kspCpuInterruptConfig->schedulerInterruptLine;
+  spInterruptAllocMap[i / 64] |= (1ULL << (i & 63));
+  i = kspCpuInterruptConfig->spuriousInterruptLine;
+  spInterruptAllocMap[i / 64] |= (1ULL << (i & 63));
+  i = kspCpuInterruptConfig->ipiInterruptLine;
+  spInterruptAllocMap[i / 64] |= (1ULL << (i & 63));
+
   /* Init driver */
-  sInterruptDriver.pGetIRQInterruptLine = _InitDriverGetIRQIntLine;
-  sInterruptDriver.pHandleSpurious      = _InitDriverHandleSpurious;
-  sInterruptDriver.pSetIRQEOI           = _InitDriverSetIRQEOI;
-  sInterruptDriver.pSetIRQMask          = _InitDriverSetIRQMask;
+  sInterruptDriver.pHandleSpurious    = _InitDriverHandleSpurious;
+  sInterruptDriver.pSetEndOfInterrupt = _InitDriverSetIRQEOI;
 }
 
 E_Return InterruptSetDriver(const S_InterruptDriver* kpDriver)
@@ -252,16 +259,14 @@ E_Return InterruptSetDriver(const S_InterruptDriver* kpDriver)
   E_Return retCode;
 
   /* We can only set one interrupt manager*/
-  INTERRUPT_ASSERT(sInterruptDriver.pGetIRQInterruptLine ==
-                   _InitDriverGetIRQIntLine,
+  INTERRUPT_ASSERT(sInterruptDriver.pHandleSpurious ==
+                   _InitDriverHandleSpurious,
                    "Only one interrupt driver can be registered.",
                    ERR_UNAUTHORIZED_ACTION)
 
   if (kpDriver != NULL &&
-      kpDriver->pSetIRQEOI != NULL &&
-      kpDriver->pSetIRQMask != NULL &&
       kpDriver->pHandleSpurious != NULL &&
-      kpDriver->pGetIRQInterruptLine != NULL)
+      kpDriver->pSetEndOfInterrupt != NULL)
   {
     sInterruptDriver = *kpDriver;
     retCode          = NO_ERROR;
@@ -275,31 +280,19 @@ E_Return InterruptSetDriver(const S_InterruptDriver* kpDriver)
 }
 
 E_Return InterruptRegister(const uint32_t           kInterruptId,
-                           const T_InterruptHandler kHandler,
-                           const bool               kIsIRQ)
+                           const T_InterruptHandler kHandler)
 {
-  uint32_t interruptLine;
   E_Return retCode;
 
   if (kHandler != NULL)
   {
-    if (kIsIRQ == true)
+    KERNEL_LOCK(sInterruptLock);
+    if (kInterruptId < kspCpuInterruptConfig->totalInterruptLines)
     {
-      /* Get the interrupt line attached to the IRQ number. */
-      interruptLine = sInterruptDriver.pGetIRQInterruptLine(kInterruptId);
-    }
-    else
-    {
-      interruptLine = kInterruptId;
-    }
-
-    if (interruptLine >= kspCpuInterruptConfig->minInterruptLine &&
-        interruptLine <= kspCpuInterruptConfig->maxInterruptLine)
-    {
-      if (spHandlerTable[interruptLine] == NULL)
+      if (spHandlerTable[kInterruptId] == NULL)
       {
-        spHandlerTable[interruptLine] = kHandler;
-        retCode                       = NO_ERROR;
+        spHandlerTable[kInterruptId] = kHandler;
+        retCode                      = NO_ERROR;
       }
       else
       {
@@ -310,6 +303,7 @@ E_Return InterruptRegister(const uint32_t           kInterruptId,
     {
       retCode = ERR_INVALID_PARAMETER;
     }
+    KERNEL_UNLOCK(sInterruptLock);
   }
   else
   {
@@ -319,31 +313,21 @@ E_Return InterruptRegister(const uint32_t           kInterruptId,
   return retCode;
 }
 
-E_Return InterruptRemove(const uint32_t kInterruptId, const bool kIsIRQ)
+E_Return InterruptRemove(const uint32_t kInterruptId)
 {
-  uint32_t interruptLine;
   E_Return retCode;
 
-  if (kIsIRQ == true)
+  KERNEL_LOCK(sInterruptLock);
+  if (kInterruptId < kspCpuInterruptConfig->totalInterruptLines)
   {
-    /* Get the interrupt line attached to the IRQ number. */
-    interruptLine = sInterruptDriver.pGetIRQInterruptLine(kInterruptId);
-  }
-  else
-  {
-    interruptLine = kInterruptId;
-  }
-
-  if (interruptLine >= kspCpuInterruptConfig->minInterruptLine &&
-      interruptLine <= kspCpuInterruptConfig->maxInterruptLine)
-  {
-    spHandlerTable[interruptLine] = NULL;
+    spHandlerTable[kInterruptId] = NULL;
     retCode = NO_ERROR;
   }
   else
   {
     retCode = ERR_INVALID_PARAMETER;
   }
+  KERNEL_UNLOCK(sInterruptLock);
 
   return retCode;
 }
@@ -361,18 +345,51 @@ uint32_t InterruptDisable(void)
   return CPUInterruptDisable();
 }
 
-void InterruptSetIRQMask(const uint32_t kIRQNumber, const bool kEnabled)
-{
-  sInterruptDriver.pSetIRQMask(kIRQNumber, kEnabled);
-}
-
 void InterruptSetEOI(const uint32_t kInterruptId)
 {
-  sInterruptDriver.pSetIRQEOI(kInterruptId);
+  sInterruptDriver.pSetEndOfInterrupt(kInterruptId);
 }
 
-uint32_t InterruptGetIRQIntLine(const uint32_t kIRQNumber)
+int32_t AllocateInterruptLine(void)
 {
-  return sInterruptDriver.pGetIRQInterruptLine(kIRQNumber);
+  uint32_t i;
+  int32_t  newInt;
+
+  KERNEL_LOCK(sInterruptLock);
+
+  newInt = -1;
+  for (i = 0; i < sInterruptAllocMapSize; ++i)
+  {
+    if (spInterruptAllocMap[i] != UINT64_MAX)
+    {
+      for (uint32_t j = 0; j < 64; ++j)
+      {
+        if ((spInterruptAllocMap[i] & (1ULL << j)) == 0)
+        {
+          spInterruptAllocMap[i] |= (1ULL << j);
+          newInt = (int32_t)(i * 64 + j);
+          i = sInterruptAllocMapSize;
+          break;
+        }
+      }
+    }
+  }
+
+  KERNEL_UNLOCK(sInterruptLock);
+
+  return newInt;
+}
+
+void FreeInterruptLine(const int32_t kInterruptId)
+{
+  KERNEL_LOCK(sInterruptLock);
+
+  if (kInterruptId >= 0 &&
+      (uint32_t)kInterruptId < kspCpuInterruptConfig->totalInterruptLines)
+  {
+    spInterruptAllocMap[kInterruptId / 64] &= ~(1ULL << (kInterruptId & 63));
+  }
+
+  KERNEL_UNLOCK(sInterruptLock);
 }
 /************************************ EOF *************************************/
