@@ -72,7 +72,7 @@
  *
  * @return Returns the file descriptor on success, or -1 on error.
  */
-int open(const char *pathname, int flags, mode_t mode);
+int open(const char* pathname, int flags, mode_t mode);
 
 #endif /* #ifndef __LIB_FCNTL_H_ */
 

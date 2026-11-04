@@ -32,7 +32,6 @@
 #include <VirtualFS.h>
 #include <Scheduler.h>
 #include <KernelHeap.h>
-#include <DeviceTree.h>
 #include <KernelError.h>
 #include <KernelOutput.h>
 #include <DriverManager.h>
@@ -51,15 +50,6 @@
  ******************************************************************************/
 /** @brief Current module name */
 #define MODULE_NAME "X86 VESA"
-
-/** @brief VESA FDT property: Screen resolution. */
-#define VESA_FDT_RESOLUTION_PROP "resolution"
-/** @brief VESA FDT property: Screen depth. */
-#define VESA_FDT_DEPTH_PROP "depth"
-/** @brief VESA FDT property: Screen refresh rate. */
-#define VESA_FDT_REFRESH_RATE_PROP "refresh-rate"
-/** @brief VESA FDT property: Device name. */
-#define VESA_FDT_DEVICE_PROP "device"
 
 /** @brief Defines the VESA BIOS call interrupt */
 #define VESA_BIOS_CALL_INT 0x10
@@ -88,6 +78,9 @@
 
 /** @brief VESA mode command: enable linear framebuffer. */
 #define VESA_FLAG_LINEAR_FB_ENABLE 0x4000
+
+/** @brief VESA display thread priority. */
+#define VESA_DISPLAY_THREAD_PRIORITY 10
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -229,7 +222,7 @@ typedef struct
   /** @brief VESA controller's back buffer address. */
   uintptr_t backBufferAddr;
   /** @brief VESA controller's back buffer lock. */
-  S_KernelSpinlock bufferLock;
+  T_Spinlock bufferLock;
 
   /** @brief VESA controller's screen width. */
   uint16_t screenWidth;
@@ -253,12 +246,10 @@ typedef struct
   /** @brief VESA controller's screen cursor position. */
   S_ConsoleCursor screenCursor;
 
-  /** @brief VESA controller's device name. */
-  const char* kpDeviceName;
   /** @brief VESA controller's VBE current mode information. */
   S_VBEModeInformation* pCurrentModeInfo;
   /** @brief VESA controller's mode lock. */
-  S_KernelSpinlock modeLock;
+  T_Spinlock modeLock;
 
   /** @brief VESA controller's number of available modes. */
   uint32_t modeCount;
@@ -321,28 +312,12 @@ typedef struct
 /**
  * @brief Attaches the VESA driver to the system.
  *
- * @details Attaches the VESA driver to the system. This function will use the
- * FDT to initialize the VESA hardware and retreive the VESA parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ * @details Attaches the VESA driver to the system. This function will
+ * initialize the VESA hardware and retreive the VESA parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
-
-/**
- * @brief Reads the VESA parameters from the FDT node.
- *
- * @details Reads the VESA parameters from the FDT node. This function will read
- * the VESA parameters from the FDT node and store them in the VESA driver
- * instance.
- *
- * @param[in] kpFdtNode The FDT node with the VESA parameters.
- *
- * @return The success state or the error code.
- */
-static E_Return _GetVESAParameters(const S_FDTNode* kpFdtNode);
+static E_Return _Attach(void);
 
 /**
  * @brief Retreives the VESA information from the BIOS.
@@ -718,12 +693,12 @@ static ssize_t _VFSIOCTL(void*    pDriverData,
 static S_VESAController sController;
 
 /** @brief VESA driver instance. */
-static S_Driver sX86VESADriver =
+static S_LayerDriver  sX86VESADriver =
 {
   .pName         = "X86 VESA Driver",
   .pDescription  = "X86 VESA VBE 2 graphic driver for roOs",
-  .pCompatible   = "x86,x86-vesa",
   .pVersion      = "1.0",
+  .layer         = 1,
   .pDriverAttach = _Attach
 };
 
@@ -751,62 +726,6 @@ static const uint32_t skVGAColorTable[16] =
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _GetVESAParameters(const S_FDTNode* kpFdtNode)
-{
-  const uint32_t* kpUintProp;
-  const char*     kpStrProp;
-  size_t          propLen;
-  E_Return        retVal;
-
-  retVal = NO_ERROR;
-
-  kpUintProp = FDTGetProp(kpFdtNode, VESA_FDT_RESOLUTION_PROP, &propLen);
-  if (kpUintProp == NULL || propLen != sizeof(uint32_t) * 2)
-  {
-    retVal = ERR_INVALID_VALUE;
-  }
-
-  if (retVal == NO_ERROR)
-  {
-    sController.screenWidth  = (uint16_t)FDTTOCPU32(*kpUintProp);
-    sController.screenHeight = (uint16_t)FDTTOCPU32(*(kpUintProp + 1));
-
-    kpUintProp = FDTGetProp(kpFdtNode, VESA_FDT_DEPTH_PROP, &propLen);
-    if (kpUintProp == NULL || propLen != sizeof(uint32_t))
-    {
-      retVal = ERR_INVALID_VALUE;
-    }
-  }
-
-  if (retVal == NO_ERROR)
-  {
-    sController.bitsPerPixel = (uint8_t)FDTTOCPU32(*kpUintProp);
-
-    kpUintProp = FDTGetProp(kpFdtNode, VESA_FDT_REFRESH_RATE_PROP, &propLen);
-    if (kpUintProp == NULL || propLen != sizeof(uint32_t))
-    {
-      retVal = ERR_INVALID_VALUE;
-    }
-  }
-
-  if (retVal == NO_ERROR)
-  {
-    sController.screenRefreshRate = (uint16_t)FDTTOCPU32(*kpUintProp);
-
-    kpStrProp = FDTGetProp(kpFdtNode, VESA_FDT_DEVICE_PROP, &propLen);
-    if (kpStrProp == NULL || propLen  == 0)
-    {
-      retVal = ERR_INVALID_VALUE;
-    }
-    else
-    {
-      sController.kpDeviceName = kpStrProp;
-    }
-  }
-
-  return retVal;
-}
-
 static E_Return _GetVESAInformation(void)
 {
   E_Return        retVal;
@@ -1175,7 +1094,7 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
         pModeInfo->modeInfo.height == kHeight &&
         pModeInfo->modeInfo.bpp == kBpp)
     {
-      KERNEL_LOCK(sController.modeLock);
+      SpinlockAcquire(&sController.modeLock);
       /* Perform the bios call */
       biosRegs.ax = VESA_BIOS_CALL_SET_MODE;
       biosRegs.bx = VESA_FLAG_LINEAR_FB_ENABLE | pModeInfo->modeId;
@@ -1243,7 +1162,7 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
             sController.screenScheme.background = BG_BLACK;
             sController.screenScheme.foreground = FG_WHITE;
 
-            KERNEL_SPINLOCK_INIT(sController.bufferLock);
+            SPINLOCK_INIT(sController.bufferLock);
 
             KERNEL_DEBUG(VESA_DERIVER_DEBUG_ENABLED,
                         MODULE_NAME,
@@ -1252,7 +1171,7 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
                         kHeight,
                         refreshRate,
                         kBpp);
-            KERNEL_UNLOCK(sController.modeLock);
+            SpinlockRelease(&sController.modeLock);
             break;
           }
           else
@@ -1282,7 +1201,7 @@ static E_Return _SetVESAMode(const uint16_t kWidth,
         retVal = ERR_NOT_SUPPORTED;
       }
 
-      KERNEL_UNLOCK(sController.modeLock);
+      SpinlockRelease(&sController.modeLock);
       break;
     }
 
@@ -1321,7 +1240,7 @@ static E_Return _CreateDisplayThread(void)
 
   retVal = CreateThread(&sController.pDisplayThread,
                         true,
-                        0,
+                        VESA_DISPLAY_THREAD_PRIORITY,
                         threadName,
                         0x1000,
                         cpuMask,
@@ -1332,16 +1251,21 @@ static E_Return _CreateDisplayThread(void)
   return retVal;
 }
 
-static E_Return _Attach(const S_FDTNode* kpFdtNode)
+static E_Return _Attach(void)
 {
   E_Return              retVal;
   T_VFSDriver           vfsDriver;
   const S_CPUFlagsInfo* pkCPUFlags;
 
-  /* Get the VESA parameters from the FDT node. */
-  retVal = _GetVESAParameters(kpFdtNode);
-  if (retVal == NO_ERROR)
+  if (CONFIG_USE_VESA != 0)
   {
+
+    /* Initialize the VESA parameters */
+    sController.screenWidth       = CONFIG_VESA_RESOLUTION_X;
+    sController.screenHeight      = CONFIG_VESA_RESOLUTION_Y;
+    sController.bitsPerPixel      = CONFIG_VESA_DEPTH;
+    sController.screenRefreshRate = CONFIG_VESA_REFRESH_RATE;
+
     /* Get the memory capabilities. */
     pkCPUFlags = CPUIDGetFlags();
     if (pkCPUFlags != NULL)
@@ -1364,7 +1288,7 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
       sController.memoryCapabilities = MEMORY_SSE_SUPPORTED;
     }
 
-    KERNEL_SPINLOCK_INIT(sController.modeLock);
+    SPINLOCK_INIT(sController.modeLock);
 
     /* Get the VBE information from the BIOS. */
     retVal = _GetVESAInformation();
@@ -1390,7 +1314,7 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
             if (retVal == NO_ERROR)
             {
               /* Register the driver */
-              vfsDriver = RegisterVFSDriver(sController.kpDeviceName,
+              vfsDriver = RegisterVFSDriver(CONFIG_VESA_DEVICE_NAME,
                                             NULL,
                                             _VFSOpen,
                                             _VFSClose,
@@ -1407,6 +1331,10 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
         }
       }
     }
+  }
+  else
+  {
+    retVal = NO_ERROR;
   }
   return retVal;
 }
@@ -1701,9 +1629,9 @@ static void _ProcessChar(const char kCharacter)
 
 static void _ClearFramebuffer(void)
 {
-  KERNEL_LOCK(sController.bufferLock);
+  SpinlockAcquire(&sController.bufferLock);
   _FastFill(sController.backBufferAddr, 0, sController.framebufferSize);
-  KERNEL_UNLOCK(sController.bufferLock);
+  SpinlockRelease(&sController.bufferLock);
 }
 
 static void _GetCursor(S_ConsoleCursor* pBuffer)
@@ -1748,7 +1676,7 @@ static void _Scroll(const E_ScrollDirection kDirection, const uint32_t kLines)
   /* Select scroll direction */
   if (kDirection == SCROLL_DOWN)
   {
-    KERNEL_LOCK(sController.bufferLock);
+    SpinlockAcquire(&sController.bufferLock);
     /* For each line scroll we want */
     for (j = 0; j < toScroll; ++j)
     {
@@ -1768,7 +1696,7 @@ static void _Scroll(const E_ScrollDirection kDirection, const uint32_t kLines)
 
     /* Replace cursor */
     _SetCursor(sController.lineCount - toScroll, 0);
-    KERNEL_UNLOCK(sController.bufferLock);
+    SpinlockRelease(&sController.bufferLock);
   }
 }
 
@@ -1797,14 +1725,28 @@ static void _Flush(void)
   size_t   remainder;
   size_t   blocks;
   size_t   i;
+  uint32_t intState;
+  uint8_t  ymmSave[128] __attribute__((aligned(32)));
 
-  KERNEL_LOCK(sController.modeLock);
-  KERNEL_LOCK(sController.bufferLock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+
+  SpinlockAcquire(&sController.modeLock);
+  SpinlockAcquire(&sController.bufferLock);
+
   src = (uint8_t*)sController.backBufferAddr;
   dst = (uint8_t*)sController.framebufferAddr;
 
   if (sController.memoryCapabilities == MEMORY_AVX_SUPPORTED)
   {
+    /* Save the YMM registers */
+    __asm__ __volatile__ ("vmovaps %%ymm0,   0(%0)  \n\t"
+                          "vmovaps %%ymm1,  32(%0)  \n\t"
+                          "vmovaps %%ymm2,  64(%0)  \n\t"
+                          "vmovaps %%ymm3,  96(%0)  \n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
+
     iterCount = sController.framebufferSize / 128;
 
     for (i = 0; i < iterCount; ++i)
@@ -1824,7 +1766,7 @@ static void _Flush(void)
         "addq $128, %1\n\t"
         : "+r"(src), "+r"(dst)
         :
-        : "ymm0", "ymm1", "ymm2", "ymm3", "memory"
+        : "memory"
       );
     }
 
@@ -1840,7 +1782,7 @@ static void _Flush(void)
         "addq $32, %1\n\t"
         : "+r"(src), "+r"(dst)
         :
-        : "ymm0", "memory"
+        : "memory"
       );
     }
 
@@ -1850,10 +1792,28 @@ static void _Flush(void)
       *dst++ = *src++;
     }
 
+    /* Restore the YMM registers */
+    __asm__ __volatile__ ("vmovaps  0(%0), %%ymm0\n\t"
+                          "vmovaps 32(%0), %%ymm1\n\t"
+                          "vmovaps 64(%0), %%ymm2\n\t"
+                          "vmovaps 96(%0), %%ymm3\n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
+
     __asm__ __volatile__ ("sfence" ::: "memory");
   }
   else
   {
+    /* Save the XMM registers */
+    __asm__ __volatile__ ("movaps %%xmm0,   0(%0)  \n\t"
+                          "movaps %%xmm1,  16(%0)  \n\t"
+                          "movaps %%xmm2,  32(%0)  \n\t"
+                          "movaps %%xmm3,  48(%0)  \n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
+
     iterCount = sController.framebufferSize / 64;
 
     for (i = 0; i < iterCount; ++i)
@@ -1873,7 +1833,7 @@ static void _Flush(void)
         "addq $64, %1\n\t"
         : "+r"(src), "+r"(dst)
         :
-        : "xmm0", "xmm1", "xmm2", "xmm3", "memory"
+        : "memory"
       );
     }
 
@@ -1889,7 +1849,7 @@ static void _Flush(void)
         "addq $16, %1\n\t"
         : "+r"(src), "+r"(dst)
         :
-        : "xmm0", "memory"
+        : "memory"
       );
     }
 
@@ -1899,11 +1859,22 @@ static void _Flush(void)
       *dst++ = *src++;
     }
 
+    /* Restore the XMM registers */
+    __asm__ __volatile__ ("movaps  0(%0), %%xmm0\n\t"
+                          "movaps 16(%0), %%xmm1\n\t"
+                          "movaps 32(%0), %%xmm2\n\t"
+                          "movaps 48(%0), %%xmm3\n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
+
     __asm__ __volatile__ ("sfence" ::: "memory");
   }
 
-  KERNEL_UNLOCK(sController.bufferLock);
-  KERNEL_UNLOCK(sController.modeLock);
+  SpinlockRelease(&sController.bufferLock);
+  SpinlockRelease(&sController.modeLock);
+
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 #endif
 }
 
@@ -1922,6 +1893,8 @@ static inline void _FastFill(uintptr_t      bufferAddr,
   uint8_t           c3;
   volatile uint32_t pixel;
   size_t            pixelBytes;
+  uint32_t          intstate;
+  uint8_t           ymmSave[128] __attribute__((aligned(32)));
   uint32_t          packedColor[4] __attribute__((aligned(16))) =
   {
     kPixel,
@@ -1930,16 +1903,28 @@ static inline void _FastFill(uintptr_t      bufferAddr,
     kPixel
   };
 
+
   dst = (uint8_t*)bufferAddr;
+
+  KERNEL_ENTER_CRITICAL_LOCAL(intstate);
 
   if (sController.memoryCapabilities == MEMORY_AVX_SUPPORTED)
   {
+    /* Save the YMM registers */
+    __asm__ __volatile__ ("vmovaps %%ymm0,   0(%0)  \n\t"
+                          "vmovaps %%ymm1,  32(%0)  \n\t"
+                          "vmovaps %%ymm2,  64(%0)  \n\t"
+                          "vmovaps %%ymm3,  96(%0)  \n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
+
     pixel = kPixel;
     __asm__ __volatile__ (
         "vbroadcastss (%0), %%ymm0"
         :
         : "r"(&pixel)
-        : "ymm0"
+        :
     );
 
     iterCount = size / 128;
@@ -2007,6 +1992,15 @@ static inline void _FastFill(uintptr_t      bufferAddr,
         dst[0] = c2;
       }
     }
+
+    /* Restore the YMM registers */
+    __asm__ __volatile__ ("vmovaps  0(%0), %%ymm0\n\t"
+                          "vmovaps 32(%0), %%ymm1\n\t"
+                          "vmovaps 64(%0), %%ymm2\n\t"
+                          "vmovaps 96(%0), %%ymm3\n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
   }
   else if (sController.memoryCapabilities == MEMORY_ERMS_SUPPORTED)
   {
@@ -2033,11 +2027,20 @@ static inline void _FastFill(uintptr_t      bufferAddr,
   }
   else
   {
+        /* Save the XMM registers */
+    __asm__ __volatile__ ("movaps %%xmm0,   0(%0)  \n\t"
+                          "movaps %%xmm1,  16(%0)  \n\t"
+                          "movaps %%xmm2,  32(%0)  \n\t"
+                          "movaps %%xmm3,  48(%0)  \n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
+
     __asm__ __volatile__ (
       "movups (%0), %%xmm0"
       :
       : "r"(packedColor)
-      : "xmm0"
+      :
     );
 
     iterCount = size / 64;
@@ -2105,7 +2108,18 @@ static inline void _FastFill(uintptr_t      bufferAddr,
         dst[0] = c2;
       }
     }
+
+    /* Restore the XMM registers */
+    __asm__ __volatile__ ("movaps  0(%0), %%xmm0\n\t"
+                          "movaps 16(%0), %%xmm1\n\t"
+                          "movaps 32(%0), %%xmm2\n\t"
+                          "movaps 48(%0), %%xmm3\n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
+
   }
+  KERNEL_EXIT_CRITICAL_LOCAL(intstate);
 }
 
 static inline void _FastCopy(uintptr_t pDest,
@@ -2118,12 +2132,25 @@ static inline void _FastCopy(uintptr_t pDest,
   size_t   remainder;
   size_t   blocks;
   size_t   i;
+  uint32_t intstate;
+  uint8_t  ymmSave[128] __attribute__((aligned(32)));
 
   src = (uint8_t*)kpSrc;
   dst = (uint8_t*)pDest;
 
+  KERNEL_ENTER_CRITICAL_LOCAL(intstate);
+
   if (sController.memoryCapabilities == MEMORY_AVX_SUPPORTED)
   {
+    /* Save the YMM registers */
+    __asm__ __volatile__ ("vmovaps %%ymm0,   0(%0)  \n\t"
+                          "vmovaps %%ymm1,  32(%0)  \n\t"
+                          "vmovaps %%ymm2,  64(%0)  \n\t"
+                          "vmovaps %%ymm3,  96(%0)  \n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
+
     iterCount = size / 128;
 
     for (i = 0; i < iterCount; ++i)
@@ -2143,7 +2170,7 @@ static inline void _FastCopy(uintptr_t pDest,
         "addq $128, %1\n\t"
         : "+r"(src), "+r"(dst)
         :
-        : "ymm0", "ymm1", "ymm2", "ymm3", "memory"
+        : "memory"
       );
     }
 
@@ -2159,7 +2186,7 @@ static inline void _FastCopy(uintptr_t pDest,
         "addq $32, %1\n\t"
         : "+r"(src), "+r"(dst)
         :
-        : "ymm0", "memory"
+        : "memory"
       );
     }
 
@@ -2168,6 +2195,15 @@ static inline void _FastCopy(uintptr_t pDest,
     {
       *dst++ = *src++;
     }
+
+    /* Restore the YMM registers */
+    __asm__ __volatile__ ("vmovaps  0(%0), %%ymm0\n\t"
+                          "vmovaps 32(%0), %%ymm1\n\t"
+                          "vmovaps 64(%0), %%ymm2\n\t"
+                          "vmovaps 96(%0), %%ymm3\n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
   }
   else if (sController.memoryCapabilities == MEMORY_ERMS_SUPPORTED)
   {
@@ -2181,6 +2217,15 @@ static inline void _FastCopy(uintptr_t pDest,
   }
   else
   {
+    /* Save the XMM registers */
+    __asm__ __volatile__ ("movaps %%xmm0,   0(%0)  \n\t"
+                          "movaps %%xmm1,  16(%0)  \n\t"
+                          "movaps %%xmm2,  32(%0)  \n\t"
+                          "movaps %%xmm3,  48(%0)  \n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
+
     iterCount = size / 64;
 
     for (i = 0; i < iterCount; ++i)
@@ -2200,7 +2245,7 @@ static inline void _FastCopy(uintptr_t pDest,
         "addq $64, %1\n\t"
         : "+r"(src), "+r"(dst)
         :
-        : "xmm0", "xmm1", "xmm2", "xmm3", "memory"
+        : "memory"
       );
     }
 
@@ -2216,7 +2261,7 @@ static inline void _FastCopy(uintptr_t pDest,
         "addq $16, %1\n\t"
         : "+r"(src), "+r"(dst)
         :
-        : "xmm0", "memory"
+        : "memory"
       );
     }
 
@@ -2225,7 +2270,17 @@ static inline void _FastCopy(uintptr_t pDest,
     {
       *dst++ = *src++;
     }
+
+    /* Restore the XMM registers */
+    __asm__ __volatile__ ("movaps  0(%0), %%xmm0\n\t"
+                          "movaps 16(%0), %%xmm1\n\t"
+                          "movaps 32(%0), %%xmm2\n\t"
+                          "movaps 48(%0), %%xmm3\n\t"
+                          :
+                          : "r" (ymmSave)
+                          : "memory");
   }
+  KERNEL_EXIT_CRITICAL_LOCAL(intstate);
 }
 
 static void* _VFSOpen(void*       pDrvCtrl,
@@ -2419,6 +2474,6 @@ static ssize_t _VFSIOCTL(void*    pDriverData,
 }
 
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86VESADriver);
+DRIVERMGR_REG_LAYER(sX86VESADriver);
 
 /************************************ EOF *************************************/

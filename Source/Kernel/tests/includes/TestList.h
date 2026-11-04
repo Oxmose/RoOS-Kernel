@@ -36,7 +36,7 @@
 #define TEST_OS_KSEMAPHORE_ENABLED                0
 #define TEST_KHEAP_ENABLED                        0
 #define TEST_DEVTREE_ENABLED                      0
-#define TEST_CRITICAL_ENABLED                     0
+#define TEST_CRITICAL_ENABLED                     1
 #define TEST_INTERRUPT_ENABLED                    0
 #define TEST_OS_UHASHTABLE_ENABLED                0
 #define TEST_SCHEDULER_ENABLED                    0
@@ -52,7 +52,7 @@
 #define TEST_CPUID_ENABLED                        0
 #define TEST_TIME_ENABLED                         0
 #define TEST_ELFMANAGER_ENABLED                   0
-#define TEST_LIBC_ENABLED                         1
+#define TEST_LIBC_ENABLED                         0
 
 /*************************************************
  * TEST IDENTIFIERS
@@ -458,7 +458,7 @@
 #define TEST_KSEMAPHORE_MULTIPLE_TEST(X)  (100000000 + X)
 
 /** @brief Current test name */
-#define TEST_FRAMEWORK_TEST_NAME "Kernel libc"
+#define TEST_FRAMEWORK_TEST_NAME "Kernel SATA storage"
 
 /*******************************************************************************
  * STRUCTURES AND TYPES

@@ -101,7 +101,7 @@ typedef struct
   S_ProcessHeap* pAllocPool;
 
   /** @brief File descriptor table lock */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
 } S_FDTable;
 
 /** @brief Stores the shared information for a file descriptor */
@@ -117,7 +117,7 @@ typedef struct
   S_FSDriver* pDriver;
 
   /** @brief The share lock */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
 } S_FileDescriptorShared;
 
 /** @brief Defines the VFS internal file descriptor */
@@ -428,7 +428,7 @@ extern uintptr_t _START_FS_TABLE_ADDR;
 /** @brief VFS mount point graph */
 static S_VFSNode* spRootPoint = NULL;
 /** @brief Kernel file descriptor table lock */
-static S_KernelSpinlock sMountPointLock;
+static T_Spinlock sMountPointLock;
 /** @brief Generic VFS driver to handle transient nodes */
 static S_FSDriver sVFSGenericDriver =
 {
@@ -724,8 +724,8 @@ static void _AddDriverNode(S_VFSNode*  pRoot,
 static bool _RemoveDriverNode(S_VFSNode* pRoot)
 {
   bool       cleaned;
-  S_VFSNode *pChild;
-  S_VFSNode *pSibling;
+  S_VFSNode* pChild;
+  S_VFSNode* pSibling;
 
   /* Check if the node hosts a driver */
   if (pRoot->pDriver == NULL)
@@ -799,7 +799,7 @@ static int32_t _CreateFileDescriptor(S_FDTable*  pTable,
   int32_t            fdId;
   size_t             i;
 
-  KERNEL_LOCK(pTable->lock);
+  SpinlockAcquire(&pTable->lock);
 
   fdId  = -1;
 
@@ -856,12 +856,12 @@ static int32_t _CreateFileDescriptor(S_FDTable*  pTable,
     }
   }
 
-  KERNEL_UNLOCK(pTable->lock);
+  SpinlockRelease(&pTable->lock);
 
   if (fdId != -1)
   {
     /* Initialize the shared interface */
-    KERNEL_SPINLOCK_INIT(pFD->pShared->lock);
+    SPINLOCK_INIT(pFD->pShared->lock);
     pFD->openFlags            = kFlags;
     pFD->openMode             = kMode;
     pFD->pShared->pDriver     = pDriver;
@@ -1109,7 +1109,7 @@ void VirtualFileSystemInit(void)
   spRootPoint->pNextSibling     = NULL;
   spRootPoint->pParent          = NULL;
 
-  KERNEL_SPINLOCK_INIT(sMountPointLock);
+  SPINLOCK_INIT(sMountPointLock);
 
   TEST_POINT_FUNCTION_ARGS(VFSCleanPathTest, _CleanPath, TEST_VFS_ENABLED);
   TEST_POINT_FUNCTION_ARGS(VFSFindNodeTest, _FindNode, TEST_VFS_ENABLED);
@@ -1141,7 +1141,7 @@ E_Return CreateProcessFDTable(S_KernelProcess* pProcess)
       /* Set the table to the process */
       pProcess->pFileDescriptorTable = pTable;
       pTable->pAllocPool             = pProcess->pHeap;
-      KERNEL_SPINLOCK_INIT(pTable->lock);
+      SPINLOCK_INIT(pTable->lock);
     }
     else
     {
@@ -1225,7 +1225,7 @@ T_VFSDriver RegisterVFSDriver(const char*  kpPath,
 
   if (pathLen > 0)
   {
-    KERNEL_LOCK(sMountPointLock);
+    SpinlockAcquire(&sMountPointLock);
 
     /* Search for an existing driver */
     pNode = _FindNode(spRootPoint, pPath, pathLen, &nextToken);
@@ -1272,7 +1272,7 @@ T_VFSDriver RegisterVFSDriver(const char*  kpPath,
       pDriver = VFS_DRIVER_INVALID;
     }
 
-    KERNEL_UNLOCK(sMountPointLock);
+    SpinlockRelease(&sMountPointLock);
   }
   else
   {
@@ -1292,7 +1292,7 @@ E_Return UnregisterVFSDriver(T_VFSDriver driver)
 
   pDriverInstance = (S_FSDriver*)driver;
 
-  KERNEL_LOCK(sMountPointLock);
+  SpinlockAcquire(&sMountPointLock);
 
   /* Unlink the driver */
   pNode = pDriverInstance->pNode;
@@ -1304,7 +1304,7 @@ E_Return UnregisterVFSDriver(T_VFSDriver driver)
   /* Clear the mount point */
   _RemoveDriverNode(pNode);
 
-  KERNEL_UNLOCK(sMountPointLock);
+  SpinlockRelease(&sMountPointLock);
 
   return NO_ERROR;
 }
@@ -1333,7 +1333,7 @@ int32_t VFSOpen(const char* kpPath, int32_t flags, int32_t mode)
 
       if (pathLen > 0)
       {
-        KERNEL_LOCK(sMountPointLock);
+        SpinlockAcquire(&sMountPointLock);
 
         /* Search for the node */
         pNode = _FindNode(spRootPoint, pPath, pathLen, &nextToken);
@@ -1359,7 +1359,7 @@ int32_t VFSOpen(const char* kpPath, int32_t flags, int32_t mode)
             pDriver = NULL;
           }
 
-          KERNEL_UNLOCK(sMountPointLock);
+          SpinlockRelease(&sMountPointLock);
 
           if (pDriver != NULL)
           {
@@ -1392,7 +1392,7 @@ int32_t VFSOpen(const char* kpPath, int32_t flags, int32_t mode)
         }
         else
         {
-          KERNEL_UNLOCK(sMountPointLock);
+          SpinlockRelease(&sMountPointLock);
           newFD = -1;
         }
       }
@@ -1426,16 +1426,16 @@ int32_t VFSClose(int32_t fd)
 
   pTable = GetCurrentProcess()->pFileDescriptorTable;
 
-  KERNEL_LOCK(pTable->lock);
+  SpinlockAcquire(&pTable->lock);
 
   /* Get the internal file descriptor */
   error = _GetFileDescriptor(pTable, fd, &pDesc);
 
-  KERNEL_UNLOCK(pTable->lock);
+  SpinlockRelease(&pTable->lock);
   if (error == NO_ERROR)
   {
 
-    KERNEL_LOCK(pDesc->pShared->lock);
+    SpinlockAcquire(&pDesc->pShared->lock);
     pDriver = pDesc->pShared->pDriver;
     /* Close file only when we are the last to have it opened */
     if (pDriver->pClose != NULL)
@@ -1448,7 +1448,7 @@ int32_t VFSClose(int32_t fd)
       retVal = 0;
     }
 
-    KERNEL_UNLOCK(pDesc->pShared->lock);
+    SpinlockRelease(&pDesc->pShared->lock);
 
     _DestroyFileDescriptor(pTable, fd);
   }
@@ -1472,22 +1472,22 @@ ssize_t VFSRead(int32_t fd, void* pBuffer, size_t count)
 
   pTable = GetCurrentProcess()->pFileDescriptorTable;
 
-  KERNEL_LOCK(pTable->lock);
+  SpinlockAcquire(&pTable->lock);
 
   /* Get the internal file descriptor */
   error = _GetFileDescriptor(pTable, fd, &pDesc);
 
-  KERNEL_UNLOCK(pTable->lock);
+  SpinlockRelease(&pTable->lock);
   if (error == NO_ERROR)
   {
     /* Check permissions */
     if ((pDesc->openFlags & VFS_PERMISSION_READ) != 0)
     {
-      KERNEL_LOCK(pDesc->pShared->lock);
+      SpinlockAcquire(&pDesc->pShared->lock);
       pDriverData = pDesc->pShared->pDriver->pDriverData;
       pRead       = pDesc->pShared->pDriver->pRead;
       pHandle     = pDesc->pShared->pFileHandle;
-      KERNEL_UNLOCK(pDesc->pShared->lock);
+      SpinlockRelease(&pDesc->pShared->lock);
 
       /* Read the file when available */
       if (pRead != NULL)
@@ -1524,22 +1524,22 @@ ssize_t VFSWrite(int32_t fd, const void* kpBuffer, size_t count)
 
   pTable = GetCurrentProcess()->pFileDescriptorTable;
 
-  KERNEL_LOCK(pTable->lock);
+  SpinlockAcquire(&pTable->lock);
 
   /* Get the internal file descriptor */
   error = _GetFileDescriptor(pTable, fd, &pDesc);
 
-  KERNEL_UNLOCK(pTable->lock);
+  SpinlockRelease(&pTable->lock);
   if (error == NO_ERROR)
   {
     /* Check permissions */
     if ((pDesc->openFlags & VFS_PERMISSION_WRITE) != 0)
     {
-      KERNEL_LOCK(pDesc->pShared->lock);
+      SpinlockAcquire(&pDesc->pShared->lock);
       pDriverData = pDesc->pShared->pDriver->pDriverData;
       pWrite      = pDesc->pShared->pDriver->pWrite;
       pHandle     = pDesc->pShared->pFileHandle;
-      KERNEL_UNLOCK(pDesc->pShared->lock);
+      SpinlockRelease(&pDesc->pShared->lock);
 
       /* Write the file when available */
       if (pWrite != NULL)
@@ -1576,22 +1576,22 @@ int32_t VFSReaddir(int32_t fd, S_DirectoryEntry* pDirEntry)
 
   pTable = GetCurrentProcess()->pFileDescriptorTable;
 
-  KERNEL_LOCK(pTable->lock);
+  SpinlockAcquire(&pTable->lock);
 
   /* Get the internal file descriptor */
   error = _GetFileDescriptor(pTable, fd, &pDesc);
 
-  KERNEL_UNLOCK(pTable->lock);
+  SpinlockRelease(&pTable->lock);
   if (error == NO_ERROR)
   {
     /* Check permissions */
     if ((pDesc->openFlags & VFS_PERMISSION_READ) != 0)
     {
-      KERNEL_LOCK(pDesc->pShared->lock);
+      SpinlockAcquire(&pDesc->pShared->lock);
       pDriverData = pDesc->pShared->pDriver->pDriverData;
       pReadDir    = pDesc->pShared->pDriver->pReadDir;
       pHandle     = pDesc->pShared->pFileHandle;
-      KERNEL_UNLOCK(pDesc->pShared->lock);
+      SpinlockRelease(&pDesc->pShared->lock);
 
       /* Read the directory when available */
       if (pReadDir != NULL)
@@ -1628,22 +1628,22 @@ ssize_t VFSIOCTL(int32_t fd, uint32_t operation, void* pArgs)
 
   pTable = GetCurrentProcess()->pFileDescriptorTable;
 
-  KERNEL_LOCK(pTable->lock);
+  SpinlockAcquire(&pTable->lock);
 
   /* Get the internal file descriptor */
   error = _GetFileDescriptor(pTable, fd, &pDesc);
 
-  KERNEL_UNLOCK(pTable->lock);
+  SpinlockRelease(&pTable->lock);
   if (error == NO_ERROR)
   {
     /* Check permissions */
     if ((pDesc->openFlags & VFS_PERMISSION_READ) != 0)
     {
-      KERNEL_LOCK(pDesc->pShared->lock);
+      SpinlockAcquire(&pDesc->pShared->lock);
       pDriverData = pDesc->pShared->pDriver->pDriverData;
       pIOCTL      = pDesc->pShared->pDriver->pIOCTL;
       pHandle     = pDesc->pShared->pFileHandle;
-      KERNEL_UNLOCK(pDesc->pShared->lock);
+      SpinlockRelease(&pDesc->pShared->lock);
 
       /* IOCLT when available */
       if (pIOCTL != NULL)
@@ -1759,7 +1759,7 @@ E_Return VFSUnmount(const char* kpPath)
 
   if (pathLen > 0)
   {
-    KERNEL_LOCK(sMountPointLock);
+    SpinlockAcquire(&sMountPointLock);
 
     /* Search for an existing driver */
     pNode = _FindNode(spRootPoint, pPath, pathLen, &nextToken);
@@ -1793,7 +1793,7 @@ E_Return VFSUnmount(const char* kpPath)
       retCode = ERR_INVALID_PARAMETER;
     }
 
-    KERNEL_UNLOCK(sMountPointLock);
+    SpinlockRelease(&sMountPointLock);
   }
   else
   {

@@ -126,7 +126,10 @@ static uint64_t* spInterruptAllocMap;
 static uint32_t sInterruptAllocMapSize;
 
 /** @brief Stores the interrupt lock. */
-static S_KernelSpinlock sInterruptLock = KERNEL_SPINLOCK_INIT_VALUE;
+static T_Spinlock sInterruptLock = SPINLOCK_INIT_VALUE;
+
+/** @brief The last core that was allocated an interrupt. */
+static uint32_t sLastAllocatedCore = 0;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -286,7 +289,7 @@ E_Return InterruptRegister(const uint32_t           kInterruptId,
 
   if (kHandler != NULL)
   {
-    KERNEL_LOCK(sInterruptLock);
+    SpinlockAcquire(&sInterruptLock);
     if (kInterruptId < kspCpuInterruptConfig->totalInterruptLines)
     {
       if (spHandlerTable[kInterruptId] == NULL)
@@ -303,7 +306,7 @@ E_Return InterruptRegister(const uint32_t           kInterruptId,
     {
       retCode = ERR_INVALID_PARAMETER;
     }
-    KERNEL_UNLOCK(sInterruptLock);
+    SpinlockRelease(&sInterruptLock);
   }
   else
   {
@@ -317,7 +320,7 @@ E_Return InterruptRemove(const uint32_t kInterruptId)
 {
   E_Return retCode;
 
-  KERNEL_LOCK(sInterruptLock);
+  SpinlockAcquire(&sInterruptLock);
   if (kInterruptId < kspCpuInterruptConfig->totalInterruptLines)
   {
     spHandlerTable[kInterruptId] = NULL;
@@ -327,7 +330,7 @@ E_Return InterruptRemove(const uint32_t kInterruptId)
   {
     retCode = ERR_INVALID_PARAMETER;
   }
-  KERNEL_UNLOCK(sInterruptLock);
+  SpinlockRelease(&sInterruptLock);
 
   return retCode;
 }
@@ -355,7 +358,7 @@ int32_t AllocateInterruptLine(void)
   uint32_t i;
   int32_t  newInt;
 
-  KERNEL_LOCK(sInterruptLock);
+  SpinlockAcquire(&sInterruptLock);
 
   newInt = -1;
   for (i = 0; i < sInterruptAllocMapSize; ++i)
@@ -375,14 +378,14 @@ int32_t AllocateInterruptLine(void)
     }
   }
 
-  KERNEL_UNLOCK(sInterruptLock);
+  SpinlockRelease(&sInterruptLock);
 
   return newInt;
 }
 
 void FreeInterruptLine(const int32_t kInterruptId)
 {
-  KERNEL_LOCK(sInterruptLock);
+  SpinlockAcquire(&sInterruptLock);
 
   if (kInterruptId >= 0 &&
       (uint32_t)kInterruptId < kspCpuInterruptConfig->totalInterruptLines)
@@ -390,6 +393,20 @@ void FreeInterruptLine(const int32_t kInterruptId)
     spInterruptAllocMap[kInterruptId / 64] &= ~(1ULL << (kInterruptId & 63));
   }
 
-  KERNEL_UNLOCK(sInterruptLock);
+  SpinlockRelease(&sInterruptLock);
+}
+
+uint32_t GetBalancedInterruptHandlerCore(void)
+{
+  uint32_t nextCore;
+
+  SpinlockAcquire(&sInterruptLock);
+
+  nextCore = (sLastAllocatedCore + 1) % CPUGetCount();
+  sLastAllocatedCore = nextCore;
+
+  SpinlockRelease(&sInterruptLock);
+
+  return nextCore;
 }
 /************************************ EOF *************************************/

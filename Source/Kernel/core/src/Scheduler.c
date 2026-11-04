@@ -103,7 +103,7 @@ typedef struct
   /** @brief The type of request */
   E_SchedulerRequestType type;
   /** @brief Parameters of the request */
-  void *pParams[3];
+  void* pParams[3];
 } S_SchedulerRequest;
 
 /** @brief Thread attributes for syscall */
@@ -437,9 +437,9 @@ static void _SchedulerThreadEntry(void)
     pThread->returnValue = pThread->pRoutine(pThread->pArgs);
 
     /* Call the exit function */
-    KERNEL_LOCK(pThread->lock);
+    SpinlockAcquire(&pThread->lock);
     _SchedulerThreadExit(pThread);
-    KERNEL_UNLOCK(pThread->lock);
+    SpinlockRelease(&pThread->lock);
   }
   else
   {
@@ -476,7 +476,7 @@ static void _SchedulerThreadExit(S_KernelThread* pThread)
   /* Set end time */
   pThread->endTime = TimeGetUptime();
 
-  KERNEL_UNLOCK(pThread->lock);
+  SpinlockRelease(&pThread->lock);
 
   /* Schedule, we should never come back */
   SchedulerSchedule();
@@ -533,9 +533,9 @@ static void _CreateMainProcess(void)
   memset(spMainProcess->signalHandlers,
          0,
          sizeof(spMainProcess->signalHandlers));
-  KERNEL_SPINLOCK_INIT(spMainProcess->signalLock);
+  SPINLOCK_INIT(spMainProcess->signalLock);
 
-  KERNEL_SPINLOCK_INIT(spMainProcess->lock);
+  SPINLOCK_INIT(spMainProcess->lock);
 }
 
 static void _CreateIdleThread(S_ScheduleContext* pContext,
@@ -593,7 +593,7 @@ static void _CreateIdleThread(S_ScheduleContext* pContext,
 
   memcpy(pIdle->pName, IDLE_THREAD_NAME, THREAD_NAME_MAX_LENGTH);
 
-  KERNEL_SPINLOCK_INIT(pIdle->lock);
+  SPINLOCK_INIT(pIdle->lock);
 
   /* Update context */
   pContext->pIdleThread     = pIdle;
@@ -747,6 +747,7 @@ static void _SetThreadToReady(S_ScheduleContext* pContext,
     }
     else
     {
+      pThread->mappedCPU = cpuId;
       /* Send the request to the desired CPU */
       _RequestThreadStateUpdate(pContext, pThread, THREAD_STATE_READY);
     }
@@ -824,7 +825,7 @@ static void _CleanThread(S_KernelThread* pThread)
   CoreProcessFSDeleteThreadEntry(pThread);
 
   /* Unlink from process */
-  KERNEL_LOCK(pThread->pProcess->lock);
+  SpinlockAcquire(&pThread->pProcess->lock);
   pNode = pThread->pProcess->pThreads->pHead;
   while (pNode != NULL)
   {
@@ -837,7 +838,7 @@ static void _CleanThread(S_KernelThread* pThread)
     pNode = pNode->pNext;
   }
   KQueueDestroyNode(&pNode);
-  KERNEL_UNLOCK(pThread->pProcess->lock);
+  SpinlockRelease(&pThread->pProcess->lock);
 
   error = UHashtableRemove(spThreadsTable, pThread->tid, NULL);
   SCHED_ASSERT(error == NO_ERROR,
@@ -854,6 +855,7 @@ static void _RequestThreadStateUpdate(S_ScheduleContext*  pContext,
 {
   uint32_t           cpuId;
   S_SchedulerRequest request;
+  S_IPIParameters    ipiParams;
 
   cpuId = CPUGetId();
 
@@ -864,6 +866,11 @@ static void _RequestThreadStateUpdate(S_ScheduleContext*  pContext,
 
   /* Send the request */
   FQueuePush(pContext->ppRequestQueues[cpuId], &request);
+
+  /* Request IPI */
+  ipiParams.function = IPI_FUNC_SCHEDULE;
+  ipiParams.pData    = NULL;
+  CPUSendIPI(CPU_IPI_SEND_TO(pContext->mappedCpu), &ipiParams);
 }
 
 static void _RequestThreadSignaled(S_KernelThread* pThread)
@@ -1088,20 +1095,25 @@ void SchedulerInit(void)
     _CreateIdleThread(ppSchedulerContext[i], i, spMainProcess);
   }
 
+  CPUSetupLocalStorage(0);
+  CPUUpdateMemoryConfig(ppSchedulerContext[0]->pIdleThread);
+
   sIsInit = true;
 
   TEST_POINT_FUNCTION(SchedulerTest, TEST_SCHEDULER_ENABLED);
 }
 
+void SchedulerAPInit(const uint32_t kCPUId)
+{
+  CPUUpdateMemoryConfig(ppSchedulerContext[kCPUId]->pIdleThread);
+}
+
 bool SchedulerSchedule(void)
 {
   uint32_t           cpuId;
-  uint32_t           intState;
   S_ScheduleContext* pCPUContext;
   S_KernelThread*    pCurrThread;
   S_KernelThread*    pOldThread;
-
-  KERNEL_ENTER_CRITICAL_LOCAL(intState);
 
   /* Get the scheduling context for the current CPU */
   cpuId       = CPUGetId();
@@ -1115,37 +1127,49 @@ bool SchedulerSchedule(void)
   /* Handle the requests for the current context */
   _HandleSchedulerRequests(pCPUContext);
 
-  /* If the process is running */
-  if (pCurrThread->currentState == THREAD_STATE_RUNNING)
+  if (pCurrThread->preemptionCount == 0)
   {
-    /* Manage the next state for the current thread */
-    _ManageThreadState(pCurrThread);
+    pCurrThread->needReschedule = false;
+
+    /* If the process is running */
+    if (pCurrThread->currentState == THREAD_STATE_RUNNING)
+    {
+      /* Manage the next state for the current thread */
+      _ManageThreadState(pCurrThread);
+    }
+
+    /* Elect the new thread */
+    pCurrThread = _ElectNextThread(pCPUContext);
+    pCPUContext->pCurrentThread = pCurrThread;
+
+    /* Wait for the thread to be schedulable */
+    while (pCurrThread->isScheduled == true && pOldThread != pCurrThread) {}
+    CPUMemoryFenceAcquire();
+    pCurrThread->isScheduled = true;
+
+    /* Update the thread state */
+    pCurrThread->previousState = pCurrThread->currentState;
+    pCurrThread->currentState  = THREAD_STATE_RUNNING;
+
+    /* Update the memory configuration */
+    CPUUpdateMemoryConfig(pCurrThread);
+
+    /* Notify that the old thread is ready to be scheduled */
+    if (pOldThread != pCurrThread)
+    {
+      pOldThread->isScheduled = false;
+    }
+
+    /* Restore the context, we will never return from this call */
+    SchedulerRestoreThread(pCurrThread);
   }
-
-  /* Elect the new thread */
-  pCurrThread = _ElectNextThread(pCPUContext);
-  pCPUContext->pCurrentThread = pCurrThread;
-
-  /* Wait for the thread to be schedulable */
-  while (pCurrThread->isScheduled == true && pOldThread != pCurrThread) {}
-  CPUMemoryFenceAcquire();
-  pCurrThread->isScheduled = true;
-
-  /* Update the thread state */
-  pCurrThread->previousState = pCurrThread->currentState;
-  pCurrThread->currentState  = THREAD_STATE_RUNNING;
-
-  /* Update the memory configuration */
-  CPUUpdateMemoryConfig(pCurrThread);
-
-  /* Notify that the old thread is ready to be scheduled */
-  if (pOldThread != pCurrThread)
+  else
   {
-    pOldThread->isScheduled = false;
-  }
+    pCurrThread->needReschedule = true;
 
-  /* Restore the context, we will never return from this call */
-  SchedulerRestoreThread(pCurrThread);
+    /* Restore the CPU context */
+    CPURestoreContext(pCurrThread);
+  }
 
   PANIC(ERR_UNAUTHORIZED_ACTION,
         MODULE_NAME,
@@ -1153,47 +1177,34 @@ bool SchedulerSchedule(void)
         false,
         false);
 
-  KERNEL_EXIT_CRITICAL_LOCAL(intState);
   return false;
-}
-
-S_KernelThread* GetCurrentThread(void)
-{
-  uint32_t        cpuId;
-  uint32_t        intState;
-  S_KernelThread *pThread;
-
-  KERNEL_ENTER_CRITICAL_LOCAL(intState);
-
-  cpuId = CPUGetId();
-  pThread = ppSchedulerContext[cpuId]->pCurrentThread;
-
-  KERNEL_EXIT_CRITICAL_LOCAL(intState);
-
-  return pThread;
 }
 
 S_KernelProcess* GetCurrentProcess(void)
 {
-  uint32_t         cpuId;
-  uint32_t         intState;
-  S_KernelProcess *pProcess;
+  S_KernelProcess* pProcess;
+  S_CPULocalData*  pCPUContext;
 
   if (sIsInit == true)
   {
-    KERNEL_ENTER_CRITICAL_LOCAL(intState);
-
-    cpuId = CPUGetId();
-    pProcess = ppSchedulerContext[cpuId]->pCurrentThread->pProcess;
-
-    KERNEL_EXIT_CRITICAL_LOCAL(intState);
+    pCPUContext = CPUGetLocalStorage();
+    pProcess = pCPUContext->pCurrentProcess;
   }
   else
   {
-    return spMainProcess;
+    pProcess = spMainProcess;
   }
 
   return pProcess;
+}
+
+S_KernelThread* GetCurrentThread(void)
+{
+  S_CPULocalData* pCPUContext;
+
+  pCPUContext = CPUGetLocalStorage();
+
+  return pCPUContext->pCurrentThread;
 }
 
 void SetCurrentThreadToWaiting(S_KernelQueue* pWaitingList,
@@ -1203,7 +1214,7 @@ void SetCurrentThreadToWaiting(S_KernelQueue* pWaitingList,
 
   pThread = GetCurrentThread();
 
-  KERNEL_LOCK(pThread->lock);
+  SpinlockAcquire(&pThread->lock);
 
   if (kIsInterruptible == true)
   {
@@ -1219,7 +1230,7 @@ void SetCurrentThreadToWaiting(S_KernelQueue* pWaitingList,
     KQueuePush(pThread->pThreadNode, pWaitingList);
   }
 
-  KERNEL_UNLOCK(pThread->lock);
+  SpinlockRelease(&pThread->lock);
 }
 
 void SetCurrentThreadToWaitingWithPriority(S_KernelQueue* pWaitingList,
@@ -1230,7 +1241,7 @@ void SetCurrentThreadToWaitingWithPriority(S_KernelQueue* pWaitingList,
 
   pThread = GetCurrentThread();
 
-  KERNEL_LOCK(pThread->lock);
+  SpinlockAcquire(&pThread->lock);
 
   if (kIsInterruptible == true)
   {
@@ -1246,7 +1257,7 @@ void SetCurrentThreadToWaitingWithPriority(S_KernelQueue* pWaitingList,
     KQueuePushPrio(pThread->pThreadNode, pWaitingList, kPriority);
   }
 
-  KERNEL_UNLOCK(pThread->lock);
+  SpinlockRelease(&pThread->lock);
 }
 
 void KillCurrentThread(void)
@@ -1255,18 +1266,18 @@ void KillCurrentThread(void)
 
   pThread = GetCurrentThread();
 
-  KERNEL_LOCK(pThread->lock);
+  SpinlockAcquire(&pThread->lock);
 
   _SchedulerThreadExit(pThread);
 
-  KERNEL_UNLOCK(pThread->lock);
+  SpinlockRelease(&pThread->lock);
 }
 
 void SetThreadToReady(S_KernelThread* pThread)
 {
   S_ScheduleContext* pContext;
 
-  KERNEL_LOCK(pThread->lock);
+  SpinlockAcquire(&pThread->lock);
 
   if (pThread->currentState != THREAD_STATE_READY &&
       pThread->currentState != THREAD_STATE_ZOMBIE &&
@@ -1276,7 +1287,7 @@ void SetThreadToReady(S_KernelThread* pThread)
     _SetThreadToReady(pContext, pThread);
   }
 
-  KERNEL_UNLOCK(pThread->lock);
+  SpinlockRelease(&pThread->lock);
 }
 
 void SetThreadSignaled(S_KernelThread* pThread)
@@ -1286,7 +1297,7 @@ void SetThreadSignaled(S_KernelThread* pThread)
 
   cpuId = CPUGetId();
 
-  KERNEL_LOCK(pThread->lock);
+  SpinlockAcquire(&pThread->lock);
 
   if (pThread->mappedCPU == cpuId)
   {
@@ -1320,14 +1331,14 @@ void SetThreadSignaled(S_KernelThread* pThread)
     _RequestThreadSignaled(pThread);
   }
 
-  KERNEL_UNLOCK(pThread->lock);
+  SpinlockRelease(&pThread->lock);
 }
 
 void SetThreadPriority(S_KernelThread* pThread, const uint32_t kPriority)
 {
-  KERNEL_LOCK(pThread->lock);
+  SpinlockAcquire(&pThread->lock);
   pThread->priority = kPriority;
-  KERNEL_UNLOCK(pThread->lock);
+  SpinlockRelease(&pThread->lock);
 }
 
 bool SchedulerIsInitialized(void)
@@ -1410,6 +1421,8 @@ E_Return CreateThread(S_KernelThread**      ppThread,
             pThread->mappedCPU       = 0xFFFFFFFF;
             pThread->pProcess        = pCurrentProcess;
             pThread->isScheduled     = false;
+            pThread->preemptionCount = 0;
+            pThread->needReschedule  = false;
             pThread->pJoiningThread  = NULL;
             pThread->startTime       = 0;
 
@@ -1432,7 +1445,7 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                 memcpy(pThread->pName, kName, THREAD_NAME_MAX_LENGTH);
                 pThread->pName[THREAD_NAME_MAX_LENGTH - 1] = 0;
 
-                KERNEL_SPINLOCK_INIT(pThread->lock);
+                SPINLOCK_INIT(pThread->lock);
 
                 /* Link to main process */
                 pNode = KQueueCreateNode(pThread, pCurrentProcess->pHeap);
@@ -1441,7 +1454,7 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                   error = CoreProcessFSCreateThreadEntry(pThread);
                   if (error == NO_ERROR)
                   {
-                    KERNEL_LOCK(pCurrentProcess->lock);
+                    SpinlockAcquire(&pCurrentProcess->lock);
                     if (pCurrentProcess->pMainThread == NULL)
                     {
                       pCurrentProcess->pMainThread = pThread;
@@ -1451,7 +1464,7 @@ E_Return CreateThread(S_KernelThread**      ppThread,
                     {
                       pCurrentProcess->pMainThread = pThread;
                     }
-                    KERNEL_UNLOCK(pCurrentProcess->lock);
+                    SpinlockRelease(&pCurrentProcess->lock);
 
                     /* Init signals */
                     SignalInitinitalize(pThread, GetCurrentThread());
@@ -1591,7 +1604,7 @@ E_Return JoinThread(S_KernelThread* pThread,
   if (pThread != pCurrentThread &&
       pThread != pThread->pProcess->pMainThread)
   {
-    KERNEL_LOCK(pThread->lock);
+    SpinlockAcquire(&pThread->lock);
     /* Check if a thread is already trying to join */
     if (pThread->pJoiningThread == NULL)
     {
@@ -1601,10 +1614,10 @@ E_Return JoinThread(S_KernelThread* pThread,
         KERNEL_ENTER_CRITICAL_LOCAL(intState);
         _SetThreadToJoining(pCurrentThread);
         pThread->pJoiningThread = pCurrentThread;
-        KERNEL_UNLOCK(pThread->lock);
+        SpinlockRelease(&pThread->lock);
         CPUSaveContextAndSchedule(pCurrentThread->pVCpu);
         KERNEL_EXIT_CRITICAL_LOCAL(intState);
-        KERNEL_LOCK(pThread->lock);
+        SpinlockAcquire(&pThread->lock);
       }
       /* Ensure the thread is completely done */
       while (pThread->isScheduled == true) {}
@@ -1622,7 +1635,7 @@ E_Return JoinThread(S_KernelThread* pThread,
     {
       error = ERR_UNAUTHORIZED_ACTION;
     }
-    KERNEL_UNLOCK(pThread->lock);
+    SpinlockRelease(&pThread->lock);
   }
   else
   {
@@ -1746,7 +1759,7 @@ E_Return CreateInitProcess(S_KernelProcess** ppProcess)
     pProcess->pParent     = GetCurrentProcess();
     pProcess->pMainThread = NULL;
     memcpy(pProcess->pName, INIT_PROCESS_NAME, PROCESS_NAME_MAX_LENGTH);
-    KERNEL_SPINLOCK_INIT(pProcess->lock);
+    SPINLOCK_INIT(pProcess->lock);
 
     /* Initialize the heap */
     retCode = MemoryCreateProcessDataAndHeap(pProcess);
@@ -1768,14 +1781,14 @@ E_Return CreateInitProcess(S_KernelProcess** ppProcess)
               if (pNode != NULL)
               {
                 /* Add to parent's children */
-                KERNEL_LOCK(pProcess->pParent->lock);
+                SpinlockAcquire(&pProcess->pParent->lock);
                 KQueuePush(pNode, pProcess->pParent->pChildren);
-                KERNEL_UNLOCK(pProcess->pParent->lock);
+                SpinlockRelease(&pProcess->pParent->lock);
 
                 memset(pProcess->signalHandlers,
                        0,
                        sizeof(pProcess->signalHandlers));
-                KERNEL_SPINLOCK_INIT(pProcess->signalLock);
+                SPINLOCK_INIT(pProcess->signalLock);
 
                 *ppProcess = pProcess;
               }
@@ -2044,9 +2057,9 @@ void* SyscallThreadExit(void* pParam0,
 
   pThread = GetCurrentThread();
   pThread->returnValue = pParam0;
-  KERNEL_LOCK(pThread->lock);
+  SpinlockAcquire(&pThread->lock);
   _SchedulerThreadExit(pThread);
-  KERNEL_UNLOCK(pThread->lock);
+  SpinlockRelease(&pThread->lock);
 
   return NULL;
 }

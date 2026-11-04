@@ -33,6 +33,7 @@
 #include <Scheduler.h>
 #include <PCIExpress.h>
 #include <KernelHeap.h>
+#include <KernelMutex.h>
 #include <DiskManager.h>
 #include <KernelError.h>
 #include <KernelQueue.h>
@@ -2031,12 +2032,15 @@ typedef struct S_AHCIPortControler
   S_AHCIPort* pPort;
 
   /** @brief Lock for the port */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
+
+  /** @brief Lock for the port's operation */
+  S_KernelMutex operationLock;
 
   /** @brief Lock for the port's retry waiting queue */
-  S_KernelSpinlock retryQueueLock;
+  T_Spinlock retryQueueLock;
   /** @brief Retry waiting threads queue */
-  S_KernelQueue *pRetryWaitingList;
+  S_KernelQueue* pRetryWaitingList;
 
   /** @brief Command waiting operation table */
   S_AHCICommand commandWaitingTable[COMMAND_TABLE_COUNT];
@@ -2070,7 +2074,7 @@ typedef struct S_AHCIPortControler
 typedef struct S_AHCIControler
 {
   /** @brief Driver's lock */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
   /** @brief Pointer to the generic AHCI BAR 5 */
   void* pBARBaseAddr;
   /** @brief Pointer to the PCI device */
@@ -2761,8 +2765,12 @@ static E_Return _AllocateAHCIPortResources(S_AHCIControler* pDrvCtrl,
   pPort     = pPortCtrl->pPort;
 
   /* Allocate the control structures */
-  KERNEL_SPINLOCK_INIT(pPortCtrl->lock);
-  KERNEL_SPINLOCK_INIT(pPortCtrl->retryQueueLock);
+  SPINLOCK_INIT(pPortCtrl->lock);
+  SPINLOCK_INIT(pPortCtrl->retryQueueLock);
+
+  err = KernelMutexInit(&pPortCtrl->operationLock, KMUTEX_FLAG_QUEUING_PRIO);
+  AHCI_ASSERT(err == NO_ERROR, "Failed to initialize operation lock", err);
+
   memset(pPortCtrl->commandWaitingTable, 0,
          sizeof(pPortCtrl->commandWaitingTable));
   pPortCtrl->issuedCommandTable = 0;
@@ -3263,8 +3271,10 @@ static E_Return _InitAHCIInterrupts(S_AHCIControler*      pCtrl,
   uint32_t globalHostControl;
   bool     msiXEnabled;
   int32_t  interruptLine;
+  uint32_t handlerCore;
 
   interruptLine = AllocateInterruptLine();
+  handlerCore = GetBalancedInterruptHandlerCore();
 
   /* Prepare interrupt */
   err = PrepareDeviceMSIInterrupt(pCtrl->pDevice);
@@ -3272,13 +3282,20 @@ static E_Return _InitAHCIInterrupts(S_AHCIControler*      pCtrl,
   {
     /* Try to setup MSI-X */
     msiXEnabled = true;
-    err = PCISetupInterruptMSIX(pCtrl->pDevice, interruptLine, 0, true);
+    err = PCISetupInterruptMSIX(pCtrl->pDevice,
+                                interruptLine,
+                                0,
+                                handlerCore,
+                                true);
 
     if (err == ERR_NOT_SUPPORTED)
     {
       msiXEnabled = false;
       /* Try to setup MSI */
-      err = PCISetupInterruptMSI(pCtrl->pDevice, interruptLine, true);
+      err = PCISetupInterruptMSI(pCtrl->pDevice,
+                                 interruptLine,
+                                 handlerCore,
+                                 true);
     }
 
     if (err == NO_ERROR)
@@ -3300,11 +3317,11 @@ static E_Return _InitAHCIInterrupts(S_AHCIControler*      pCtrl,
       {
         if (msiXEnabled == true)
         {
-          PCISetupInterruptMSIX(pCtrl->pDevice, interruptLine, 0, false);
+          PCISetupInterruptMSIX(pCtrl->pDevice, interruptLine, 0, 0, false);
         }
         else
         {
-          PCISetupInterruptMSI(pCtrl->pDevice, interruptLine, false);
+          PCISetupInterruptMSI(pCtrl->pDevice, interruptLine, 0, false);
         }
         FreeInterruptLine(interruptLine);
       }
@@ -3624,7 +3641,7 @@ static E_Return _Attach(S_PCIDevice* pDevice)
         memset(pDrvCtrl, 0, sizeof(S_AHCIControler));
 
         /* Initialize the driver control structure */
-        KERNEL_SPINLOCK_INIT(pDrvCtrl->lock);
+        SPINLOCK_INIT(pDrvCtrl->lock);
         pDrvCtrl->pBARBaseAddr = pHostControl;
         pDrvCtrl->pDevice = pDevice;
         pDevice->pDriver->pDriverData = pDrvCtrl;
@@ -3696,7 +3713,7 @@ static bool _AHCIInterruptHandler(void)
 
   if (pDrvCtrl != NULL)
   {
-    /* Get the gorst host control structure */
+    /* Get the host control structure */
     pHostControl = (S_GenericHostControl*)pDrvCtrl->pBARBaseAddr;
     status = _MMIORead32(&pHostControl->interruptStatus);
     if (status != 0)
@@ -3739,14 +3756,14 @@ static void _AHCIHandlePortInterrupt(S_AHCIControler* pDrvCtrl,
   else
   {
     /* Lock the port control structure */
-    KERNEL_LOCK(pPortCtrl->lock);
+    SpinlockAcquire(&pPortCtrl->lock);
 
     /* Clear the interrupt status for the port */
     status = _MMIORead32(&pPortCtrl->pPort->interruptStatus);
     _MMIOWrite32(&pPortCtrl->pPort->interruptStatus, status);
 
     /* Unlock the port control structure */
-    KERNEL_UNLOCK(pPortCtrl->lock);
+    SpinlockRelease(&pPortCtrl->lock);
   }
 }
 
@@ -3761,7 +3778,7 @@ static void _AHCIHandleSATAPortInterrupt(S_AHCIPortControler* pPortCtrl)
   E_AHCIOpResult  result;
 
   /* Lock the port control structure */
-  KERNEL_LOCK(pPortCtrl->lock);
+  SpinlockAcquire(&pPortCtrl->lock);
 
   pPort = pPortCtrl->pPort;
   interruptStatus = _MMIORead32(&pPort->interruptStatus);
@@ -3914,23 +3931,22 @@ static void _AHCIHandleSATAPortInterrupt(S_AHCIPortControler* pPortCtrl)
       SetThreadToReady(pCommand->pThread);
     }
   }
+  /* Unlock the port control structure */
+  SpinlockRelease(&pPortCtrl->lock);
 
   /* Clear the interrupt status */
   _MMIOWrite32(&pPort->interruptStatus, interruptStatus);
-
-  /* Unlock the port control structure */
-  KERNEL_UNLOCK(pPortCtrl->lock);
 }
 
 static void _WaitForAHCIRetry(S_AHCIPortControler* pPortCtrl,
                               S_KernelThread*      pCurThread)
 {
   /* Add the port to the retry queue */
-  KERNEL_LOCK(pPortCtrl->retryQueueLock);
+  SpinlockAcquire(&pPortCtrl->retryQueueLock);
   SetCurrentThreadToWaitingWithPriority(pPortCtrl->pRetryWaitingList,
                                         pCurThread->priority,
                                         false);
-  KERNEL_UNLOCK(pPortCtrl->retryQueueLock);
+  SpinlockRelease(&pPortCtrl->retryQueueLock);
 }
 
 static E_AHCIOpResult _ReadSATAPort(S_AHCIPortControler* pPortCtrl,
@@ -3951,6 +3967,7 @@ static E_AHCIOpResult _ReadSATAPort(S_AHCIPortControler* pPortCtrl,
   uint16_t             prdtCount;
   uint32_t             i;
   size_t               totalBytes;
+  uint32_t             intState;
 
   pPort = pPortCtrl->pPort;
 
@@ -4034,6 +4051,9 @@ static E_AHCIOpResult _ReadSATAPort(S_AHCIPortControler* pPortCtrl,
     _MMIOWrite32(&pCmdFIS->reserved1, 0);
 
     /* Add the port to the waiting table queue */
+    KERNEL_ENTER_CRITICAL_LOCAL(intState);
+    SpinlockAcquire(&pPortCtrl->lock);
+
     pPortCtrl->issuedCommandTable |= (1 << slotPort);
     pPortCtrl->commandWaitingTable[slotPort].pResult = pAsyncResult;
     pPortCtrl->commandWaitingTable[slotPort].pThread = GetCurrentThread();
@@ -4042,6 +4062,9 @@ static E_AHCIOpResult _ReadSATAPort(S_AHCIPortControler* pPortCtrl,
     /* Issue the command */
     _ClearAHCIPortError(pPort);
     _MMIOWrite32(&pPort->commandIssue, 1 << slotPort);
+
+    SpinlockRelease(&pPortCtrl->lock);
+    KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
     retCode = AHCI_OP_WAIT;
   }
@@ -4230,19 +4253,21 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
                                      const size_t          kSectorCount,
                                      const E_AHCIOperation kOperation)
 {
-  ssize_t          operationSize;
-  E_AHCIOpResult   result;
-  S_KernelThread*  pCurThread;
-  E_AHCIOpResult   asyncResult;
-  uint32_t         intState;
+  ssize_t         operationSize;
+  E_AHCIOpResult  result;
+  S_KernelThread* pCurThread;
+  E_AHCIOpResult  asyncResult;
+  E_Return        error;
 
   /* Get the physical address of the buffer */
   pCurThread = GetCurrentThread();
   do
   {
-    KERNEL_ENTER_CRITICAL_LOCAL(intState);
     /* Lock the port */
-    KERNEL_LOCK(pPortCtrl->lock);
+    error = KernelMutexLock(&pPortCtrl->operationLock);
+    AHCI_ASSERT(error == NO_ERROR,
+                "Failed to lock the port mutex.",
+                error);
 
     if (kOperation == AHCI_OP_READ)
     {
@@ -4272,7 +4297,10 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
       SetCurrentThreadToWaiting(NULL, false);
 
       /* Unlock the port */
-      KERNEL_UNLOCK(pPortCtrl->lock);
+      error = KernelMutexUnlock(&pPortCtrl->operationLock);
+      AHCI_ASSERT(error == NO_ERROR,
+                  "Failed to unlock the port mutex.",
+                  error);
 
       /* Schedule */
       CPUSaveContextAndSchedule(pCurThread->pVCpu);
@@ -4286,7 +4314,10 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
       _WaitForAHCIRetry(pPortCtrl, pCurThread);
 
       /* Unlock the port */
-      KERNEL_UNLOCK(pPortCtrl->lock);
+      error = KernelMutexUnlock(&pPortCtrl->operationLock);
+      AHCI_ASSERT(error == NO_ERROR,
+                  "Failed to unlock the port mutex.",
+                  error);
 
       /* Schedule */
       CPUSaveContextAndSchedule(pCurThread->pVCpu);
@@ -4294,10 +4325,12 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
     else
     {
       /* Unlock the port */
-      KERNEL_UNLOCK(pPortCtrl->lock);
+      error = KernelMutexUnlock(&pPortCtrl->operationLock);
+      AHCI_ASSERT(error == NO_ERROR,
+                  "Failed to unlock the port mutex.",
+                  error);
     }
 
-    KERNEL_EXIT_CRITICAL_LOCAL(intState);
   } while (result == AHCI_OP_RETRY);
 
   if (result == AHCI_OP_SUCCESS)

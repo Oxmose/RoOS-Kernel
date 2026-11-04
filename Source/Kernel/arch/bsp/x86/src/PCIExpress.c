@@ -30,7 +30,6 @@
 #include <stdint.h>
 #include <Memory.h>
 #include <Interrupts.h>
-#include <DeviceTree.h>
 #include <KernelError.h>
 #include <KernelOutput.h>
 #include <DriverManager.h>
@@ -47,9 +46,6 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/** @brief FDT property for acpi handle */
-#define PCIE_FDT_ACPI_NODE_PROP "acpi-node"
-
 /** @brief Maximum number of PCIe buses */
 #define PCIE_MAX_BUS_COUNT 256
 /** @brief Size of the PCIe bus space */
@@ -241,15 +237,11 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList);
  * @brief Attaches the PCIE driver to the system.
  *
  * @details Attaches the PCIE driver to the system. This function will
- * use the FDT to initialize the PCIE hardware and retreive the PCIE
- * parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ * initialize the PCIE hardware and retreive the PCIE parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
+static E_Return _Attach(void);
 
 /*******************************************************************************
  * GLOBAL VARIABLES
@@ -264,12 +256,12 @@ extern uintptr_t _START_PCI_TABLE_ADDR;
 
 /************************** Static global variables ***************************/
 /** @brief PCIE driver instance. */
-static S_Driver sX86PCIEDriver =
+static S_LayerDriver  sX86PCIEDriver =
 {
   .pName         = "X86 PCIE Driver",
   .pDescription  = "X86 PCI Express driver for roOs.",
-  .pCompatible   = "x86,x86-pcie",
   .pVersion      = "1.0",
+  .layer         = 2,
   .pDriverAttach = _Attach
 };
 
@@ -1284,103 +1276,82 @@ static E_Return _ProbeDevices(const S_PCIConfigNode* kpPCIConfigList)
   return retCode;
 }
 
-static E_Return _Attach(const S_FDTNode* kpFdtNode)
+static E_Return _Attach(void)
 {
-  const uint32_t*         kpUintProp;
-  const S_ACPIDriver*     kpACPIDriver;
-  size_t                  propLen;
-  E_Return                retCode;
-  uintptr_t               driverTableCursor;
-  S_PCIDriver*            pDriver;
-  S_PCIDevice*            pDevice;
-  uint16_t                vendorID;
-  uint16_t                deviceID;
-  uint8_t                 classCode;
-  uint8_t                 subclass;
-  uint8_t                 devProgIf;
-  uint32_t                registerValue;
+  E_Return     retCode;
+  uintptr_t    driverTableCursor;
+  S_PCIDriver* pDriver;
+  S_PCIDevice* pDevice;
+  uint16_t     vendorID;
+  uint16_t     deviceID;
+  uint8_t      classCode;
+  uint8_t      subclass;
+  uint8_t      devProgIf;
+  uint32_t     registerValue;
 
-  /* Get the ACPI pHandle */
-  kpUintProp = FDTGetProp(kpFdtNode, PCIE_FDT_ACPI_NODE_PROP, &propLen);
-  if (kpUintProp != NULL && propLen == sizeof(uint32_t))
+  /* Get all devices*/
+  retCode = _ProbeDevices(ACPIGetPCIConfigList());
+
+  if (retCode == NO_ERROR)
   {
-    /* Get the ACPI driver */
-    kpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-    if (kpACPIDriver != NULL)
+    /* Attach the drivers */
+    pDevice = spDevices;
+    while (pDevice != NULL)
     {
-      /* Get all devices*/
-      retCode = _ProbeDevices(kpACPIDriver->pGetPCIConfigList());
+      /* Get the head of the registered drivers section */
+      driverTableCursor = (uintptr_t)&_START_PCI_TABLE_ADDR;
+      pDriver = *(S_PCIDriver**)driverTableCursor;
 
-      if (retCode == NO_ERROR)
+      /* Compare with the list of registered drivers */
+      while (pDriver != NULL)
       {
-        /* Attach the drivers */
-        pDevice = spDevices;
-        while (pDevice != NULL)
+        registerValue = _MMIORead32(&pDevice->pFunction->vendorID);
+        vendorID      = registerValue & 0xFFFF;
+        deviceID      = registerValue >> 16;
+        registerValue = _MMIORead32(&pDevice->pFunction->revisionID);
+        devProgIf     = registerValue >> 8;
+        subclass      = registerValue >> 16;
+        classCode     = registerValue >> 24;
+
+        if (pDriver->devClass == classCode &&
+            (pDriver->devSubClass == subclass ||
+              pDriver->devSubClass == 0xFF) &&
+            (pDriver->devProgIf == devProgIf ||
+              pDriver->devProgIf == 0xFF))
         {
-          /* Get the head of the registered drivers section */
-          driverTableCursor = (uintptr_t)&_START_PCI_TABLE_ADDR;
-          pDriver = *(S_PCIDriver**)driverTableCursor;
+          KERNEL_DEBUG(PCIE_DRIVER_DEBUG_ENABLED,
+                      MODULE_NAME,
+                      "Attaching %s to device \\%04x\\%04x",
+                      pDriver->pName,
+                      vendorID,
+                      deviceID);
 
-          /* Compare with the list of registered drivers */
-          while (pDriver != NULL)
+          pDevice->pDriver = pDriver;
+          retCode = pDriver->pDriverAttach(pDevice);
+          if (retCode != NO_ERROR)
           {
-            registerValue = _MMIORead32(&pDevice->pFunction->vendorID);
-            vendorID      = registerValue & 0xFFFF;
-            deviceID      = registerValue >> 16;
-            registerValue = _MMIORead32(&pDevice->pFunction->revisionID);
-            devProgIf     = registerValue >> 8;
-            subclass      = registerValue >> 16;
-            classCode     = registerValue >> 24;
-
-            if (pDriver->devClass == classCode &&
-                (pDriver->devSubClass == subclass ||
-                  pDriver->devSubClass == 0xFF) &&
-                (pDriver->devProgIf == devProgIf ||
-                  pDriver->devProgIf == 0xFF))
-            {
-              KERNEL_DEBUG(PCIE_DRIVER_DEBUG_ENABLED,
-                          MODULE_NAME,
-                          "Attaching %s to device \\%04x\\%04x",
+            pDevice->pDriver = NULL;
+            KERNEL_ERROR("%s failed to attach to device \\%04x\\%04x with"
+                        " error %d\n",
                           pDriver->pName,
                           vendorID,
-                          deviceID);
-
-              pDevice->pDriver = pDriver;
-              retCode = pDriver->pDriverAttach(pDevice);
-              if (retCode != NO_ERROR)
-              {
-                pDevice->pDriver = NULL;
-                KERNEL_ERROR("%s failed to attach to device \\%04x\\%04x with"
-                            " error %d\n",
-                              pDriver->pName,
-                              vendorID,
-                              deviceID,
-                              retCode);
-              }
-              else
-              {
-                KERNEL_INFO("%s attached to device \\%04x\\%04x\n",
-                            pDriver->pName,
-                            vendorID,
-                            deviceID);
-                break;
-              }
-            }
-            driverTableCursor += sizeof(uintptr_t);
-            pDriver = *(S_PCIDriver**)driverTableCursor;
+                          deviceID,
+                          retCode);
           }
-          pDevice = pDevice->pNext;
+          else
+          {
+            KERNEL_INFO("%s attached to device \\%04x\\%04x\n",
+                        pDriver->pName,
+                        vendorID,
+                        deviceID);
+            break;
+          }
         }
+        driverTableCursor += sizeof(uintptr_t);
+        pDriver = *(S_PCIDriver**)driverTableCursor;
       }
+      pDevice = pDevice->pNext;
     }
-    else
-    {
-      retCode = ERR_INVALID_VALUE;
-    }
-  }
-  else
-  {
-    retCode = ERR_INVALID_VALUE;
   }
 
   return retCode;
@@ -1533,6 +1504,7 @@ E_PCIBARType PCIGetBARType(const uint32_t kBarValue)
 
 E_Return PCISetupInterruptMSI(S_PCIDevice*   pDevice,
                               const uint32_t kInterruptLine,
+                              const uint32_t kCoreId,
                               const bool     kIsEnabled)
 {
   E_Return retCode;
@@ -1553,7 +1525,7 @@ E_Return PCISetupInterruptMSI(S_PCIDevice*   pDevice,
         pDevice->isMSIEnabled = true;
 
         /* Enable MSI */
-        cpuMainLapicId = CPUGetLAPICId();
+        cpuMainLapicId = CPUGetLAPICIdByCore(kCoreId);
 
         msgCtrl |= PCIE_MSI_CONTROL_ENABLE;
         msgAddr = 0xFEE00000 | (cpuMainLapicId << 12);
@@ -1604,6 +1576,7 @@ E_Return PCISetupInterruptMSI(S_PCIDevice*   pDevice,
 E_Return PCISetupInterruptMSIX(S_PCIDevice*   pDevice,
                                const uint32_t kInterruptLine,
                                const uint8_t  kVector,
+                               const uint32_t kCoreId,
                                const bool     kIsEnabled)
 {
   E_Return  retCode;
@@ -1623,7 +1596,7 @@ E_Return PCISetupInterruptMSIX(S_PCIDevice*   pDevice,
         pDevice->isMSIXEnabled = true;
 
         /* Enable MSI */
-        cpuMainLapicId = CPUGetLAPICId();
+        cpuMainLapicId = CPUGetLAPICIdByCore(kCoreId);
 
         msgCtrl |= PCIE_MSIX_CONTROL_ENABLE;
         msgAddr = 0xFEE00000 | (cpuMainLapicId << 12);
@@ -1814,6 +1787,6 @@ E_Return PrepareDeviceLegacyInterrupt(S_PCIDevice* pDevice)
 }
 
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86PCIEDriver);
+DRIVERMGR_REG_LAYER(sX86PCIEDriver);
 
 /************************************ EOF *************************************/

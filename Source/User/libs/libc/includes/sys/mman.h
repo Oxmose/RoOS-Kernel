@@ -95,7 +95,7 @@
  * @return A pointer to the mapped memory, or MAP_FAILED on error.
  *
  */
-void *mmap(void*  addr,
+void* mmap(void*  addr,
            size_t length,
            int    prot,
            int    flags,

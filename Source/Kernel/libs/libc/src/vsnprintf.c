@@ -59,14 +59,6 @@
 }
 
 /**
- * @brief Get a sequence value argument for floats.
- */
-#define GET_SEQ_VAL_DOUBLE(VAL, ARGS, LENGTH_MOD)   \
-{                                                   \
-  VAL = __builtin_va_arg(ARGS, double);             \
-}
-
-/**
  * @brief Get a sequence value argument for integers.
  */
 #define GET_SEQ_VAL(VAL, ARGS, LENGTH_MOD, EXTEND)             \
@@ -201,20 +193,6 @@ static size_t _FormatArgs(char*             pBuffer,
                           const char*       kpFmt,
                           __builtin_va_list args);
 
-/**
- * @brief Converts a double or float value to a string.
- *
- * @details Converts a double or float value to a string.
- *
- * @param[in] value The value to convert.
- * @param[out] pBuffer The buffer that receives the converted value.
- * @param[in, out] pSignificant The number of decimal after the decimal point.
- * This value is updated to substract the number of decimal actually set.
- */
-static inline void _FloatToStr(double   value,
-                               char*    pBuffer,
-                               uint8_t* pSignificant);
-
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
@@ -272,54 +250,6 @@ static inline void _ToBufferString(char*        pBuffer,
   }
 }
 
-static inline void _FloatToStr(double   value,
-                               char*    pBuffer,
-                               uint8_t* pSignificant)
-{
-  uint64_t intValue;
-  bool     isNeg;
-
-  isNeg = (value < 0);
-  if (isNeg)
-  {
-    *pBuffer = '-';
-    ++pBuffer;
-    value = -value;
-  }
-
-  /* Setup the integer part */
-  intValue = (uint64_t)value;
-  uitoa(intValue, pBuffer, 10);
-  pBuffer[39] = 0;
-  pBuffer += strlen(pBuffer);
-  value -= intValue;
-
-  if (*pSignificant == 0)
-  {
-    *pSignificant = 10;
-  }
-  if (*pSignificant > 50)
-  {
-    *pSignificant = 50;
-  }
-
-  *pBuffer = '.';
-  ++pBuffer;
-
-  /* Now setup the decimal part */
-  while (*pSignificant > 0)
-  {
-    value *= 10;
-    intValue = (uint64_t)(value);
-    value -= intValue;
-    *pBuffer = ((char)intValue) + '0';
-    ++pBuffer;
-    --*pSignificant;
-  }
-
-  *pBuffer = 0;
-}
-
 static size_t _FormatArgs(char*             pBuffer,
                           const size_t      kSize,
                           const char*       kpFmt,
@@ -328,7 +258,6 @@ static size_t _FormatArgs(char*             pBuffer,
   size_t   pos;
   size_t   strLength;
   uint64_t seqVal;
-  double   seqValFloat;
   size_t   strSize;
   uint8_t  modifier;
   uint8_t  lengthMod;
@@ -413,12 +342,6 @@ static size_t _FormatArgs(char*             pBuffer,
           {
             _ToLower(tmpSeq);
           }
-          _ToBufferString(pBuffer, &bufferPos, kSize, tmpSeq);
-          break;
-        case 'f':
-          GET_SEQ_VAL_DOUBLE(seqValFloat, args, lengthMod);
-          memset(tmpSeq, 0, sizeof(tmpSeq));
-          _FloatToStr(seqValFloat, tmpSeq, &paddingMod);
           _ToBufferString(pBuffer, &bufferPos, kSize, tmpSeq);
           break;
         case 'P':

@@ -104,7 +104,7 @@ typedef struct
   size_t sMemMeta;
 
   /** @brief Kernel's heap spinlock. */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
 } S_ProcessHeap;
 
 /*******************************************************************************

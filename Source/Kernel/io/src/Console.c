@@ -49,13 +49,6 @@
 /** @brief Defines the current module name */
 #define MODULE_NAME "CONS"
 
-/** @brief FDT console node name */
-#define FDT_CONSOLE_NODE_NAME "console"
-/** @brief FDT property for the console input device property */
-#define FDT_CONS_INPUT_DEV_PROP "inputdev"
-/** @brief FDT property for the console output device property */
-#define FDT_CONS_OUTPUT_DEV_PROP "outputdev"
-
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
@@ -94,44 +87,25 @@ static int32_t sStdoutFd = -1;
  ******************************************************************************/
 void ConsoleInit(void)
 {
-  const S_FDTNode* kpConsoleNode;
-  const char*      kpStrProp;
-  size_t           propLen;
-
-  /* Get the FDT console node */
-  kpConsoleNode = FDTGetNodeByName(FDT_CONSOLE_NODE_NAME);
-  if (kpConsoleNode != NULL)
+  sStdoutFd = VFSOpen(CONFIG_CONSOLE_OUTPUT_DEV, O_RDWR, 0);
+  if (sStdoutFd < 0)
   {
-    /* Get the output device */
-    kpStrProp = FDTGetProp(kpConsoleNode, FDT_CONS_OUTPUT_DEV_PROP, &propLen);
-    if (kpStrProp != NULL && propLen > 0)
-    {
-      sStdoutFd = VFSOpen(kpStrProp, O_RDWR, 0);
-      ConsoleClear();
-      if (sStdoutFd < 0)
-      {
-        KERNEL_ERROR("Failed to open console output device.\n");
-      }
-      else
-      {
-        KERNEL_INFO("Console output device opened: %s\n", kpStrProp);
-      }
-    }
+    KERNEL_ERROR("Failed to open console output device.\n");
+  }
+  else
+  {
+    ConsoleClear();
+    KERNEL_INFO("Console output device: %s\n", CONFIG_CONSOLE_OUTPUT_DEV);
+  }
 
-    /* Get the input device */
-    kpStrProp = FDTGetProp(kpConsoleNode, FDT_CONS_INPUT_DEV_PROP, &propLen);
-    if (kpStrProp != NULL && propLen > 0)
-    {
-      sStdinFd = VFSOpen(kpStrProp, O_RDONLY, 0);
-      if (sStdinFd < 0)
-      {
-        KERNEL_ERROR("Failed to open console input device.\n");
-      }
-      else
-      {
-        KERNEL_INFO("Console input device opened: %s\n", kpStrProp);
-      }
-    }
+  sStdinFd = VFSOpen(CONFIG_CONSOLE_INPUT_DEV, O_RDONLY, 0);
+  if (sStdinFd < 0)
+  {
+    KERNEL_ERROR("Failed to open console input device.\n");
+  }
+  else
+  {
+    KERNEL_INFO("Console input device: %s\n", CONFIG_CONSOLE_INPUT_DEV);
   }
 }
 

@@ -72,7 +72,7 @@ typedef struct S_VFSNode
 typedef struct
 {
   S_Vector* pFDTable;
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
 } S_FDTable;
 
 typedef struct
@@ -80,7 +80,7 @@ typedef struct
   char* pFilePath;
   void* pFileHandle;
   S_FSDriver* pDriver;
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
 } S_FileDescriptorShared;
 
 typedef struct

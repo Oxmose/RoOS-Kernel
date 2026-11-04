@@ -93,7 +93,7 @@ typedef struct
   /** @brief The memory list structure  */
   S_KernelQueue* pQueue;
   /** @brief The memory list lock */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
   /** @brief The memory pool used for list allocation */
   S_ProcessHeap* pAllocPool;
 } S_MemoryList;
@@ -111,7 +111,7 @@ typedef struct
   /** @brief The memory allocated by the process. TODO: Implement */
   size_t allocatedMemory;
   /** @brief The memory management lock for the process */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
 } S_ProcessMemoryMetadata;
 
 /*******************************************************************************

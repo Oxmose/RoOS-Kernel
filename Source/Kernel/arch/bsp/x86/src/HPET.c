@@ -35,6 +35,7 @@
 #include <Critical.h>
 #include <KernelHeap.h>
 #include <KernelError.h>
+#include <KernelOutput.h>
 #include <TimerManager.h>
 #include <DriverManager.h>
 
@@ -50,11 +51,6 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/** @brief FDT property for interrupt  */
-#define HPET_FDT_INT_PROP "interrupts"
-/** @brief FDT property for acpi handle */
-#define HPET_FDT_ACPI_NODE_PROP "acpi-node"
-
 /** @brief ACPI Procfs directory path */
 #define PROCFS_DIR_PATH "hpet"
 /** @brief Length of the PROCFS string */
@@ -178,15 +174,11 @@ typedef struct
  * @brief Attaches the HPET driver to the system.
  *
  * @details Attaches the HPET driver to the system. This function will
- * use the FDT to initialize the HPET hardware and retreive the HPET
- * parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ *  initialize the HPET hardware and retreive the HPET parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
+static E_Return _Attach(void);
 
 /**
  * @brief Initializes the HPET.
@@ -196,11 +188,10 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode);
  * Other HPETs are not used.
  *
  * @param[in, out] pCtrl The HPET controller to initialize.
- * @param[in] kpFdtNode The FDT node used to initialize the driver.
  *
  * @return The success of error state is returned.
  */
-static E_Return _Init(S_HPETControler* pCtrl, const S_FDTNode* kpFdtNode);
+static E_Return _Init(S_HPETControler* pCtrl);
 
 /**
  * @brief Returns the time elasped since the last timer's reset in ns.
@@ -311,12 +302,12 @@ static E_Return _CreateProcFSEntry(void);
 
 /************************** Static global variables ***************************/
 /** @brief HPET driver instance. */
-static S_Driver sX86HPETDriver =
+static S_LayerDriver  sX86HPETDriver =
 {
   .pName         = "X86 HPET Driver",
   .pDescription  = "X86 High Precision Event Timer for roOs.",
-  .pCompatible   = "x86,x86-hpet",
   .pVersion      = "1.0",
+  .layer         = 1,
   .pDriverAttach = _Attach
 };
 
@@ -345,12 +336,10 @@ static size_t sProcFSStringLength = 0;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* kpFdtNode)
+static E_Return _Attach(void)
 {
-  const uint32_t* kpUintProp;
-  size_t          propLen;
-  E_Return        retCode;
-  S_KernelTimer*  pTimerDrv;
+  E_Return       retCode;
+  S_KernelTimer* pTimerDrv;
 
   pTimerDrv = NULL;
 
@@ -364,20 +353,16 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
   pTimerDrv->pGetTimeNs  = _GetTimeNs;
   pTimerDrv->pDriverCtrl = &sDrvCtrl;
 
-  /* Get interrupt lines */
-  kpUintProp = FDTGetProp(kpFdtNode, HPET_FDT_INT_PROP, &propLen);
-  HPET_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
-              "Failed to get the HPET interrupt",
-              ERR_INVALID_VALUE);
-
-  sDrvCtrl.interruptNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
+  KERNEL_DEBUG(HPET_DRIVER_DEBUG_ENABLED,
+                MODULE_NAME,
+                "Attaching HPET driver to the system");
 
   /* Initializes the HPET */
-  retCode = _Init(&sDrvCtrl, kpFdtNode);
+  retCode = _Init(&sDrvCtrl);
   HPET_ASSERT(retCode == NO_ERROR, "Failed to initialize the HPET", retCode);
-  /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(kpFdtNode, pTimerDrv);
-  HPET_ASSERT(retCode == NO_ERROR, "Failed to set the HPET driver", retCode);
+
+  retCode = TimeManagerAddTimer(pTimerDrv, AUX_TIMER);
+  HPET_ASSERT(retCode == NO_ERROR, "Failed to register the HPET", retCode);
 
   retCode = _CreateProcFSEntry();
   HPET_ASSERT(retCode == NO_ERROR, "Failed to create the HPET ProcFS", retCode);
@@ -385,32 +370,15 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
   return retCode;
 }
 
-static E_Return _Init(S_HPETControler* pCtrl, const S_FDTNode* kpFdtNode)
+static E_Return _Init(S_HPETControler* pCtrl)
 {
-  const uint32_t*         kpUintProp;
   const S_HPETNode*       kpHpetNode;
-  const S_ACPIDriver*     kpACPIDriver;
   const S_HPETDescriptor* kpDesc;
   uintptr_t               basePhysAddr;
-  size_t                  propLen;
   size_t                  hpetSize;
   E_Return                retCode;
 
-  kpHpetNode = NULL;
-
-  /* Get the ACPI pHandle */
-  kpUintProp = FDTGetProp(kpFdtNode, HPET_FDT_ACPI_NODE_PROP, &propLen);
-  if (kpUintProp != NULL && propLen == sizeof(uint32_t))
-  {
-    /* Get the ACPI driver */
-    kpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-    if (kpACPIDriver != NULL)
-    {
-      /* Get the HPET list */
-      kpHpetNode = kpACPIDriver->pGetHPETList();
-    }
-  }
-
+  kpHpetNode = ACPIGetHPETList();
   if (kpHpetNode != NULL)
   {
     /* We only support one HPET, get the first */
@@ -450,6 +418,8 @@ static E_Return _Init(S_HPETControler* pCtrl, const S_FDTNode* kpFdtNode)
       pCtrl->comparatorsCount = 1 + ((pCtrl->pRegisters->capabilities &
                                       HPET_CAPABILITIES_COUNT_MASK) >>
                                      HPET_CAPABILITIES_COUNT_SHIFT);
+
+      _Enable(pCtrl);
     }
   }
   else
@@ -604,6 +574,6 @@ static E_Return _CreateProcFSEntry(void)
   return retCode;
 }
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86HPETDriver);
+DRIVERMGR_REG_LAYER(sX86HPETDriver);
 
 /************************************ EOF *************************************/

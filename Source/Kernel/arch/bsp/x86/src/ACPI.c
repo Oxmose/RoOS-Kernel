@@ -30,7 +30,6 @@
 #include <ProcFS.h>
 #include <Memory.h>
 #include <SystemBSP.h>
-#include <DeviceTree.h>
 #include <KernelHeap.h>
 #include <KernelError.h>
 #include <KernelOutput.h>
@@ -48,10 +47,6 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-
-/** @brief FDT property for regs  */
-#define ACPI_FDT_REGS_PROP "reg"
-
 /** @brief ACPI Procfs directory path */
 #define ACPI_PROCFS_DIR_PATH "acpi"
 /** @brief Length of the PROCFS string */
@@ -59,6 +54,15 @@
 
 /** @brief Module name */
 #define MODULE_NAME "X86 ACPI"
+
+/** @brief ACPI base address */
+#define ACPI_BASE_ADDRESS  0x000E0000
+/** @brief ACPI base memory size */
+#define ACPI_BASE_MEM_SIZE 0x20000
+/** @brief ACPI EBDA pointer address */
+#define ACPI_EBDA_ADDRESS  0x0000040E
+/** @brief ACPI EBDA memory size */
+#define ACPI_EBDA_MEM_SIZE 0x00001000
 
 /** @brief ACPI table: Root System Description Pointer */
 #define ACPI_RSDP_SIG 0x2052545020445352ULL /* "RSD PTR " (64-bit signature) */
@@ -259,7 +263,7 @@ typedef struct
   /** @brief RSDT header */
   S_ACPIHeader header;
   /** @brief Array of pointers to the ACPI DTs. */
-  uint32_t *pDtPointers;
+  uint32_t* pDtPointers;
 } __attribute__ ((packed)) S_RSDTDescriptor;
 
 /** @brief ACPI XSDT descriptor.
@@ -270,7 +274,7 @@ typedef struct
   /** @brief XSDT header */
   S_ACPIHeader header;
   /** @brief Array of pointers to the ACPI DTs. */
-  uint64_t *pDtPointers;
+  uint64_t* pDtPointers;
 } __attribute__ ((packed)) S_XSDTDescriptor;
 
 /** @brief ACPI address descriptor.
@@ -642,15 +646,12 @@ typedef struct
 /**
  * @brief Attaches the ACPI driver to the system.
  *
- * @details Attaches the ACPI driver to the system. This function will use the
- * FDT to initialize the ACPI hardware and retreive the ACPI parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ * @details Attaches the ACPI driver to the system. This function will parse the
+ * ACPI tables and initialize the ACPI hardware.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
+static E_Return _Attach(void);
 
 /**
  * @brief Use the APIC RSDP to parse the ACPI infomation.
@@ -773,90 +774,6 @@ static void _ParseMCFG(const S_MCFGDescriptor* kpMcfgPtr);
 static void _ParseDSDT(S_DSDT* pDsdtPtr);
 
 /**
- * @brief Returns the number of LAPIC detected in the system.
- *
- * @details Returns the number of LAPIC detected in the system.
- *
- * @return The number of LAPIC detected in the system is returned.
-    */
-static uint8_t _GetLAPICCount(void);
-
-/**
- * @brief Returns the list of detected LAPICs.
- *
- * @details Returns the list of detected LAPICs. This list should not be
- * modified and is generated during the attach of the ACPI while parsing
- * its tables.
- *
- * @return The list of detected LAPICs descritors is returned.
- */
-static const S_LAPICNode* _GetLAPICList(void);
-
-/**
- * @brief Returns the detected LAPIC base address.
- *
- * @details Returns the detected LAPIC base address.
- *
- * @return The detected LAPIC base address is returned.
- */
-static uintptr_t _GetLAPICBaseAddress(void);
-
-/**
- * @brief Returns the number of IO-APIC detected in the system.
- *
- * @details Returns the number of IO-APIC detected in the system.
- *
- * @return The number of IO-APIC detected in the system is returned.
-    */
-static uint8_t _GetIOAPICCount(void);
-
-/**
- * @brief Returns the list of detected IO-APICs.
- *
- * @details Returns the list of detected IO-APICs. This list should not be
- * modified and is generated during the attach of the ACPI while parsing
- * its tables.
- *
- * @return The list of detected IO-APICs descritors is returned.
- */
-static const S_IOAPICNode* _GetIOAPICList(void);
-
-/**
- * @brief Returns the list of detected HPETs.
- *
- * @details Returns the list of detected HPETs. This list should not be
- * modified and is generated during the attach of the ACPI while parsing
- * its tables.
- *
- * @return The list of detected HPETs descritors is returned.
- */
-static const S_HPETNode* _GetHPETList(void);
-
-/**
- * @brief Checks if the IRQ has been remaped in the IO-APIC structure.
- *
- * @details Checks if the IRQ has been remaped in the IO-APIC structure. This
- * function must be called after the Init function.
- *
- * @param[in] kIRQNumber The initial IRQ number to check.
- *
- * @return The remapped IRQ number corresponding to the irq number given as
- * parameter.
- */
-static uint32_t _GetRemapedIRQ(const uint32_t kIRQNumber);
-
-/**
- * @brief Returns the list of detected PCI configuration spaces.
- *
- * @details Returns the list of detected PCI configuration spaces. This list
- * should not be modified and is generated during the attach of the ACPI while
- * parsing its tables.
- *
- * @return The list of detected PCI configuration spaces is returned.
- */
-static const S_PCIConfigNode* _GetPCIConfigList(void);
-
-/**
  * @brief Opens the ACPI ProcFS main entry.
  *
  * @details Opens the ACPI ProcFS main entry. This function will open the ACPI
@@ -931,12 +848,12 @@ static E_Return _CreateProcFSEntry(void);
 
 /************************** Static global variables ***************************/
 /** @brief ACPI driver instance. */
-static S_Driver sX86ACPIDriver =
+static S_LayerDriver sX86ACPIDriver =
 {
   .pName         = "X86 ACPI Driver",
   .pDescription  = "X86 ACPI Driver for roOs",
-  .pCompatible   = "x86,x86-acpi",
   .pVersion      = "2.0",
+  .layer         = 0,
   .pDriverAttach = _Attach
 };
 
@@ -954,19 +871,6 @@ static S_ACPIControler sDrvCtrl =
   .pPCIConfigList           = NULL,
   .version                  = 0,
   .baseAddress              = 0,
-};
-
-/** @brief ACPI external driver instance */
-static S_ACPIDriver sAPIDriver =
-{
-  .pGetLAPICCount       = _GetLAPICCount,
-  .pGetLAPICList        = _GetLAPICList,
-  .pGetLAPICBaseAddress = _GetLAPICBaseAddress,
-  .pGetIOAPICCount      = _GetIOAPICCount,
-  .pGetIOAPICList       = _GetIOAPICList,
-  .pGetHPETList         = _GetHPETList,
-  .pGetRemapedIRQ       = _GetRemapedIRQ,
-  .pGetPCIConfigList    = _GetPCIConfigList,
 };
 
 /** @brief PROCFS main entry */
@@ -991,88 +895,92 @@ static size_t sProcFSStringLength = 0;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* kpFdtNode)
+static E_Return _Attach(void)
 {
-  const uintptr_t*         kpUintptrProp;
-  size_t                   propLen;
-  E_Return                 retCode;
-  uintptr_t                searchRangeStart;
-  uintptr_t                searchRangeEnd;
-  size_t                   mapSize;
-  uintptr_t                mapBase;
-  uintptr_t                mapPhys;
-  size_t                   initSize;
-  uint64_t                 signature;
-
-  /* Get the reg: the range to search for the ACPI structure */
-  kpUintptrProp = FDTGetProp(kpFdtNode, ACPI_FDT_REGS_PROP, &propLen);
-
-  ACPI_ASSERT(kpUintptrProp != NULL && propLen == sizeof(uintptr_t) * 2,
-              "Invalid ACPI node in FDT.",
-              retCode);
-
-#ifdef ARCH_32_BITS
-  searchRangeStart = FDTTOCPU32(*kpUintptrProp);
-  initSize = FDTTOCPU32(*(kpUintptrProp + 1));
-  searchRangeEnd   = searchRangeStart + initSize;
-#elif defined(ARCH_64_BITS)
-  searchRangeStart = FDTTOCPU64(*kpUintptrProp);
-  initSize = FDTTOCPU64(*(kpUintptrProp + 1));
-  searchRangeEnd   = searchRangeStart + initSize;
-#else
-  #error "Invalid architecture"
-#endif
+  E_Return  retCode;
+  uintptr_t searchRangeStart;
+  uintptr_t searchRangeEnd;
+  size_t    mapSize;
+  uintptr_t mapBase;
+  uintptr_t mapPhys;
+  uint64_t  signature;
+  uint8_t   i;
+  bool      found;
 
   /* Map the memory */
-  mapPhys = searchRangeStart;
-  mapBase = searchRangeStart & ~PAGE_SIZE_MASK;
-  mapSize = ((searchRangeEnd - mapBase) + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
+  mapPhys  = ACPI_BASE_ADDRESS;
+  mapSize  = ACPI_BASE_MEM_SIZE;
 
-  searchRangeStart = (uintptr_t)MemoryKernelMap((void*)mapBase,
-                                                mapSize,
-                                                MEMMGR_MAP_HARDWARE |
-                                                MEMMGR_MAP_KERNEL   |
-                                                MEMMGR_MAP_RO,
-                                                &retCode);
-  ACPI_ASSERT(retCode == NO_ERROR, "Failed to map ACPI", retCode);
-
-  /* Search for the ACPI table */
-  mapBase          = searchRangeStart;
-  searchRangeStart = mapBase + (mapPhys & PAGE_SIZE_MASK);
-  searchRangeEnd   = searchRangeStart + initSize;
-  while (searchRangeStart < searchRangeEnd)
+  for (i = 0; i < 2; ++i)
   {
-    signature = *(uint64_t*)searchRangeStart;
+    found = false;
+    mapBase = (uintptr_t)MemoryKernelMap((void*)mapPhys,
+                                          mapSize,
+                                          MEMMGR_MAP_HARDWARE |
+                                          MEMMGR_MAP_KERNEL   |
+                                          MEMMGR_MAP_RO,
+                                          &retCode);
+    ACPI_ASSERT(retCode == NO_ERROR, "Failed to map ACPI", retCode);
 
-    /* Checking the RSDP signature */
-    if (signature == ACPI_RSDP_SIG)
+    /* Search for the ACPI table */
+    searchRangeStart = mapBase + (mapPhys & PAGE_SIZE_MASK);
+    searchRangeEnd   = searchRangeStart + mapSize;
+    while (searchRangeStart < searchRangeEnd)
     {
-      KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
-                   MODULE_NAME,
-                   "ACPI RSDP found at 0x%p",
-                   searchRangeStart);
-      /* Parse RSDP */
-      _ParseRSDP((S_RSDPDescriptor*)searchRangeStart);
-      sDrvCtrl.baseAddress = searchRangeStart;
-      break;
+      signature = *(uint64_t*)searchRangeStart;
+
+      /* Checking the RSDP signature */
+      if (signature == ACPI_RSDP_SIG)
+      {
+        KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                    MODULE_NAME,
+                    "ACPI RSDP found at 0x%p",
+                    searchRangeStart);
+        /* Parse RSDP */
+        _ParseRSDP((S_RSDPDescriptor*)searchRangeStart);
+        found                = true;
+        sDrvCtrl.baseAddress = searchRangeStart;
+        break;
+      }
+
+      searchRangeStart += sizeof(uintptr_t);
     }
 
-    searchRangeStart += sizeof(uintptr_t);
+    /* Unmap the memory */
+    retCode = MemoryKernelUnmap((void*)mapBase, mapSize);
+    ACPI_ASSERT(retCode == NO_ERROR, "Failed to unmap ACPI", retCode);
+
+    /* Update for second search */
+    if (found == false)
+    {
+      /* Get the EDBA address */
+      searchRangeStart = (uintptr_t)MemoryKernelMap((void*)0,
+                                                    KERNEL_PAGE_SIZE,
+                                                    MEMMGR_MAP_HARDWARE |
+                                                    MEMMGR_MAP_KERNEL   |
+                                                    MEMMGR_MAP_RO,
+                                                    &retCode);
+      ACPI_ASSERT(retCode == NO_ERROR, "Failed to map ACPI", retCode);
+      searchRangeStart += ACPI_EBDA_ADDRESS;
+
+      /* Map the memory */
+      mapPhys = (uintptr_t)(*(uint16_t*)searchRangeStart) << 4;
+      mapSize = ACPI_EBDA_MEM_SIZE;
+
+      retCode = MemoryKernelUnmap((void*)(searchRangeStart & ~PAGE_SIZE_MASK),
+                                  KERNEL_PAGE_SIZE);
+      ACPI_ASSERT(retCode == NO_ERROR, "Failed to unmap ACPI", retCode);
+    }
+    else
+    {
+      break;
+    }
   }
 
-  /* Unmap the memory */
-  retCode = MemoryKernelUnmap((void*)mapBase, mapSize);
-  ACPI_ASSERT(retCode == NO_ERROR, "Failed to unmap ACPI", retCode);
-
-  ACPI_ASSERT(searchRangeStart < searchRangeEnd,
-              "ACPI not found", ERR_NOT_SUPPORTED);
-
-  /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(kpFdtNode, &sAPIDriver);
-  ACPI_ASSERT(retCode == NO_ERROR, "Failed to register ACPI", retCode);
+  ACPI_ASSERT(found, "ACPI not found", ERR_NOT_SUPPORTED);
 
   /* Update the CPU count */
-  CPUSetCount(sAPIDriver.pGetLAPICCount());
+  CPUSetCount(ACPIGetLAPICCount());
 
   /* Register the PROCFS entries */
   retCode = _CreateProcFSEntry();
@@ -1657,7 +1565,10 @@ static void _ParseDT(const S_ACPIHeader* kpHeader, const uintptr_t kPhysAddr)
   }
   else if (*((uint32_t*)kpHeader->pSignature) == ACPI_KEYP_SIG)
   {
-
+    KERNEL_DEBUG(ACPI_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "KEYP found at 0x%p",
+                 descPtr);
   }
   else
   {
@@ -1707,9 +1618,8 @@ static void _ParseFADT(const S_FADT* kpFadtPtr)
               "FADT Signature comparison failed",
               ERR_INVALID_VALUE);
 
-  /* Save the FADT pointer */
+  /* Save the FADT data */
   memcpy(&sDrvCtrl.fadt, kpFadtPtr, sizeof(S_FADT));
-
 
   /* Parse the DSDT */
   dsdtAddr = 0;
@@ -1909,6 +1819,9 @@ static void _ParseMADT(const S_MADT* kpMadtPtr)
     }
     madtEntry += pHeader->length;
   }
+
+  /* Setup the LAPIC IDs for the CPUs */
+  CPUSetupLAPICIds();
 }
 
 static void _ParseHPET(const S_ACPIHPETDescriptor* kpHpetPtr)
@@ -1998,7 +1911,8 @@ static void _ParseMCFG(const S_MCFGDescriptor* kpMcfgPtr)
     /* Create the new node */
     pNode = KMalloc(sizeof(S_PCIConfigNode), KMALLOC_NO_FREE_POOL);
     pNode->pciConfig.baseAddress = kpMcfgPtr->configSpaces[i].baseAddress;
-    pNode->pciConfig.pciSegmentGroupNumber = kpMcfgPtr->configSpaces[i].pciSegmentGroupNumber;
+    pNode->pciConfig.pciSegmentGroupNumber =
+      kpMcfgPtr->configSpaces[i].pciSegmentGroupNumber;
     pNode->pciConfig.startBusNumber = kpMcfgPtr->configSpaces[i].startBusNumber;
     pNode->pciConfig.endBusNumber = kpMcfgPtr->configSpaces[i].endBusNumber;
 
@@ -2016,35 +1930,11 @@ static void _ParseMCFG(const S_MCFGDescriptor* kpMcfgPtr)
   }
 }
 
-uint32_t parse_aml_pkg_length(const uint8_t* stream, uint32_t* offset);
-uint32_t parse_aml_pkg_length(const uint8_t* stream, uint32_t* offset) {
-    uint8_t lead_byte = stream[*offset];
-    (*offset)++;
-
-    // Rule 1: Standard 1-byte length
-    // If bits 6 and 7 are 0, the length is just the lower 6 bits (max value 63)
-    if ((lead_byte & 0xC0) == 0) {
-        return lead_byte & 0x3F;
-    }
-
-    // Rule 2: Multi-byte length (2, 3, or 4 bytes follow)
-    // Bits 6-7 tell us how many extra bytes represent this integer
-    uint8_t extra_bytes = (lead_byte >> 6) & 0x03;
-    uint32_t length = lead_byte & 0x0F; // Initialize with the lower 4 bits
-
-    for (uint8_t i = 0; i < extra_bytes; i++) {
-        length |= (stream[*offset] << (4 + (i * 8)));
-        (*offset)++; // Advance the stream index past this length byte
-    }
-
-    return length;
-}
-
 static void _ParseDSDT(S_DSDT* pDsdtPtr)
 {
   int32_t          sum;
   uint32_t         i;
-  uint8_t*         memCursor;
+  uint8_t*         pMemCursor;
   S_Package*       pPackage;
 
   ACPI_ASSERT(pDsdtPtr != NULL, "Parse a NULL DSDT", ERR_INVALID_PARAMETER);
@@ -2067,15 +1957,15 @@ static void _ParseDSDT(S_DSDT* pDsdtPtr)
               ERR_INVALID_VALUE);
 
   /* Search for the S5 sequence to get the register values */
-  memCursor = pDsdtPtr->aml;
+  pMemCursor = pDsdtPtr->aml;
   for (i = 0;
        i < pDsdtPtr->header.length - sizeof(S_ACPIHeader) - sizeof(uint32_t);
        ++i)
   {
     /* Check if we found the S5 package */
-    if (*((uint32_t*)&memCursor[i]) == S5_PACKAGE_NAME)
+    if (*((uint32_t*)&pMemCursor[i]) == S5_PACKAGE_NAME)
     {
-      pPackage = (S_Package*)&memCursor[i-1];
+      pPackage = (S_Package*)&pMemCursor[i-1];
       sDrvCtrl.shutdownRegValue[0] = (uint16_t)pPackage->elements[1];
       sDrvCtrl.shutdownRegValue[1] = (uint16_t)pPackage->elements[3];
 
@@ -2086,63 +1976,6 @@ static void _ParseDSDT(S_DSDT* pDsdtPtr)
                    sDrvCtrl.shutdownRegValue[1]);
     }
   }
-}
-
-static uint8_t _GetLAPICCount(void)
-{
-  return sDrvCtrl.detectedCPUCount;
-}
-
-const S_LAPICNode* _GetLAPICList(void)
-{
-  return sDrvCtrl.pLAPICList;
-}
-
-static uintptr_t _GetLAPICBaseAddress(void)
-{
-  return sDrvCtrl.localApicAddress;
-}
-
-static uint8_t _GetIOAPICCount(void)
-{
-  return sDrvCtrl.detectedIOAPICCount;
-}
-
-static const S_IOAPICNode* _GetIOAPICList(void)
-{
-  return sDrvCtrl.pIoApicList;
-}
-
-static const S_HPETNode* _GetHPETList(void)
-{
-  return sDrvCtrl.pHpetList;
-}
-
-static uint32_t _GetRemapedIRQ(const uint32_t kIRQNumber)
-{
-  const S_InterruptOverrideNode* kpOverride;
-  uint32_t                   retValue;
-
-  /* Search for the override */
-  retValue   = kIRQNumber;
-  kpOverride = sDrvCtrl.pIntOverrideList;
-  while (kpOverride != NULL)
-  {
-    if (kpOverride->intOverride.source == kIRQNumber)
-    {
-      retValue = kpOverride->intOverride.interrupt;
-      break;
-    }
-    kpOverride = kpOverride->pNext;
-  }
-
-  /* If we did not find the interrupt, there is no redirection. */
-  return retValue;
-}
-
-static const S_PCIConfigNode* _GetPCIConfigList(void)
-{
-  return sDrvCtrl.pPCIConfigList;
 }
 
 static void* _ProcFSOpen(void*       pDriverData,
@@ -2275,6 +2108,63 @@ static E_Return _CreateProcFSEntry(void)
   return retCode;
 }
 
+uint8_t ACPIGetLAPICCount(void)
+{
+  return sDrvCtrl.detectedCPUCount;
+}
+
+const S_LAPICNode* ACPIGetLAPICList(void)
+{
+  return sDrvCtrl.pLAPICList;
+}
+
+uintptr_t ACPIGetLAPICBaseAddress(void)
+{
+  return sDrvCtrl.localApicAddress;
+}
+
+uint8_t ACPIGetIOAPICCount(void)
+{
+  return sDrvCtrl.detectedIOAPICCount;
+}
+
+const S_IOAPICNode* ACPIGetIOAPICList(void)
+{
+  return sDrvCtrl.pIoApicList;
+}
+
+const S_HPETNode* ACPIGetHPETList(void)
+{
+  return sDrvCtrl.pHpetList;
+}
+
+uint32_t ACPIGetRemapedIRQ(const uint32_t kIRQNumber)
+{
+  const S_InterruptOverrideNode* kpOverride;
+  uint32_t                       retValue;
+
+  /* Search for the override */
+  retValue   = kIRQNumber;
+  kpOverride = sDrvCtrl.pIntOverrideList;
+  while (kpOverride != NULL)
+  {
+    if (kpOverride->intOverride.source == kIRQNumber)
+    {
+      retValue = kpOverride->intOverride.interrupt;
+      break;
+    }
+    kpOverride = kpOverride->pNext;
+  }
+
+  /* If we did not find the interrupt, there is no redirection. */
+  return retValue;
+}
+
+const S_PCIConfigNode* ACPIGetPCIConfigList(void)
+{
+  return sDrvCtrl.pPCIConfigList;
+}
+
 void SystemShutdown(void)
 {
   uint16_t value;
@@ -2316,6 +2206,6 @@ void SystemShutdown(void)
 
 
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86ACPIDriver);
+DRIVERMGR_REG_LAYER(sX86ACPIDriver);
 
 /************************************ EOF *************************************/

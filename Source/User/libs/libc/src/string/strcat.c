@@ -70,7 +70,7 @@
  * FUNCTIONS
  ******************************************************************************/
 
-char *strcat(char *dst, const char *src)
+char* strcat(char* dst, const char* src)
 {
     strcpy(strchr(dst, '\0'), src);
     return dst;

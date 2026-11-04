@@ -70,7 +70,7 @@
  * FUNCTIONS
  ******************************************************************************/
 
-unsigned long strtoul(const char *pStr, char **ppEnd, int base)
+unsigned long strtoul(const char* pStr, char **ppEnd, int base)
 {
     unsigned long value;
 

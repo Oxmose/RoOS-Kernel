@@ -70,9 +70,9 @@
  * FUNCTIONS
  ******************************************************************************/
 
-char *strrchr(const char *s, int c)
+char* strrchr(const char* s, int c)
 {
-    const char *found = NULL;
+    const char* found = NULL;
 
     while (*s) {
         if (*s == (char)c)

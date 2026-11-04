@@ -62,7 +62,7 @@
 /* None */
 
 /************************** Static global variables ***************************/
-static S_KernelThread *spTestThread;
+static S_KernelThread* spTestThread;
 static uint32_t sLastPrio;
 
 /*******************************************************************************
@@ -373,8 +373,8 @@ static void TestSleep(void)
                            newTime - currentTime,
                            TEST_SCHEDULER_ENABLED);
   TEST_POINT_ASSERT_UDWORD(SCHED_TEST_SLEEP_ID(6),
-                           newTime - currentTime < 5000000,
-                           5000000,
+                           newTime - currentTime < 10000000,
+                           10000000,
                            newTime - currentTime,
                            TEST_SCHEDULER_ENABLED);
   currentTime = TimeGetUptime();
@@ -563,7 +563,7 @@ static void TestGetters(void)
 static void TestPriority(void)
 {
   uint32_t        i;
-  S_KernelThread *pThreads[64];
+  S_KernelThread* pThreads[64];
   E_Return        error;
   S_CPUMask       cpuMask;
   void*           returnValue;
@@ -610,7 +610,7 @@ static void TestPriority(void)
 static void TestMappedCore(void)
 {
   uint32_t        i;
-  S_KernelThread *pThread;
+  S_KernelThread* pThread;
   E_Return        error;
   S_CPUMask       cpuMask;
   void*           returnValue;

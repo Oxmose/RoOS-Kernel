@@ -27,7 +27,7 @@ static void _KernelWorkerTestTask(void* pArg)
   AtomicIncrement32(&sExecutedTaskCount);
 }
 
-static void *_KernelWorkerTestRoutine(void* pArg)
+static void* _KernelWorkerTestRoutine(void* pArg)
 {
   S_KernelSemaphore completionSemaphore[KWORKER_TEST_TASK_COUNT];
   E_Return error;
@@ -61,7 +61,7 @@ static void *_KernelWorkerTestRoutine(void* pArg)
                               &taskArguments[i],
                               &completionSemaphore[i]);
     TEST_POINT_ASSERT_RCODE(TEST_KWORKER_SUBMIT_ID(i),
-                            TRUE, TRUE, TRUE,
+                            true, true, true,
                             TEST_KWORKER_ENABLED);
   }
 

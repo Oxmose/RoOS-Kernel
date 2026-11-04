@@ -108,7 +108,7 @@ E_Return KernelSemaphoreInit(S_KernelSemaphore* pSemaphore,
     if (pSemaphore->pWaitingList != NULL)
     {
       pSemaphore->flags = kFlags;
-      KERNEL_SPINLOCK_INIT(pSemaphore->lock);
+      SPINLOCK_INIT(pSemaphore->lock);
 
       error = NO_ERROR;
     }
@@ -129,11 +129,11 @@ E_Return KernelSemaphoreDestroy(S_KernelSemaphore* pSemaphore)
 {
   E_Return error;
 
-  KERNEL_LOCK(pSemaphore->lock);
+  SpinlockAcquire(&pSemaphore->lock);
   /* Destroy the waiting queue */
   KQueueDestroy(&pSemaphore->pWaitingList);
   error = NO_ERROR;
-  KERNEL_UNLOCK(pSemaphore->lock);
+  SpinlockRelease(&pSemaphore->lock);
 
   return error;
 }
@@ -144,13 +144,14 @@ E_Return KernelSemaphoreWait(S_KernelSemaphore* pSemaphore)
   S_KernelThread* pCurThread;
   uint32_t        intState;
 
-  KERNEL_ENTER_CRITICAL_LOCAL(intState);
-  KERNEL_LOCK(pSemaphore->lock);
+  SpinlockAcquire(&pSemaphore->lock);
 
   pCurThread = GetCurrentThread();
 
   if (pSemaphore->lockState == 0)
   {
+    KERNEL_ENTER_CRITICAL_LOCAL(intState);
+
     do
     {
       /* Add to list */
@@ -167,22 +168,24 @@ E_Return KernelSemaphoreWait(S_KernelSemaphore* pSemaphore)
       }
 
       /* Unlock semaphore and schedule */
-      KERNEL_UNLOCK(pSemaphore->lock);
+      SpinlockRelease(&pSemaphore->lock);
+
       CPUSaveContextAndSchedule(pCurThread->pVCpu);
-      KERNEL_LOCK(pSemaphore->lock);
+
+      SpinlockAcquire(&pSemaphore->lock);
+
     } while (pCurThread->pThreadNode->pQueuePtr != NULL);
-    KERNEL_UNLOCK(pSemaphore->lock);
+    KERNEL_EXIT_CRITICAL_LOCAL(intState);
   }
   else
   {
     /* Acquire one value */
     --pSemaphore->lockState;
-
-    KERNEL_UNLOCK(pSemaphore->lock);
   }
-  error = NO_ERROR;
 
-  KERNEL_EXIT_CRITICAL_LOCAL(intState);
+  SpinlockRelease(&pSemaphore->lock);
+
+  error = NO_ERROR;
 
   return error;
 }
@@ -193,7 +196,7 @@ E_Return KernelSemaphorePost(S_KernelSemaphore* pSemaphore)
   S_KernelThread*    pReleasedThread;
   E_Return           error;
 
-  KERNEL_LOCK(pSemaphore->lock);
+  SpinlockAcquire(&pSemaphore->lock);
 
   if (pSemaphore->lockState == 0)
   {
@@ -232,7 +235,7 @@ E_Return KernelSemaphorePost(S_KernelSemaphore* pSemaphore)
     error = ERR_EXCEEDED_LIMIT;
   }
 
-  KERNEL_UNLOCK(pSemaphore->lock);
+  SpinlockRelease(&pSemaphore->lock);
 
   return error;
 }
@@ -241,7 +244,7 @@ E_Return KernelSemaphoreTryWait(S_KernelSemaphore* pSemaphore, int32_t* pLockSta
 {
   E_Return error;
 
-  KERNEL_LOCK(pSemaphore->lock);
+  SpinlockAcquire(&pSemaphore->lock);
 
   *pLockState = pSemaphore->lockState;
   if (pSemaphore->lockState > 0)
@@ -255,7 +258,7 @@ E_Return KernelSemaphoreTryWait(S_KernelSemaphore* pSemaphore, int32_t* pLockSta
     error = ERR_UNAUTHORIZED_ACTION;
   }
 
-  KERNEL_UNLOCK(pSemaphore->lock);
+  SpinlockRelease(&pSemaphore->lock);
 
   return error;
 }

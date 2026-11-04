@@ -257,7 +257,7 @@ static ssize_t _VFSTell(void* pDriverData, void* pHandle, void* pArgs);
 
 /************************** Static global variables ***************************/
 /** @brief RamDisk driver instance. */
-static S_Driver sRAMDISKDriver =
+static S_FDTDriver  sRAMDISKDriver =
 {
   .pName         = "RamDisk Driver",
   .pDescription  = "RamDisk Driver roOs.",

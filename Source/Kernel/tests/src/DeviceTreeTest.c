@@ -251,75 +251,17 @@ void DeviceTreeTest(void)
                             (uintptr_t)pkNode,
                             TEST_DEVTREE_ENABLED);
   TEST_POINT_ASSERT_UINT(TEST_DEVTREE_GETCHILD1,
-                          strcmp(pkNode->pName, "cpus") == 0,
+                          strcmp(pkNode->pName, "memory@0") == 0,
                           0,
-                          strcmp(pkNode->pName, "cpus"),
+                          strcmp(pkNode->pName, "memory@0"),
                           TEST_DEVTREE_ENABLED);
 
-  pkNode = FDTGetChild(pkNode);
-  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_GETCHILD2,
-                            pkNode != NULL,
-                            (uintptr_t)0xDEADC0DE,
-                            (uintptr_t)pkNode,
-                            TEST_DEVTREE_ENABLED);
-  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_GETCHILD3,
-                          strcmp(pkNode->pName, "cpu@0") == 0,
-                          0,
-                          strcmp(pkNode->pName, "cpu@0"),
-                          TEST_DEVTREE_ENABLED);
-  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_GETCHILD4,
-                            FDTGetChild(pkNode) == NULL,
-                            (uintptr_t)NULL,
-                            (uintptr_t)FDTGetChild(pkNode),
-                            TEST_DEVTREE_ENABLED);
+  pkNode = FDTGetNodeByHandle(0);
 
-  /* TEST NEXT NODE */
-  pkNode = FDTGetNextNode(pkNode);
-  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_GETNEXTNODE0,
-                            pkNode != NULL,
-                            (uintptr_t)0xDEADC0DE,
-                            (uintptr_t)pkNode,
-                            TEST_DEVTREE_ENABLED);
-  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_GETNEXTNODE1,
-                          strcmp(pkNode->pName, "cpu@1") == 0,
-                          0,
-                          strcmp(pkNode->pName, "cpu@1"),
-                          TEST_DEVTREE_ENABLED);
-  pkNode = FDTGetNextNode(pkNode);
-  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_GETNEXTNODE2,
-                            pkNode != NULL,
-                            (uintptr_t)0xDEADC0DE,
-                            (uintptr_t)pkNode,
-                            TEST_DEVTREE_ENABLED);
-  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_GETNEXTNODE3,
-                          strcmp(pkNode->pName, "cpu@2") == 0,
-                          0,
-                          strcmp(pkNode->pName, "cpu@2"),
-                          TEST_DEVTREE_ENABLED);
-  pkNode = FDTGetNextNode(pkNode);
-  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_GETNEXTNODE4,
-                            pkNode != NULL,
-                            (uintptr_t)0xDEADC0DE,
-                            (uintptr_t)pkNode,
-                            TEST_DEVTREE_ENABLED);
-  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_GETNEXTNODE5,
-                          strcmp(pkNode->pName, "cpu@3") == 0,
-                          0,
-                          strcmp(pkNode->pName, "cpu@3"),
-                          TEST_DEVTREE_ENABLED);
-  pkNode = FDTGetNextNode(pkNode);
-  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_GETNEXTNODE6,
-                            pkNode == NULL,
-                            (uintptr_t)NULL,
-                            (uintptr_t)pkNode,
-                            TEST_DEVTREE_ENABLED);
-
-  pkNode = FDTGetNodeByHandle(1);
-
-  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_GETHANDLE2,
-                          strcmp(pkNode->pName, "acpi@E0000") == 0,
-                          0,
-                          strcmp(pkNode->pName, "acpi@E0000"),
+  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_GETHANDLE2,
+                          pkNode == NULL,
+                          (uintptr_t)NULL,
+                          (uintptr_t)pkNode,
                           TEST_DEVTREE_ENABLED);
 
   pMemNode = FDTGetMemory();
@@ -388,7 +330,7 @@ void DeviceTreeTest(void)
                           TEST_DEVTREE_ENABLED);
 #endif
 
-  pkNode = FDTGetNodeByName("timeconfig");
+  pkNode = FDTGetNodeByName("ramdisk@4A5000");
 
   TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_GETNODEBYNAME,
                           pkNode != NULL,
@@ -433,8 +375,8 @@ void DeviceTreeTest(void)
   pkRoot = FDTGetRoot();
   nodeCount = _CountNodes(pkRoot);
   TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_COUNT0,
-                         nodeCount >= 12,
-                         12,
+                         nodeCount >= 2,
+                         2,
                          nodeCount,
                          TEST_DEVTREE_ENABLED);
   TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_COUNT1,
@@ -448,16 +390,16 @@ void DeviceTreeTest(void)
                          nodeCount,
                          TEST_DEVTREE_ENABLED);
 
-  pkCpus = FDTGetNodeByName("cpus");
+  pkCpus = FDTGetNodeByName("memory@0");
   TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_TREE_NAME0,
                             pkCpus != NULL,
                             (uintptr_t)0xDEADC0DE,
                             (uintptr_t)pkCpus,
                             TEST_DEVTREE_ENABLED);
   TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_NAME1,
-                         strcmp(pkCpus->pName, "cpus") == 0,
+                         strcmp(pkCpus->pName, "memory@0") == 0,
                          0,
-                         strcmp(pkCpus->pName, "cpus"),
+                         strcmp(pkCpus->pName, "memory@0"),
                          TEST_DEVTREE_ENABLED);
   TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_TREE_NAME2,
                             FDTGetNodeByName(pkCpus->pName) == pkCpus,
@@ -483,16 +425,6 @@ void DeviceTreeTest(void)
                             (uintptr_t)NULL,
                             (uintptr_t)pkMissingNode,
                             TEST_DEVTREE_ENABLED);
-  TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_TREE_HANDLE1,
-                            FDTGetNodeByHandle(1) != NULL,
-                            (uintptr_t)0xDEADC0DE,
-                            (uintptr_t)FDTGetNodeByHandle(1),
-                            TEST_DEVTREE_ENABLED);
-  TEST_POINT_ASSERT_UINT(TEST_DEVTREE_TREE_HANDLE2,
-                         strcmp(FDTGetNodeByHandle(1)->pName, "acpi@E0000") == 0,
-                         0,
-                         strcmp(FDTGetNodeByHandle(1)->pName, "acpi@E0000"),
-                         TEST_DEVTREE_ENABLED);
 
   pMemNode = FDTGetMemory();
   TEST_POINT_ASSERT_POINTER(TEST_DEVTREE_TREE_MEM0,

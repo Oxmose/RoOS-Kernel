@@ -94,7 +94,7 @@ int usleep(useconds_t usec);
  *
  * @return ssize_t The number of bytes written, or -1 on error.
  */
-ssize_t write(int fd, const void *buf, size_t count);
+ssize_t write(int fd, const void* buf, size_t count);
 
 /**
  * @brief Read from a file descriptor.
@@ -108,7 +108,7 @@ ssize_t write(int fd, const void *buf, size_t count);
  *
  * @return ssize_t The number of bytes read, or -1 on error.
  */
-ssize_t read(int fd, void *buf, size_t count);
+ssize_t read(int fd, void* buf, size_t count);
 
 /**
  * @brief Close a file descriptor.

@@ -1,15 +1,23 @@
 [
   {
+    "name": "Kernel Heap",
+    "testname": "KHEAP"
+  },
+  {
+    "name": "Kernel libc",
+    "testname": "LIBC"
+  },
+  {
+    "name": "Kernel Queues",
+    "testname": "OS_KQUEUE"
+  },
+  {
+    "name": "Kernel Fast Queues",
+    "testname": "OS_FAST_QUEUES"
+  },
+  {
     "name": "Kernel RAMDISK",
     "testname": "RAMDISK"
-  },
-  {
-    "name": "Kernel USTAR Driver",
-    "testname": "USTARFS"
-  },
-  {
-    "name": "Kernel SATA storage",
-    "testname": "STORAGE"
   },
   {
     "name": "Kernel Worker",
@@ -28,24 +36,12 @@
     "testname": "OS_KSEMAPHORE"
   },
   {
-    "name": "Kernel Queues",
-    "testname": "OS_KQUEUE"
-  },
-  {
-    "name": "Kernel Fast Queues",
-    "testname": "OS_FAST_QUEUES"
-  },
-  {
     "name": "Virtual File System",
     "testname": "VFS"
   },
   {
     "name": "Process File System",
     "testname": "PROCFS"
-  },
-  {
-    "name": "Kernel Heap",
-    "testname": "KHEAP"
   },
   {
     "name": "Device Tree",
@@ -84,7 +80,11 @@
     "testname": "ELFMANAGER"
   },
   {
-    "name": "Kernel libc",
-    "testname": "LIBC"
+    "name": "Kernel USTAR Driver",
+    "testname": "USTARFS"
+  },
+  {
+    "name": "Kernel SATA storage",
+    "testname": "STORAGE"
   }
 ]

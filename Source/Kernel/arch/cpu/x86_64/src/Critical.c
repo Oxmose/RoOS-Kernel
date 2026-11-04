@@ -106,25 +106,4 @@ uint32_t CPUInterruptDisable(void)
 
   return prevState;
 }
-
-void KernelLock(S_KernelSpinlock* pLock)
-{
-  uint32_t interruptState;
-
-  /* Get interrupt state, disable interrupts, lock spinlock */
-  interruptState = InterruptDisable();
-  SpinlockAcquire(&pLock->lock);
-  pLock->interruptState = interruptState;
-}
-
-void KernelUnlock(S_KernelSpinlock* pLock)
-{
-  uint32_t interruptState;
-
-  /* Unlock the spinlock and restore the interrupt state */
-  interruptState = pLock->interruptState;
-  SpinlockRelease(&pLock->lock);
-  InterruptRestore(interruptState);
-}
-
 /************************************ EOF *************************************/

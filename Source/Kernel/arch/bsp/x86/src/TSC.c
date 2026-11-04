@@ -26,7 +26,6 @@
 #include <stdint.h>
 #include <Interrupts.h>
 #include <KernelHeap.h>
-#include <DeviceTree.h>
 #include <KernelError.h>
 #include <TimerManager.h>
 #include <KernelOutput.h>
@@ -44,8 +43,6 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/** @brief FDT property for base timer */
-#define TSC_FDT_BASE_TIMER_PROP "base-timer"
 /** @brief Defines the calibration time in nanoseconds for the TSC. */
 #define TSC_CALIBRATION_DELAY 100000000
 /** @brief Current module name */
@@ -92,33 +89,12 @@ typedef struct
 /**
  * @brief Attaches the TSC driver to the system.
  *
- * @details Attaches the TSC driver to the system. This function will use the
- * FDT to initialize the TSC hardware and retreive the TSC parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ * @details Attaches the TSC driver to the system. This function will
+ * initialize the TSC hardware and retreive the TSC parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
-
-/**
- * @brief Unused, TSC does not support enabling / disabling.
- *
- * @details Unused, TSC does not support enabling / disabling.
- *
- * @param[in, out] pDrvCtrl Unused.
- */
-static void _Enable(void* pDrvCtrl);
-
-/**
- * @brief Unused, TSC does not support enabling / disabling.
- *
- * @details Unused, TSC does not support enabling / disabling.
- *
- * @param[in, out] pDrvCtrl Unused.
- */
-static void _Disable(void* pDrvCtrl);
+static E_Return _Attach(void);
 
 /**
  * @brief Returns the TSC count frequency in Hz.
@@ -131,29 +107,6 @@ static void _Disable(void* pDrvCtrl);
  * @return The TSC count frequency in Hz.
  */
 static uint64_t _GetFrequency(void* pDrvCtrl);
-
-/**
- * @brief Unused, TSC does not support interrupts.
- *
- * @details Unused, TSC does not support interrupts.
- *
- * @param[in, out] pDrvCtrl Unused.
- * @param[in] handler Unused.
- *
- * @return OS_ERR_NOT_SUPPORTED is always returned.
- */
-static E_Return _SetHandler(void* pDrvCtrl, T_InterruptHandler handler);
-
-/**
- * @brief Unused, TSC does not support interrupts.
- *
- * @details Unused, TSC does not support interrupts.
- *
- * @param[in, out] pDrvCtrl Unused.
- *
- * @return OS_ERR_NOT_SUPPORTED is always returned.
- */
-static E_Return _RemoveHandler(void* pDrvCtrl);
 
 /**
  * @brief Returns the time elasped since the last timer's reset in ns.
@@ -180,26 +133,25 @@ static uint64_t _GetTimeNs(void* pDrvCtrl);
 
 /************************** Static global variables ***************************/
 /** @brief TSC driver instance. */
-static S_Driver sX86TSCDriver =
+static S_LayerDriver  sX86TSCDriver =
 {
   .pName         = "X86 TSC Driver",
   .pDescription  = "X86 Timestamp Counter for roOs",
-  .pCompatible   = "x86,x86-tsc",
   .pVersion      = "1.0",
+  .layer         = 2,
   .pDriverAttach = _Attach
 };
+
+/** @brief TSC driver controller instance */
+static S_TSCControler sController;
 
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* kpFdtNode)
+static E_Return _Attach(void)
 {
-  const uint32_t*      kpUintProp;
-  size_t               propLen;
   E_Return             retCode;
-  S_TSCControler*      pDrvCtrl;
   S_KernelTimer*       pTimerDrv;
-  const S_KernelTimer* kpBaseTimer;
   uint64_t             startTime;
   uint64_t             endTime;
   uint64_t             period;
@@ -211,50 +163,27 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
   uint32_t             highPartEnd;
   uint32_t             lowPartEnd;
 
-  pDrvCtrl  = NULL;
   pTimerDrv = NULL;
-
-  /* Init structures */
-  pDrvCtrl = KMalloc(sizeof(S_TSCControler), KMALLOC_FREE_POOL);
-  memset(pDrvCtrl, 0, sizeof(S_TSCControler));
 
   pTimerDrv = KMalloc(sizeof(S_KernelTimer), KMALLOC_FREE_POOL);
   memset(pTimerDrv, 0, sizeof(S_KernelTimer));
 
   pTimerDrv->pGetFrequency  = _GetFrequency;
   pTimerDrv->pGetTimeNs     = _GetTimeNs;
-  pTimerDrv->pEnable        = _Enable;
-  pTimerDrv->pDisable       = _Disable;
-  pTimerDrv->pSetHandler    = _SetHandler;
-  pTimerDrv->pRemoveHandler = _RemoveHandler;
-  pTimerDrv->pDriverCtrl    = pDrvCtrl;
-
-  /* Get the base timer pHandle */
-  kpUintProp = FDTGetProp(kpFdtNode,
-                          TSC_FDT_BASE_TIMER_PROP,
-                          &propLen);
-  TSC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-             "Invalid TSC FDT configuration.",
-             ERR_INVALID_VALUE);
-
-  /* Get the base timer driver */
-  kpBaseTimer = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-  TSC_ASSERT(kpBaseTimer != NULL,
-             "TSC Timer needs the timer driver to function.",
-             ERR_NOT_SUPPORTED);
-  TSC_ASSERT(kpBaseTimer->pGetTimeNs != NULL,
-             "TSC Timer needs the timer nanosecond support to function.",
-             ERR_NOT_SUPPORTED);
-
+  pTimerDrv->pEnable        = NULL;
+  pTimerDrv->pDisable       = NULL;
+  pTimerDrv->pSetHandler    = NULL;
+  pTimerDrv->pRemoveHandler = NULL;
+  pTimerDrv->pDriverCtrl    = &sController;
 
   /* Detect the TSC frequency */
   __asm__ __volatile__ ("rdtsc" : "=a"(lowPart), "=d"(highPart));
-  startTime = kpBaseTimer->pGetTimeNs(kpBaseTimer->pDriverCtrl);
+  startTime = TimeGetAuxTimeNs(0);
   /* Wait for calibration */
   do
   {
     __asm__ __volatile__ ("rdtsc" : "=a"(lowPartEnd), "=d"(highPartEnd));
-    endTime = kpBaseTimer->pGetTimeNs(kpBaseTimer->pDriverCtrl);
+    endTime = TimeGetAuxTimeNs(0);
   } while (endTime < startTime + TSC_CALIBRATION_DELAY);
 
   startTick = (((uint64_t)highPart << 32) | (uint64_t)lowPart);
@@ -267,27 +196,14 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
              "TSC calibration period is too short.",
              ERR_EXCEEDED_LIMIT);
 
-  pDrvCtrl->frequency = 1000000000000000000ULL / ((period) / (tickCount));
+  sController.frequency = 1000000000000000000ULL / ((period) / (tickCount));
 
-  KPrintfInfo("Detected TSC Frequency: %lluHz\n", pDrvCtrl->frequency);
+  retCode = TimeManagerAddTimer(pTimerDrv, LIFETIME_TIMER);
+  TSC_ASSERT(retCode == NO_ERROR, "Failed to register TSC driver.", retCode);
 
-  /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(kpFdtNode, pTimerDrv);
-  TSC_ASSERT(retCode == NO_ERROR,
-             "Failed to register the TSC device",
-             retCode);
+  KPrintfInfo("Detected TSC Frequency: %lluHz\n", sController.frequency);
 
   return NO_ERROR;
-}
-
-static void _Enable(void* pDrvCtrl)
-{
-  (void)pDrvCtrl;
-}
-
-static void _Disable(void* pDrvCtrl)
-{
-  (void)pDrvCtrl;
 }
 
 static uint64_t _GetFrequency(void* pDrvCtrl)
@@ -297,20 +213,6 @@ static uint64_t _GetFrequency(void* pDrvCtrl)
   pTscCtrl = GET_CONTROLER(pDrvCtrl);
 
   return pTscCtrl->frequency;
-}
-
-static E_Return _SetHandler(void* pDrvCtrl, T_InterruptHandler handler)
-{
-  (void)pDrvCtrl;
-  (void)handler;
-
-  return ERR_NOT_SUPPORTED;
-}
-
-static E_Return _RemoveHandler(void* pDrvCtrl)
-{
-  (void)pDrvCtrl;
-  return ERR_NOT_SUPPORTED;
 }
 
 static uint64_t _GetTimeNs(void* pDrvCtrl)
@@ -334,7 +236,12 @@ static uint64_t _GetTimeNs(void* pDrvCtrl)
   return time;
 }
 
+uint64_t TSCGetTimeNs(void)
+{
+  return _GetTimeNs(&sController);
+}
+
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86TSCDriver);
+DRIVERMGR_REG_LAYER(sX86TSCDriver);
 
 /************************************ EOF *************************************/

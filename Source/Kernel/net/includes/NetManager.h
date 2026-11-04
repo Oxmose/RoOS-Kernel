@@ -117,6 +117,18 @@ typedef ssize_t (*T_NetControl)(struct S_NetworkDevice* pDevice,
                                 const uint32_t          kCommand,
                                 void*                   pArg);
 
+/**
+ * @brief Defines the interrupt handler for a network device.
+ *
+ * @details Defines the interrupt handler for a network device. This function
+ * will be called by the network manager when an interrupt is received from the
+ * device. It should handle the interrupt and perform any necessary processing
+ * of the received data.
+ *
+ * @param[in, out] pDriverData The driver data used when registering the device.
+ */
+typedef void (*T_NetInterrupt)(void* pDriverData);
+
 /** @brief A network packet buffer for internal driver use. */
 typedef struct
 {
@@ -136,6 +148,8 @@ typedef struct
   T_NetSend pSend;
   /** @brief The control operation for the network device. */
   T_NetControl pControl;
+  /** @brief The interrupt handler for the network device. */
+  T_NetInterrupt pInterrupt;
 } S_NetworkOperations;
 
 /** @brief A network device structure. */
@@ -171,6 +185,9 @@ typedef struct S_NetworkDevice
   size_t reservedBufferPoolSize;
   /** @brief The number of reserved buffers. */
   size_t reservedBufferCount;
+
+  /** @brief A flag indicating if the device has a pending task. */
+  bool hasPendingTask;
 
   /** @brief The VFS driver for the network device. */
   T_VFSDriver fsDriver;
@@ -377,12 +394,15 @@ E_Return NetManagerReleaseBufferPool(S_NetworkDevice* pDevice);
  * @param[in] pDownlink The down link operation for the network device.
  * @param[in] pSend The send operation for the network device.
  * @param[in] pCtrl The control operation for the network device.
+ * @param[in] pInterrupt The interrupt handler for the network device.
  * @param[in] kBus The bus number of the PCI device.
  * @param[in] kDevice The device number of the PCI device.
  * @param[in] kFunction The function number of the PCI device.
  * @param[in] pDriverData The driver data for the network device.
  * @param[out] pDevice Pointer to the network device structure to be filled
  * by the function.
+ * @param[in] kAllocatedCore The core that will handle the interrupts for this
+ * device.
  *
  * @return The result of the operation.
  */
@@ -390,11 +410,13 @@ E_Return NetManagerRegisterDevice(T_NetUpLink      pUplink,
                                   T_NetDownLink    pDownlink,
                                   T_NetSend        pSend,
                                   T_NetControl     pCtrl,
+                                  T_NetInterrupt   pInterrupt,
                                   const uint8_t    kBus,
                                   const uint8_t    kDevice,
                                   const uint8_t    kFunction,
                                   void*            pDriverData,
-                                  S_NetworkDevice* pDevice);
+                                  S_NetworkDevice* pDevice,
+                                  const uint32_t   kAllocatedCore);
 
 /**
  * @brief Allocate a fragment list for a network packet.
@@ -435,15 +457,9 @@ void NetManagerFreeFragmentList(S_NetworkFragmentList* pFragmentList,
  * @details Submits a task to the kernel worker manager. The task will be
  * executed in the background by one of the kernel worker threads.
  *
- * @param[in] task The task to submit.
- * @param[in] pArg The argument to pass to the task function.
- * @param[in] pCompletionSemaphore The semaphore to signal when the task is
- * complete. Can be NULL if no completion signal is needed.
- *
+ * @param[in] pDevice The network device associated with the task.
  */
-void NetManagerSubmitTask(T_NetManagerTask   task,
-                          void*              pArg,
-                          S_KernelSemaphore* pCompletionSemaphore);
+void NetManagerSubmitTask(S_NetworkDevice* pDevice);
 
 /**
  * @brief Release a transmit buffer back to the network stack.
@@ -469,12 +485,14 @@ void NetManagerReleaseTransmitBuffer(void*        pBufferAddress,
  * @param[in] pArg The argument to pass to the task function.
  * @param[in] kPeriodNs The period in nanoseconds at which the task should be
  * executed.
+ * @param[in] kCpuId The CPU identifier on which the task should be executed.
  *
  * @return A handle to the added task, which can be used to remove it later.
  */
 T_NetManagerTaskHandle NetManagerAddPeriodicTask(T_NetManagerTask task,
                                                  void*            pArg,
-                                                 const uint32_t   kPeriodNs);
+                                                 const uint32_t   kPeriodNs,
+                                                 const uint32_t   kCpuId);
 
 /**
  * @brief Remove a periodic task from the kernel network worker manager.

@@ -70,10 +70,10 @@
  * FUNCTIONS
  ******************************************************************************/
 
-void *memmem(const void *haystack, size_t n, const void *needle, size_t m)
+void* memmem(const void* haystack, size_t n, const void* needle, size_t m)
 {
-    const unsigned char *y = (const unsigned char *)haystack;
-    const unsigned char *x = (const unsigned char *)needle;
+    const unsigned char* y = (const unsigned char *)haystack;
+    const unsigned char* x = (const unsigned char *)needle;
 
     if (m > n || !m || !n)
         return NULL;

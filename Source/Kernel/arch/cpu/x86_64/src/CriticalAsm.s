@@ -44,8 +44,8 @@
 ;-------------------------------------------------------------------------------
 ; EXPORTED FUNCTIONS
 ;-------------------------------------------------------------------------------
-global SpinlockAcquire
-global SpinlockRelease
+global SpinLock
+global SpinUnlock
 global AtomicIncrement32
 global AtomicDecrement32
 global CPUMemoryFenceRelease
@@ -67,17 +67,24 @@ align 4
 ;
 ; Param:
 ;     Input: rdi: Address of the lock
+SpinLock:
+  cmp     dword [rdi], 0
+  jne     __pauseSpinlockPause
 
-SpinlockAcquire:
-  lock bts dword [rdi], 0
-  jc   __pauseSpinlockPause
-  ret
+__spinlockTryAcquire:
+  mov         eax, 1
+  xchg dword [rdi], eax
+  test        eax, eax
+  jz          __spinlockAcquired
 
 __pauseSpinlockPause:
   pause
-  test  dword [rdi], 1
-  jnz   __pauseSpinlockPause
-  jmp   SpinlockAcquire
+  cmp     dword [rdi], 0
+  jne     __pauseSpinlockPause
+  jmp     __spinlockTryAcquire
+
+__spinlockAcquired:
+  ret
 
 ;-------------------------------------------------------------------------------
 ; Unlock Spinlock
@@ -85,10 +92,7 @@ __pauseSpinlockPause:
 ; Param:
 ;     Input: rdi: Address of the lock
 
-SpinlockRelease:
-  ; Ensure prior memory operations are globally visible before releasing
-  ; the lock. This provides the required release semantics on x86.
-  mfence
+SpinUnlock:
   mov  dword [rdi], 0
   ret
 

@@ -34,7 +34,6 @@
 #include <Critical.h>
 #include <Scheduler.h>
 #include <VirtualFS.h>
-#include <DeviceTree.h>
 #include <KernelError.h>
 #include <KernelOutput.h>
 #include <DriverManager.h>
@@ -61,17 +60,19 @@
 /** @brief VGA synchronization port */
 #define VGA_CONSOLE_CURSOR_SYNC 0x3DA
 
-
-/** @brief FDT property for registers */
-#define VGA_FDT_REG_PROP    "reg"
-/** @brief FDT property for comm ports */
-#define VGA_FDT_COMM_PROP   "comm"
-/** @brief FDT property for resolution */
-#define VGA_FDT_RES_PROP    "resolution"
-/** @brief FDT property for device path */
-#define VGA_FDT_DEVICE_PROP "device"
-/** @brief FDT property for refresh rate */
-#define VGA_FDT_REFRESH_PROP "refresh-rate"
+/** @brief VGA console line count */
+#define VGA_CONSOLE_LINE_COUNT 25
+/** @brief VGA console column count */
+#define VGA_CONSOLE_COLUMN_COUNT 80
+/** @brief VGA console size in bytes */
+#define VGA_CONSOLE_COMM_PORT 0x3D4
+/** @brief VGA console data port */
+#define VGA_CONSOLE_DATA_PORT 0x3D5
+/** @brief VGA console frame buffer address */
+#define VGA_CONSOLE_FRAMEBUFFER_ADDRESS 0xB8000ULL
+/** @brief VGA console frame buffer size in bytes */
+#define VGA_CONSOLE_FRAMEBUFFER_SIZE \
+  (VGA_CONSOLE_LINE_COUNT * VGA_CONSOLE_COLUMN_COUNT * 2)
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -79,14 +80,6 @@
 /** @brief x86 VGA driver controller. */
 typedef struct
 {
-  /** @brief Screen line resolution. */
-  uint8_t lineCount;
-  /** @brief Screen column resolution. */
-  uint8_t columnCount;
-  /** @brief CPU command port. */
-  uint16_t cpuCommPort;
-  /** @brief CPU data port. */
-  uint16_t cpuDataPort;
   /** @brief Stores the curent screen's color scheme. */
   S_ColorScheme screenScheme;
   /** @brief Stores the curent screen's cursor settings. */
@@ -100,11 +93,11 @@ typedef struct
   /** @brief The VGA refresh rate. */
   uint32_t frameRate;
   /** @brief VGA display thread. */
-  S_KernelThread *pDisplayThread;
-  /** @brief Stores the device path from the FDT */
+  S_KernelThread* pDisplayThread;
+  /** @brief Stores the device path */
   const char* kpDevicePath;
   /** @brief Buffer lock */
-  S_KernelSpinlock bufferLock;
+  T_Spinlock bufferLock;
 } S_VGAControler;
 
 
@@ -142,7 +135,7 @@ typedef struct
  */
 #define GET_FRAME_BUFFER_AT(LINE, COL)                           \
   ((sVGADriverCtrl.pInternalBuffer) +                            \
-  ((COL) + (LINE) * sVGADriverCtrl.columnCount))
+  ((COL) + (LINE) * VGA_CONSOLE_COLUMN_COUNT))
 
 /**
  * @brief Unrolled action for the fast memcpy used by the VGA driver.
@@ -154,8 +147,8 @@ typedef struct
  */
 #define VGA_FAST_CPY_UNROLL_ACTION(X) {                     \
   case (X):                                               \
-    __asm__ __volatile__ ("movups (%0), %%xmm7\n\t"       \
-                          "movntdq %%xmm7, (%1)\n\t"      \
+    __asm__ __volatile__ ("movups (%0), %%xmm0\n\t"       \
+                          "movntdq %%xmm0, (%1)\n\t"      \
                           :                               \
                           : "r"(pSrcPtr), "r"(pDstPtr)    \
                           : "memory");                    \
@@ -173,7 +166,7 @@ typedef struct
  */
 #define VGA_FAST_FILL_UNROLL_ACTION(X) {                    \
   case (X):                                                 \
-    __asm__ __volatile__ ("movntdq %%xmm7, (%0)\n\t"        \
+    __asm__ __volatile__ ("movntdq %%xmm0, (%0)\n\t"        \
                           :                                 \
                           : "r"(pDestPtr)                   \
                           : "memory");                      \
@@ -182,32 +175,15 @@ typedef struct
 /*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
-
-/**
- * @brief Reads the FDT properties for the driver during attachement.
- *
- * @details Reads the FDT properties for the driver during attachement. The
- * properties values are stored in the VGA driver.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
- *
- * @return The success state or the error code.
- */
-static E_Return _AttachGetProperties(const S_FDTNode* kpFdtNode);
-
 /**
  * @brief Attaches the VGA driver to the system.
  *
- * @details Attaches the VGA driver to the system. This function will use the
- * FDT to initialize the VGA hardware and retreive the VGA parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ * @details This function is called during the system initialization to attach
+ * the VGA driver to the system.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
+static E_Return _Attach(void);
 
 /**
  * @brief Prints a character to the selected coordinates.
@@ -439,12 +415,12 @@ static ssize_t _VFSIOCTL(void*    pDriverData,
 
 /************************** Static global variables ***************************/
 /** @brief VGA driver instance. */
-static S_Driver sX86VGADriver =
+static S_LayerDriver  sX86VGADriver =
 {
   .pName         = "X86 VGA driver",
   .pDescription  = "X86 VGA driver for roOs",
-  .pCompatible   = "x86,x86-vga-text",
   .pVersion      = "2.0",
+  .layer         = 1,
   .pDriverAttach = _Attach
 };
 
@@ -457,128 +433,29 @@ static T_VFSDriver sVFSDriver;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _AttachGetProperties(const S_FDTNode* kpFdtNode)
+static E_Return _Attach(void)
 {
-  const uintptr_t* kpPtrProp;
-  const uint32_t*  kpUintProp;
-  const uint32_t*  kpRefreshRate;
-  const char*      kpStrProp;
-  size_t           propLen;
-  E_Return         retCode;
+  E_Return   retCode;
+  uintptr_t  frameBufferPhysAddr;
+  size_t     frameBufferPhysSize;
+  void*      mappedFrameBufferAddr;
+  S_CPUMask  cpuMask;
+  uint32_t   i;
+  const char threadName[THREAD_NAME_MAX_LENGTH] = "Vga-Display\0";
 
-  retCode = NO_ERROR;
-
-  /* Get the VGA framebuffer address */
-  kpPtrProp = FDTGetProp(kpFdtNode, VGA_FDT_REG_PROP, &propLen);
-  if (kpPtrProp != NULL && propLen == sizeof(uintptr_t) * 2)
+  if (CONFIG_USE_VESA == 0)
   {
-#ifdef ARCH_32_BITS
-    sVGADriverCtrl.pFramebuffer    = (uint16_t*)FDTTOCPU32(*kpPtrProp);
-    sVGADriverCtrl.framebufferSize = (size_t)FDTTOCPU32(*(kpPtrProp + 1));
-#elif defined(ARCH_64_BITS)
-    sVGADriverCtrl.pFramebuffer    = (uint16_t*)FDTTOCPU64(*kpPtrProp);
-    sVGADriverCtrl.framebufferSize = (size_t)FDTTOCPU64(*(kpPtrProp + 1));
-#else
-    #error "Invalid architecture"
-#endif
-  }
-  else
-  {
-    retCode = ERR_INVALID_VALUE;
-  }
+    /* Init structures */
+    memset(&sVGADriverCtrl, 0, sizeof(S_VGAControler));
 
-  if (retCode == NO_ERROR)
-  {
-    /* Get the VGA CPU communication ports */
-    kpUintProp = FDTGetProp(kpFdtNode, VGA_FDT_COMM_PROP, &propLen);
-    if (kpUintProp != NULL && propLen == sizeof(uint32_t) * 2)
-    {
-      sVGADriverCtrl.cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
-      sVGADriverCtrl.cpuDataPort = (uint16_t)FDTTOCPU32(*(kpUintProp + 1));
-    }
-    else
-    {
-      retCode = ERR_INVALID_VALUE;
-    }
-  }
-
-
-  if (retCode == NO_ERROR)
-  {
-    /* Get the device path */
-    kpStrProp = FDTGetProp(kpFdtNode, VGA_FDT_DEVICE_PROP, &propLen);
-    if (kpStrProp != NULL && propLen > 0)
-    {
-      sVGADriverCtrl.kpDevicePath = kpStrProp;
-    }
-    else
-    {
-      retCode = ERR_INVALID_VALUE;
-    }
-  }
-
-  if (retCode == NO_ERROR)
-  {
-    /* Get the resolution */
-    kpUintProp = FDTGetProp(kpFdtNode, VGA_FDT_RES_PROP, &propLen);
-    if (kpUintProp != NULL && propLen == sizeof(uint32_t) * 2)
-    {
-      sVGADriverCtrl.columnCount = (uint8_t)FDTTOCPU32(*kpUintProp);
-      sVGADriverCtrl.lineCount   = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
-    }
-    else
-    {
-      retCode = ERR_INVALID_VALUE;
-    }
-  }
-
-  if (retCode == NO_ERROR)
-  {
-    /* Get the framerate */
-    kpRefreshRate = FDTGetProp(kpFdtNode, VGA_FDT_REFRESH_PROP, &propLen);
-    if (kpRefreshRate != NULL && propLen == sizeof(uint32_t))
-    {
-      sVGADriverCtrl.frameRate = FDTTOCPU32(*kpRefreshRate);
-    }
-    else
-    {
-      retCode = ERR_INVALID_VALUE;
-    }
-  }
-
-  return retCode;
-}
-
-static E_Return _Attach(const S_FDTNode* kpFdtNode)
-{
-  E_Return         retCode;
-  uintptr_t        frameBufferPhysAddr;
-  size_t           frameBufferPhysSize;
-  void*            mappedFrameBufferAddr;
-  S_CPUMask        cpuMask;
-  uint32_t         i;
-  const char       threadName[THREAD_NAME_MAX_LENGTH] = "Vga-Display\0";
-
-  /* Init structures */
-  memset(&sVGADriverCtrl, 0, sizeof(S_VGAControler));
-
-  /* Get the FDT properties */
-  retCode = _AttachGetProperties(kpFdtNode);
-
-  if (retCode == NO_ERROR)
-  {
-    KERNEL_SPINLOCK_INIT(sVGADriverCtrl.bufferLock);
+    sVGADriverCtrl.frameRate = CONFIG_VGA_TEXT_REFRESH_RATE;
+    sVGADriverCtrl.kpDevicePath = CONFIG_VGA_TEXT_DEVICE_PATH;
+    SPINLOCK_INIT(sVGADriverCtrl.bufferLock);
 
     /* Align and map framebuffer */
-    frameBufferPhysAddr = (uintptr_t)sVGADriverCtrl.pFramebuffer &
-                          ~PAGE_SIZE_MASK;
-    frameBufferPhysSize = sVGADriverCtrl.framebufferSize;
-
-    frameBufferPhysSize += (uintptr_t)sVGADriverCtrl.pFramebuffer -
-                            frameBufferPhysAddr;
-    frameBufferPhysSize = (frameBufferPhysSize + PAGE_SIZE_MASK) &
-                          ~PAGE_SIZE_MASK;
-
+    frameBufferPhysAddr = VGA_CONSOLE_FRAMEBUFFER_ADDRESS;
+    frameBufferPhysSize = ALIGN_UP(VGA_CONSOLE_FRAMEBUFFER_SIZE,
+                                    KERNEL_PAGE_SIZE);
     mappedFrameBufferAddr = MemoryKernelMap((void*)frameBufferPhysAddr,
                                             frameBufferPhysSize,
                                             MEMMGR_MAP_HARDWARE |
@@ -590,19 +467,18 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
     if (mappedFrameBufferAddr != NULL && retCode == NO_ERROR)
     {
       /* Update framebuffer address but not size even if we mapped more */
-      sVGADriverCtrl.pFramebuffer = (void*)((uintptr_t)mappedFrameBufferAddr | (
-                                    (uintptr_t)sVGADriverCtrl.pFramebuffer &
-                                    PAGE_SIZE_MASK));
+      sVGADriverCtrl.pFramebuffer = mappedFrameBufferAddr;
+      sVGADriverCtrl.framebufferSize = VGA_CONSOLE_FRAMEBUFFER_SIZE;
 
       /* Register the driver */
       sVFSDriver = RegisterVFSDriver(sVGADriverCtrl.kpDevicePath,
-                                  NULL,
-                                  _VFSOpen,
-                                  _VFSClose,
-                                  NULL,
-                                  _VFSWrite,
-                                  NULL,
-                                  _VFSIOCTL);
+                                      NULL,
+                                      _VFSOpen,
+                                      _VFSClose,
+                                      NULL,
+                                      _VFSWrite,
+                                      NULL,
+                                      _VFSIOCTL);
 
       if (sVFSDriver != VFS_DRIVER_INVALID)
       {
@@ -624,14 +500,14 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
         if (sVGADriverCtrl.frameRate > 0)
         {
           retCode = CreateThread(&sVGADriverCtrl.pDisplayThread,
-                                 true,
-                                 0,
-                                 threadName,
-                                 0x1000,
-                                 cpuMask,
-                                 _DisplayRoutine,
-                                 NULL,
-                                 NULL);
+                                  true,
+                                  0,
+                                  threadName,
+                                  0x1000,
+                                  cpuMask,
+                                  _DisplayRoutine,
+                                  NULL,
+                                  NULL);
           if (retCode == NO_ERROR)
           {
             /* Create the internal buffer */
@@ -642,21 +518,21 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
                                               &retCode);
             if (retCode != NO_ERROR)
             {
-              /* Use the VGS buffer directy */
+              /* Use the VGA buffer directy */
               sVGADriverCtrl.pInternalBuffer = sVGADriverCtrl.pFramebuffer;
               retCode = NO_ERROR;
             }
           }
           else
           {
-            /* Use the VGS buffer directy */
+            /* Use the VGA buffer directy */
             sVGADriverCtrl.pInternalBuffer = sVGADriverCtrl.pFramebuffer;
             retCode = NO_ERROR;
           }
         }
         else
         {
-          /* Use the VGS buffer directy */
+          /* Use the VGA buffer directy */
           sVGADriverCtrl.pInternalBuffer = sVGADriverCtrl.pFramebuffer;
           retCode = NO_ERROR;
         }
@@ -679,7 +555,10 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
       retCode = ERR_EXCEEDED_LIMIT;
     }
   }
-
+  else
+  {
+    retCode = NO_ERROR;
+  }
   return retCode;
 }
 
@@ -689,10 +568,10 @@ static inline void _PrintChar(const uint32_t kLine,
 {
   volatile uint16_t* pScreenMem;
 
-  KERNEL_LOCK(sVGADriverCtrl.bufferLock);
+  SpinlockAcquire(&sVGADriverCtrl.bufferLock);
 
-  if ((uint8_t)kLine < sVGADriverCtrl.lineCount &&
-      (uint8_t)kColumn < sVGADriverCtrl.columnCount)
+  if ((uint8_t)kLine < VGA_CONSOLE_LINE_COUNT &&
+      (uint8_t)kColumn < VGA_CONSOLE_COLUMN_COUNT)
   {
     /* Get address to inject */
     pScreenMem = GET_FRAME_BUFFER_AT(kLine, kColumn);
@@ -703,7 +582,7 @@ static inline void _PrintChar(const uint32_t kLine,
                   ((sVGADriverCtrl.screenScheme.foreground << 8) & 0x0F00);
   }
 
-  KERNEL_UNLOCK(sVGADriverCtrl.bufferLock);
+  SpinlockRelease(&sVGADriverCtrl.bufferLock);
 }
 
 static void _ProcessChar(const char kCharacter)
@@ -712,14 +591,14 @@ static void _ProcessChar(const char kCharacter)
   if (kCharacter > 31 && kCharacter < 127)
   {
     /* Manage end of line cursor position */
-    if ((uint8_t)sVGADriverCtrl.screenCursor.x > sVGADriverCtrl.columnCount - 1)
+    if ((uint8_t)sVGADriverCtrl.screenCursor.x > VGA_CONSOLE_COLUMN_COUNT - 1)
     {
       sVGADriverCtrl.screenCursor.x = 0;
       ++sVGADriverCtrl.screenCursor.y;
     }
 
     /* Manage end of screen cursor position */
-    if ((uint8_t)sVGADriverCtrl.screenCursor.y >= sVGADriverCtrl.lineCount)
+    if ((uint8_t)sVGADriverCtrl.screenCursor.y >= VGA_CONSOLE_LINE_COUNT)
     {
       _Scroll(SCROLL_DOWN, 1);
     }
@@ -744,13 +623,13 @@ static void _ProcessChar(const char kCharacter)
           else if (sVGADriverCtrl.screenCursor.y > 0)
           {
             _SetCursor(sVGADriverCtrl.screenCursor.y - 1,
-                       sVGADriverCtrl.columnCount - 1);
+                       VGA_CONSOLE_COLUMN_COUNT - 1);
           }
           break;
       /* Tab */
       case '\t':
         if ((uint8_t)sVGADriverCtrl.screenCursor.x + 4 <
-            sVGADriverCtrl.columnCount - 1)
+            VGA_CONSOLE_COLUMN_COUNT - 1)
         {
           _SetCursor(sVGADriverCtrl.screenCursor.y,
                      sVGADriverCtrl.screenCursor.x  +
@@ -759,13 +638,13 @@ static void _ProcessChar(const char kCharacter)
         else
         {
           _SetCursor(sVGADriverCtrl.screenCursor.y,
-                     sVGADriverCtrl.columnCount - 1);
+                     VGA_CONSOLE_COLUMN_COUNT - 1);
         }
         break;
       /* Line feed */
       case '\n':
         if ((uint8_t)sVGADriverCtrl.screenCursor.y <
-           sVGADriverCtrl.lineCount - 1)
+           VGA_CONSOLE_LINE_COUNT - 1)
         {
           _SetCursor(sVGADriverCtrl.screenCursor.y + 1, 0);
         }
@@ -794,12 +673,12 @@ static void _ProcessChar(const char kCharacter)
 
 static void _ClearFramebuffer(void)
 {
-  KERNEL_LOCK(sVGADriverCtrl.bufferLock);
+  SpinlockAcquire(&sVGADriverCtrl.bufferLock);
   /* Clear all screen */
   _FastFill((uintptr_t)sVGADriverCtrl.pInternalBuffer,
             0,
             sVGADriverCtrl.framebufferSize / sizeof(uint16_t));
-  KERNEL_UNLOCK(sVGADriverCtrl.bufferLock);
+  SpinlockRelease(&sVGADriverCtrl.bufferLock);
 }
 
 static void _GetCursor(S_ConsoleCursor* pBuffer)
@@ -817,7 +696,7 @@ static void _SetCursorDirect(const S_ConsoleCursor* kpBuffer)
 static inline void _SetCursor(const uint32_t kLine, const uint32_t kColumn)
 {
   /* Checks the values of line and column */
-  if (kLine < sVGADriverCtrl.lineCount && kColumn < sVGADriverCtrl.columnCount)
+  if (kLine < VGA_CONSOLE_LINE_COUNT && kColumn < VGA_CONSOLE_COLUMN_COUNT)
   {
     /* Set new cursor position */
     sVGADriverCtrl.screenCursor.x = kColumn;
@@ -832,9 +711,9 @@ static void _Scroll(const E_ScrollDirection kDirection, const uint32_t kLines)
   uint8_t   j;
   uint16_t* pScreenMem;
 
-  if (sVGADriverCtrl.lineCount < kLines)
+  if (VGA_CONSOLE_LINE_COUNT < kLines)
   {
-    toScroll = sVGADriverCtrl.lineCount;
+    toScroll = VGA_CONSOLE_LINE_COUNT;
   }
   else
   {
@@ -844,25 +723,25 @@ static void _Scroll(const E_ScrollDirection kDirection, const uint32_t kLines)
   /* Select scroll direction */
   if (kDirection == SCROLL_DOWN)
   {
-    KERNEL_LOCK(sVGADriverCtrl.bufferLock);
+    SpinlockAcquire(&sVGADriverCtrl.bufferLock);
     /* For each line scroll we want */
     for (j = 0; j < toScroll; ++j)
     {
       /* Copy all the lines to the above one */
-      for (i = 0; i < sVGADriverCtrl.lineCount - 1; ++i)
+      for (i = 0; i < VGA_CONSOLE_LINE_COUNT - 1; ++i)
       {
         memmove(GET_FRAME_BUFFER_AT(i, 0),
                 GET_FRAME_BUFFER_AT(i + 1, 0),
-                sizeof(uint16_t) * sVGADriverCtrl.columnCount);
+                sizeof(uint16_t) * VGA_CONSOLE_COLUMN_COUNT);
       }
     }
     /* Clear last line */
-    pScreenMem = GET_FRAME_BUFFER_AT(sVGADriverCtrl.lineCount - 1, 0);
-    memset(pScreenMem, 0, sizeof(uint16_t) * sVGADriverCtrl.columnCount);
+    pScreenMem = GET_FRAME_BUFFER_AT(VGA_CONSOLE_LINE_COUNT - 1, 0);
+    memset(pScreenMem, 0, sizeof(uint16_t) * VGA_CONSOLE_COLUMN_COUNT);
 
     /* Replace cursor */
-    _SetCursor(sVGADriverCtrl.lineCount - toScroll, 0);
-    KERNEL_UNLOCK(sVGADriverCtrl.bufferLock);
+    _SetCursor(VGA_CONSOLE_LINE_COUNT - toScroll, 0);
+    SpinlockRelease(&sVGADriverCtrl.bufferLock);
   }
 }
 
@@ -881,34 +760,33 @@ static void _GetScheme(S_ColorScheme* pBuffer)
 
 static void _Flush(void)
 {
-  uint16_t cursorPosition;
-  uint16_t *frameBufferPtr;
+  uint16_t  cursorPosition;
+  uint16_t* pFrameBuffer;
 
   if (sVGADriverCtrl.pFramebuffer != sVGADriverCtrl.pInternalBuffer)
   {
-    KERNEL_LOCK(sVGADriverCtrl.bufferLock);
+    SpinlockAcquire(&sVGADriverCtrl.bufferLock);
     _FastMemcpy(sVGADriverCtrl.pFramebuffer,
                 sVGADriverCtrl.pInternalBuffer,
                 sVGADriverCtrl.framebufferSize);
-    KERNEL_UNLOCK(sVGADriverCtrl.bufferLock);
+    SpinlockRelease(&sVGADriverCtrl.bufferLock);
   }
 
   /* Display new position on screen */
   cursorPosition = sVGADriverCtrl.screenCursor.x +
-                   sVGADriverCtrl.screenCursor.y * sVGADriverCtrl.columnCount;
+                   sVGADriverCtrl.screenCursor.y * VGA_CONSOLE_COLUMN_COUNT;
 
-  frameBufferPtr = GET_FRAME_BUFFER_AT(sVGADriverCtrl.screenCursor.y,
-                                       sVGADriverCtrl.screenCursor.x);
-  *frameBufferPtr = ' ' |((FG_WHITE | BG_BLACK) << 8);
+  pFrameBuffer = GET_FRAME_BUFFER_AT(sVGADriverCtrl.screenCursor.y,
+                                     sVGADriverCtrl.screenCursor.x);
+  *pFrameBuffer = ' ' |((FG_WHITE | BG_BLACK) << 8);
   /* Send low part to the screen */
-  CPUPortWriteByte(VGA_CONSOLE_CURSOR_COMM_LOW, sVGADriverCtrl.cpuCommPort);
-  CPUPortWriteByte((int8_t)(cursorPosition & 0x00FF),
-                    sVGADriverCtrl.cpuDataPort);
+  CPUPortWriteByte(VGA_CONSOLE_CURSOR_COMM_LOW, VGA_CONSOLE_COMM_PORT);
+  CPUPortWriteByte((int8_t)(cursorPosition & 0x00FF), VGA_CONSOLE_DATA_PORT);
 
   /* Send high part to the screen */
-  CPUPortWriteByte(VGA_CONSOLE_CURSOR_COMM_HIGH, sVGADriverCtrl.cpuCommPort);
+  CPUPortWriteByte(VGA_CONSOLE_CURSOR_COMM_HIGH, VGA_CONSOLE_COMM_PORT);
   CPUPortWriteByte((int8_t)((cursorPosition & 0xFF00) >> 8),
-                    sVGADriverCtrl.cpuDataPort);
+                   VGA_CONSOLE_DATA_PORT);
 }
 
 static void* _DisplayRoutine(void* pArgs)
@@ -949,7 +827,9 @@ static inline void _FastFill(uintptr_t      bufferAddr,
   register size_t sseSize;
   register size_t n;
   register char*  pDestPtr;
-  uint16_t replicateValue[8] __attribute__((aligned(16)));
+  uint32_t        intstate;
+  uint16_t        xmmSave[16]       __attribute__((aligned(16)));
+  uint16_t        replicateValue[8] __attribute__((aligned(16)));
 
   /* Compute the replicated value */
   replicateValue[0] = kPixel;
@@ -975,8 +855,15 @@ static inline void _FastFill(uintptr_t      bufferAddr,
 
   if (sseSize > 0)
   {
+    KERNEL_ENTER_CRITICAL_LOCAL(intstate);
+    /* Save the XMM0 register */
+    __asm__ __volatile__ ("movaps %%xmm0, %0\n\t"
+                          : "=m" (xmmSave)
+                          :
+                          : "memory");
+
     /* Aligned */
-    __asm__ __volatile__ ("movups (%0), %%xmm7\n\t"
+    __asm__ __volatile__ ("movups (%0), %%xmm0\n\t"
                           :
                           : "r"(replicateValue)
                           : "memory");
@@ -987,7 +874,7 @@ static inline void _FastFill(uintptr_t      bufferAddr,
     {
       case 0:
         do {
-            __asm__ __volatile__ ("movntdq %%xmm7, (%0)\n\t"
+            __asm__ __volatile__ ("movntdq %%xmm0, (%0)\n\t"
                       :
                       : "r"(pDestPtr)
                       : "memory");
@@ -1022,13 +909,20 @@ static inline void _FastFill(uintptr_t      bufferAddr,
       VGA_FAST_FILL_UNROLL_ACTION(2)
       __attribute__ ((fallthrough));
       case 1:
-          __asm__ __volatile__ ("movntdq %%xmm7, (%0)\n\t"
+          __asm__ __volatile__ ("movntdq %%xmm0, (%0)\n\t"
                     :
                     : "r"(pDestPtr)
                     : "memory");
             pDestPtr += 16;
       } while (--n > 0);
     }
+
+    /* Restore the XMM0 register */
+    __asm__ __volatile__ ("movaps %0, %%xmm0\n\t"
+                          :
+                          : "m" (xmmSave)
+                          : "memory");
+    KERNEL_EXIT_CRITICAL_LOCAL(intstate);
   }
 
   /* Last unaligned */
@@ -1048,6 +942,8 @@ static inline void _FastMemcpy(void*       pDest,
   register char*       pDstPtr;
   register size_t      sseSize;
   register size_t      n;
+  uint32_t             intstate;
+  uint8_t              xmmSave[16] __attribute__((aligned(16)));
 
   pSrcPtr = kpSrc;
   pDstPtr = pDest;
@@ -1072,14 +968,20 @@ static inline void _FastMemcpy(void*       pDest,
 
   if (sseSize > 0)
   {
+    KERNEL_ENTER_CRITICAL_LOCAL(intstate);
+    /* Save the XMM0 register */
+    __asm__ __volatile__ ("movaps %%xmm0, %0\n\t"
+                          : "=m" (xmmSave)
+                          :
+                          : "memory");
     size -= sseSize * (sizeof(uint64_t) * 2);
     n = (sseSize + 31) / 32;
     switch (sseSize % 32)
     {
       case 0:
         do {
-            __asm__ __volatile__ ("movups (%0), %%xmm7\n\t"
-                                  "movntdq %%xmm7, (%1)\n\t"
+            __asm__ __volatile__ ("movups (%0), %%xmm0\n\t"
+                                  "movntdq %%xmm0, (%1)\n\t"
                                   :
                                   :"r"(pSrcPtr), "r"(pDstPtr)
                                   : "memory");
@@ -1147,8 +1049,8 @@ static inline void _FastMemcpy(void*       pDest,
         VGA_FAST_CPY_UNROLL_ACTION(2)
         __attribute__ ((fallthrough));
       case 1:
-          __asm__ __volatile__ ("movups (%0), %%xmm7\n\t"
-                                "movntdq %%xmm7, (%1)\n\t"
+          __asm__ __volatile__ ("movups (%0), %%xmm0\n\t"
+                                "movntdq %%xmm0, (%1)\n\t"
                                 :
                                 :"r"(pSrcPtr), "r"(pDstPtr)
                                 : "memory");
@@ -1156,6 +1058,12 @@ static inline void _FastMemcpy(void*       pDest,
           pSrcPtr += 16;
         } while (--n > 0);
     }
+    /* Restore the XMM0 register */
+    __asm__ __volatile__ ("movaps %0, %%xmm0\n\t"
+                          :
+                          : "m" (xmmSave)
+                          : "memory");
+    KERNEL_EXIT_CRITICAL_LOCAL(intstate);
   }
 
   /* Last unaligned */
@@ -1303,6 +1211,6 @@ static ssize_t _VFSIOCTL(void*    pDriverData,
 }
 
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86VGADriver);
+DRIVERMGR_REG_LAYER(sX86VGADriver);
 
 /************************************ EOF *************************************/

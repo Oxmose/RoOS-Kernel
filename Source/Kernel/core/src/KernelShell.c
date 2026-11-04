@@ -424,58 +424,58 @@ static void _ShellTest(const char* args)
     KPrintf("  RX No Handler: %llu\n", (unsigned long long)stats.rxNoHandler);
   }
 
-  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_DOWN, NULL);
-  if (ret != 0)
-  {
-    KPrintf("Failed to bring down interface /dev/net/enp0s4\n");
-  }
-  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_DOWN, NULL);
-  if (ret != 0)
-  {
-    KPrintf("Failed to bring down interface /dev/net/enp0s4\n");
-  }
+  // ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_DOWN, NULL);
+  // if (ret != 0)
+  // {
+  //   KPrintf("Failed to bring down interface /dev/net/enp0s4\n");
+  // }
+  // ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_DOWN, NULL);
+  // if (ret != 0)
+  // {
+  //   KPrintf("Failed to bring down interface /dev/net/enp0s4\n");
+  // }
 
-  SleepNs(1000000000, NULL);
+  // SleepNs(1000000000, NULL);
 
-  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_UP, NULL);
-  if (ret != 0)
-  {
-    KPrintf("Failed to bring up interface /dev/net/enp0s4\n");
-  }
-  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_UP, NULL);
-  if (ret != 0)
-  {
-    KPrintf("Failed to bring up interface /dev/net/enp0s4\n");
-  }
+  // ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_UP, NULL);
+  // if (ret != 0)
+  // {
+  //   KPrintf("Failed to bring up interface /dev/net/enp0s4\n");
+  // }
+  // ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_UP, NULL);
+  // if (ret != 0)
+  // {
+  //   KPrintf("Failed to bring up interface /dev/net/enp0s4\n");
+  // }
 
-  for (int i = 0; i < 2; ++i)
-  {
-    SleepNs(1000000000, NULL);
-    memcpy(sPacketBuffer, "Hello, Network!", 15);
-    ret = VFSWrite(fd, sPacketBuffer, 15);
-    KPrintf("Wrote %d bytes to /dev/net/enp0s4\n", ret);
+  // for (int i = 0; i < 2; ++i)
+  // {
+  //   SleepNs(1000000000, NULL);
+  //   memcpy(sPacketBuffer, "Hello, Network!", 15);
+  //   ret = VFSWrite(fd, sPacketBuffer, 15);
+  //   KPrintf("Wrote %d bytes to /dev/net/enp0s4\n", ret);
 
-  }
+  // }
 
-  for (int i = 0; i < 10; ++i)
-  {
-    SleepNs(1000000000, NULL);
-     ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_LINK_STATUS, &linkStatus);
-    if (ret != 0)
-    {
-      KPrintf("Failed to get link status for /dev/net/enp0s4\n");
-    }
-    else
-    {
-      KPrintf("Link status for /dev/net/enp0s4: %s\n", linkStatus ? "up" : "down");
-    }
-  }
+  // for (int i = 0; i < 10; ++i)
+  // {
+  //   SleepNs(1000000000, NULL);
+  //    ret = VFSIOCTL(fd, VFS_IOCTL_NET_GET_LINK_STATUS, &linkStatus);
+  //   if (ret != 0)
+  //   {
+  //     KPrintf("Failed to get link status for /dev/net/enp0s4\n");
+  //   }
+  //   else
+  //   {
+  //     KPrintf("Link status for /dev/net/enp0s4: %s\n", linkStatus ? "up" : "down");
+  //   }
+  // }
 
-  ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_DOWN, NULL);
-  if (ret != 0)
-  {
-    KPrintf("Failed to bring down interface /dev/net/enp0s4\n");
-  }
+  // ret = VFSIOCTL(fd, VFS_IOCTL_NET_IFACE_DOWN, NULL);
+  // if (ret != 0)
+  // {
+  //   KPrintf("Failed to bring down interface /dev/net/enp0s4\n");
+  // }
 
   KPrintf("Kernel Shell Test Command Executed\n");
 }

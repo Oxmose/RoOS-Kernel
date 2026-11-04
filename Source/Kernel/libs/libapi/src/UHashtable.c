@@ -47,13 +47,18 @@
  */
 #define HT_INITIAL_SIZE 16
 /** @brief Maximal factor size of the graveyard. */
-#define HT_MAX_GRAVEYARD_FACTOR 0.3f
+#define HT_MAX_GRAVEYARD_MULTIPLIER 3
+/** @brief Maximal factor size of the graveyard (30% expressed as 3/10) */
+#define HT_MAX_GRAVEYARD_DIVISOR    10
 /**
  * @brief Maximal load factor (including graveyard).
  *
  * @warning: Must always be strictly less than 1.0
 */
-#define HT_MAX_LOAD_FACTOR 0.7f
+#define HT_MAX_LOAD_MULTIPLIER      7
+/** @brief Maximal load factor (70% expressed as 7/10) */
+#define HT_MAX_LOAD_DIVISOR         10
+
 /** @brief FNV offset used for the hash function. */
 #define FNV_OFFSET_BASIS 14695981039346656037UL
 /** @brief Prime used in the FNV hash. */
@@ -127,7 +132,7 @@ static void _UHashtableRehashEntry(S_UHashtable*      pTable,
  *
  * @return The error status is returned.
  */
-static E_Return _UHashtableRehash(S_UHashtable* pTable, const float kGrowth);
+static E_Return _UHashtableRehash(S_UHashtable* pTable, const uint32_t kGrowth);
 
 /*******************************************************************************
  * GLOBAL VARIABLES
@@ -271,7 +276,7 @@ static void _UHashtableRehashEntry(S_UHashtable*      pTable,
   }
 }
 
-static E_Return _UHashtableRehash(S_UHashtable* pTable, const float kGrowth)
+static E_Return _UHashtableRehash(S_UHashtable* pTable, const uint32_t kGrowth)
 {
   size_t              i;
   size_t              newCapacity;
@@ -280,7 +285,7 @@ static E_Return _UHashtableRehash(S_UHashtable* pTable, const float kGrowth)
   S_UHashtableEntry** ppOldEnt;
   E_Return            error;
 
-  newCapacity = (size_t)((float)pTable->capacity * kGrowth);
+  newCapacity = pTable->capacity * kGrowth;
 
   /* Check if did not overflow on the size */
   if (newCapacity >= pTable->capacity)
@@ -470,8 +475,8 @@ E_Return UHashtableSet(S_UHashtable*   pTable,
   if (pTable != NULL && pTable->ppEntries != NULL)
   {
     /* Check if the current load is under the threshold, double the size */
-    if ((size_t)((float)pTable->capacity * HT_MAX_LOAD_FACTOR) <=
-        pTable->size + pTable->graveyardSize)
+    if ((pTable->capacity * HT_MAX_LOAD_MULTIPLIER) <=
+        (pTable->size + pTable->graveyardSize) * HT_MAX_LOAD_DIVISOR)
     {
       err = _UHashtableRehash(pTable, 2);
     }
@@ -509,8 +514,8 @@ E_Return UHashtableRemove(S_UHashtable*   pTable,
     entryIdx = (size_t)(hash & (uint64_t)(pTable->capacity - 1));
 
     /* Check if the graveyard load is under the threshold */
-    if ((float)pTable->capacity * HT_MAX_GRAVEYARD_FACTOR <
-        pTable->graveyardSize)
+    if ((pTable->capacity * HT_MAX_GRAVEYARD_MULTIPLIER) <
+        (pTable->graveyardSize * HT_MAX_GRAVEYARD_DIVISOR))
     {
       /* Rehash with a growth factor or 1 to keep the same capacity */
       err = _UHashtableRehash(pTable, 1);

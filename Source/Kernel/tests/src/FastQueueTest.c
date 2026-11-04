@@ -223,6 +223,10 @@ static void* FastQueuesTestRoutine(void* args)
                            TEST_OS_FAST_QUEUES_ENABLED);
 
   FQueuePush(queue, &values[3]);
+  FQueuePush(queue, &values[3]);
+  FQueuePush(queue, &values[3]);
+  FQueuePush(queue, &values[3]);
+  FQueuePush(queue, &values[3]);
   TEST_POINT_ASSERT_UDWORD(TEST_FASTQUEUE_WRAP_ID(0),
                            queue->head == 0,
                            (uint64_t)0,
@@ -264,6 +268,10 @@ static void* FastQueuesTestRoutine(void* args)
                            (uint64_t)values[3],
                            (uint64_t)popped[3],
                            TEST_OS_FAST_QUEUES_ENABLED);
+  FQueuePop(queue, &popped[3]);
+  FQueuePop(queue, &popped[3]);
+  FQueuePop(queue, &popped[3]);
+  FQueuePop(queue, &popped[3]);
 
   available = FQueuePop(queue, &popped[3]);
   TEST_POINT_ASSERT_UDWORD(TEST_FASTQUEUE_EMPTY_ID(1),

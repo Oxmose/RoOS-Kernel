@@ -70,9 +70,9 @@
  * FUNCTIONS
  ******************************************************************************/
 
-void *memchr(const void *s, int c, size_t n)
+void* memchr(const void* s, int c, size_t n)
 {
-    const unsigned char *sp = s;
+    const unsigned char* sp = s;
 
     while (n--) {
         if (*sp == (unsigned char)c)

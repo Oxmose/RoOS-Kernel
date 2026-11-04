@@ -70,10 +70,10 @@
  * FUNCTIONS
  ******************************************************************************/
 
-void *memmove(void *dst, const void *src, size_t n)
+void* memmove(void* dst, const void* src, size_t n)
 {
-    const char *p = src;
-    char *q = dst;
+    const char* p = src;
+    char* q = dst;
 #if defined(__i386__) || defined(__x86_64__)
     if (q < p) {
         __asm__ __volatile__("cld ; rep ; movsb"

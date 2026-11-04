@@ -1,7 +1,7 @@
 /*******************************************************************************
- * @file AHCI.h
+ * @file MPTable.h
  *
- * @see AHCI.c
+ * @see MPTable.c
  *
  * @author Alexy Torres Aurora Dugo
  *
@@ -9,11 +9,10 @@
  *
  * @version 1.0
  *
- * @brief Kernel's AHCI (Advanced Host Controller Interface) driver.
+ * @brief Kernel's MP (Multi-Processor) table driver.
  *
- * @details Kernel's AHCI (Advanced Host Controller Interface) driver. Defines
- * the functions and definitions to interact with the AHCI controller and its
- * devices.
+ * @details Kernel's MP (Multi-Processor) table driver. Defines
+ * the functions and definitions to interact with the MP table and its devices.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/

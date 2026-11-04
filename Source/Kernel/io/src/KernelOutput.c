@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <Console.h>
 #include <Critical.h>
+#include <Scheduler.h>
 #include <TimerManager.h>
 
 /* Configuration files */
@@ -101,9 +102,6 @@ static size_t sBufferSize = 0;
 /** @brief Stores the current buffer size */
 static char spBuffer[KPRINTF_BUFFER_SIZE];
 
-/** @brief Kernel output lock */
-static S_KernelSpinlock sLock = KERNEL_SPINLOCK_INIT_VALUE;
-
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
@@ -134,8 +132,6 @@ void KPrintf(const char* kpFmt, ...)
 
   if (kpFmt != NULL)
   {
-    KERNEL_LOCK(sLock);
-
     /* Format the string */
     __builtin_va_start(args, kpFmt);
     sBufferSize = vsnprintf(spBuffer + sBufferSize,
@@ -148,8 +144,6 @@ void KPrintf(const char* kpFmt, ...)
     spBuffer[sBufferSize] = 0;
     sCurrentOutput.pPuts(spBuffer);
     sBufferSize = 0;
-
-    KERNEL_UNLOCK(sLock);
   }
 }
 
@@ -161,8 +155,6 @@ void KPrintfError(const char* kpFmt, ...)
 
   if (kpFmt != NULL)
   {
-    KERNEL_LOCK(sLock);
-
     newScheme.foreground = FG_RED;
     newScheme.background = BG_BLACK;
 
@@ -190,8 +182,6 @@ void KPrintfError(const char* kpFmt, ...)
     spBuffer[sBufferSize] = 0;
     sCurrentOutput.pPuts(spBuffer);
     sBufferSize = 0;
-
-    KERNEL_UNLOCK(sLock);
   }
 }
 
@@ -203,8 +193,6 @@ void KPrintfSuccess(const char* kpFmt, ...)
 
   if (kpFmt != NULL)
   {
-    KERNEL_LOCK(sLock);
-
     newScheme.foreground = FG_GREEN;
     newScheme.background = BG_BLACK;
 
@@ -232,8 +220,6 @@ void KPrintfSuccess(const char* kpFmt, ...)
     spBuffer[sBufferSize] = 0;
     sCurrentOutput.pPuts(spBuffer);
     sBufferSize = 0;
-
-    KERNEL_UNLOCK(sLock);
   }
 }
 
@@ -245,8 +231,6 @@ void KPrintfInfo(const char* kpFmt, ...)
 
   if (kpFmt != NULL)
   {
-    KERNEL_LOCK(sLock);
-
     newScheme.foreground = FG_CYAN;
     newScheme.background = BG_BLACK;
 
@@ -274,8 +258,6 @@ void KPrintfInfo(const char* kpFmt, ...)
     spBuffer[sBufferSize] = 0;
     sCurrentOutput.pPuts(spBuffer);
     sBufferSize = 0;
-
-    KERNEL_UNLOCK(sLock);
   }
 }
 
@@ -285,11 +267,10 @@ void KPrintfDebug(const char* kpFmt, ...)
   S_ColorScheme     buffer;
   S_ColorScheme     newScheme;
   uint64_t          uptime;
+  uint32_t          cpuId;
 
   if (kpFmt != NULL)
   {
-    KERNEL_LOCK(sLock);
-
     newScheme.foreground = FG_YELLOW;
     newScheme.background = BG_BLACK;
 
@@ -300,9 +281,17 @@ void KPrintfDebug(const char* kpFmt, ...)
     ConsoleSetColorScheme(&newScheme);
 
     /* Print tag */
+    if (SchedulerIsInitialized() == true)
+    {
+      cpuId = CPUGetId();
+    }
+    else
+    {
+      cpuId = 0;
+    }
     uptime = TimeGetUptime();
     _TagPrintf("[DEBUG %d | %02llu.%03llu.%03llu.%03llu]",
-                CPUGetId(),
+                cpuId,
                 uptime / 1000000000,
                 (uptime / 1000000) % 1000,
                 (uptime / 1000) % 1000,
@@ -323,21 +312,15 @@ void KPrintfDebug(const char* kpFmt, ...)
     spBuffer[sBufferSize] = 0;
     sCurrentOutput.pPuts(spBuffer);
     sBufferSize = 0;
-
-    KERNEL_UNLOCK(sLock);
   }
 }
 
 void KPrintfFlush(void)
 {
-  KERNEL_LOCK(sLock);
-
   spBuffer[sBufferSize] = 0;
   sCurrentOutput.pPuts(spBuffer);
   sCurrentOutput.pFlush();
   sBufferSize = 0;
-
-  KERNEL_UNLOCK(sLock);
 }
 
 /************************************ EOF *************************************/

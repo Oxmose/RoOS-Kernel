@@ -73,7 +73,7 @@ struct timespec
  * @brief Suspends the execution of the calling thread.
  *
  * @details Suspends the execution of the calling thread until
- * either at least the time specified in *duration has elapsed, or
+ * either at least the time specified in* duration has elapsed, or
  * the delivery of a signal that triggers the invocation of a
  * handler in the calling thread or that terminates the process.
  *
@@ -85,7 +85,7 @@ struct timespec
  * @return The function returns 0 for success, or -1 for failure (in which case
  * errno is set appropriately).
  */
-int nanosleep(const struct timespec *duration, struct timespec *rem);
+int nanosleep(const struct timespec* duration, struct timespec* rem);
 
 #endif /* #ifndef __LIB_TIME_H_ */
 

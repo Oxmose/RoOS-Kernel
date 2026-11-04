@@ -70,10 +70,10 @@
  * FUNCTIONS
  ******************************************************************************/
 
-char *strcpy(char *dst, const char *src)
+char* strcpy(char* dst, const char* src)
 {
-    char *q = dst;
-    const char *p = src;
+    char* q = dst;
+    const char* p = src;
     char ch;
 
     do {

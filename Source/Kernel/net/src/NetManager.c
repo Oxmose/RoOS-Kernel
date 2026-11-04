@@ -58,6 +58,8 @@
 
 /** @brief Priority for the kernel worker threads. */
 #define KNETD_THREAD_PRIORITY 1
+/** @brief Priority for the kernel periodicworker threads. */
+#define KNETD_PERIODIC_THREAD_PRIORITY 30
 /** @brief Stack size for the kernel worker threads. */
 #define KNETD_THREAD_STACK_SIZE 4096
 /** @brief Size of the task queue. */
@@ -73,8 +75,6 @@ typedef struct
   T_NetManagerTask pTask;
   /** @brief Pointer to the argument for the task function. */
   void* pArg;
-  /** @brief Pointer to the completion semaphore for the task. */
-  S_KernelSemaphore* pCompletionSemaphore;
 } S_KernelNetworkWorkerTask;
 
 /** @brief Structure representing a kernel network worker periodic task. */
@@ -87,6 +87,15 @@ typedef struct
   /** @brief Pointer to the argument for the task function. */
   void* pArg;
 } S_KernelNetworkWorkerPeriodicTask;
+
+/** @brief Structure representing a node in the device queue. */
+typedef struct S_DevQueueNode
+{
+  /** @brief Pointer to the network device. */
+  S_NetworkDevice* pDevice;
+  /** @brief Pointer to the next node in the queue. */
+  struct S_DevQueueNode* pNext;
+} S_DevQueueNode;
 
 /*******************************************************************************
  * MACROS
@@ -252,12 +261,16 @@ static void _NetManagerPeriodicTaskHandler(void* pArg);
 /* None */
 
 /************************** Static global variables ***************************/
+/** @brief Device queue lock */
+static T_Spinlock* spDeviceQueueLock;
+/** @brief Array of device queues for each core. */
+static S_DevQueueNode** spDeviceQueue;
+/** @brief Network task threads. */
+static S_KernelThread** spKernelNetThreads;
+/** @brief Network periodic task threads. */
+static S_KernelThread** spKernelPeriodicNetThreads;
 /** @brief Pointer to the task queue for the kernel worker. */
-static S_FastQueue* spTaskQueue;
-/** @brief Task semaphore for the kernel worker. */
-static S_KernelSemaphore sTaskSemaphore;
-/** @brief Task queue lock */
-static S_KernelSpinlock sTaskQueueLock = KERNEL_SPINLOCK_INIT_VALUE;
+static S_FastQueue** spPeriodicTaskQueue;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -409,38 +422,87 @@ static ssize_t _VFSIOCTL(void*    pNetDevice,
 
 static void* _KernelNetThreadRoutine(void* pArgs)
 {
-  E_Return                  retCode;
-  S_KernelNetworkWorkerTask task;
-  bool                      taskAvailable;
+  S_DevQueueNode* pNode;
+  uint32_t        intState;
+  uint32_t        cpuId;
+  void*           pVCPU;
 
-  (void)pArgs;
+  cpuId = (uint32_t)(uintptr_t)pArgs;
+  pVCPU = GetCurrentThread()->pVCpu;
 
   while (true)
   {
-    /* Wait for a task to be submitted */
-    retCode = KernelSemaphoreWait(&sTaskSemaphore);
-    NETMGR_ASSERT(retCode == NO_ERROR,
-                   "Failed to wait for task semaphore.",
-                   retCode);
-
-    /* Get the task */
-    KERNEL_LOCK(sTaskQueueLock);
-    taskAvailable = FQueuePop(spTaskQueue, &task);
-    KERNEL_UNLOCK(sTaskQueueLock);
-    NETMGR_ASSERT(taskAvailable == true,
-                  "Failed to dequeue task from the task queue.",
-                  ERR_INVALID_VALUE);
-
-    /* Execute the task */
-    task.pTask(task.pArg);
-
-    /* Signal task completion */
-    if (task.pCompletionSemaphore != NULL)
+    pNode = spDeviceQueue[cpuId];
+    while (pNode != NULL)
     {
-      retCode = KernelSemaphorePost(task.pCompletionSemaphore);
-      NETMGR_ASSERT(retCode == NO_ERROR,
-                     "Failed to signal task completion semaphore.",
-                     retCode);
+      if (pNode->pDevice->hasPendingTask == true)
+      {
+        /* Execute the task */
+        pNode->pDevice->hasPendingTask = false;
+        pNode->pDevice->operations.pInterrupt(pNode->pDevice->pDriverData);
+      }
+      pNode = pNode->pNext;
+    }
+
+    KERNEL_ENTER_CRITICAL_LOCAL(intState);
+    /* Check if there are any devices in the queue */
+    pNode = spDeviceQueue[cpuId];
+    while (pNode != NULL)
+    {
+      if (pNode->pDevice->hasPendingTask == true)
+      {
+        break;
+      }
+      pNode = pNode->pNext;
+    }
+    if (pNode == NULL)
+    {
+      /* No more work to do, sleep */
+      SetCurrentThreadToWaiting(NULL, true);
+      CPUSaveContextAndSchedule(pVCPU);
+    }
+    KERNEL_EXIT_CRITICAL_LOCAL(intState);
+  }
+
+  /* Kernel worker thread is not allowed to return */
+  PANIC(ERR_UNAUTHORIZED_ACTION,
+        MODULE_NAME,
+        "Kernel net worker thread returned",
+        false,
+        false);
+
+  return NULL;
+}
+
+static void* _KernelNetPeriodicTaskRoutine(void* pArgs)
+{
+  S_KernelNetworkWorkerTask task;
+  bool                      taskAvailable;
+  uint32_t                  cpuId;
+  uint32_t                  intState;
+  void*                     pVCPU;
+
+  cpuId = (uint32_t)(uintptr_t)pArgs;
+  pVCPU = GetCurrentThread()->pVCpu;
+
+  while (true)
+  {
+    KERNEL_ENTER_CRITICAL_LOCAL(intState);
+    /* Get the task */
+    taskAvailable = FQueuePop(spPeriodicTaskQueue[cpuId], &task);
+
+    if (taskAvailable == false)
+    {
+      /* No more work to do, sleep */
+      SetCurrentThreadToWaiting(NULL, true);
+      CPUSaveContextAndSchedule(pVCPU);
+      KERNEL_EXIT_CRITICAL_LOCAL(intState);
+    }
+    else
+    {
+      KERNEL_EXIT_CRITICAL_LOCAL(intState);
+      /* Execute the task */
+      task.pTask(task.pArg);
     }
   }
 
@@ -456,74 +518,84 @@ static void* _KernelNetThreadRoutine(void* pArgs)
 
 static void _NetManagerPeriodicTaskHandler(void* pArg)
 {
-  E_Return                           retCode;
   S_KernelNetworkWorkerPeriodicTask* pPeriodicTask;
   S_KernelNetworkWorkerTask          newTask;
+  uint32_t                           coreId;
 
   pPeriodicTask = (S_KernelNetworkWorkerPeriodicTask*)pArg;
 
   /* Create the task structure */
   newTask.pTask = pPeriodicTask->pTask;
-  newTask.pArg = pPeriodicTask->pArg;
-  newTask.pCompletionSemaphore = NULL;
+  newTask.pArg  = pPeriodicTask->pArg;
+
+  coreId = CPUGetId();
 
   /* Enqueue the task */
-  KERNEL_LOCK(sTaskQueueLock);
-  FQueuePush(spTaskQueue, &newTask);
-  KERNEL_UNLOCK(sTaskQueueLock);
-
-  /* Signal the task semaphore */
-  retCode = KernelSemaphorePost(&sTaskSemaphore);
-  NETMGR_ASSERT(retCode == NO_ERROR,
-                "Failed to signal task semaphore.",
-                retCode);
+  FQueuePush(spPeriodicTaskQueue[coreId], &newTask);
+  SetThreadToReady(spKernelPeriodicNetThreads[coreId]);
 }
 
 void NetManagerInit(void)
 {
-  E_Return        retCode;
-  uint32_t        cpuCount;
-  uint32_t        i;
-  S_KernelThread* pThread;
-  char            name[THREAD_NAME_MAX_LENGTH];
-  S_CPUMask       cpuMask;
+  E_Return  retCode;
+  uint32_t  cpuCount;
+  uint32_t  i;
+  char      name[THREAD_NAME_MAX_LENGTH];
+  S_CPUMask cpuMask;
 
   /* Spawn kernel worker threads */
   cpuCount = CPUGetCount();
+  spKernelNetThreads = KMalloc(sizeof(S_KernelThread*) * cpuCount,
+                               KMALLOC_NO_FREE_POOL);
+  spKernelPeriodicNetThreads = KMalloc(sizeof(S_KernelThread*) * cpuCount,
+                               KMALLOC_NO_FREE_POOL);
   for (i = 0; i < cpuCount; ++i)
   {
     snprintf(name, THREAD_NAME_MAX_LENGTH, "knetd-%u", i);
     CPU_MASK_RESET(cpuMask);
     CPU_MASK_SET(cpuMask, i);
     /* Create the kernel worker thread */
-    retCode = CreateThread(&pThread,
+    retCode = CreateThread(&spKernelNetThreads[i],
                            true,
                            KNETD_THREAD_PRIORITY,
                            name,
                            KNETD_THREAD_STACK_SIZE,
                            cpuMask,
                            _KernelNetThreadRoutine,
-                           NULL,
+                           (void*)(uintptr_t)i,
+                           NULL);
+    NETMGR_ASSERT(retCode == NO_ERROR,
+                   "Failed to create kernel net worker thread.",
+                   retCode);
+    /* Create the kernel periodic worker thread */
+    snprintf(name, THREAD_NAME_MAX_LENGTH, "knetpd-%u", i);
+    retCode = CreateThread(&spKernelPeriodicNetThreads[i],
+                           true,
+                           KNETD_PERIODIC_THREAD_PRIORITY,
+                           name,
+                           KNETD_THREAD_STACK_SIZE,
+                           cpuMask,
+                           _KernelNetPeriodicTaskRoutine,
+                           (void*)(uintptr_t)i,
                            NULL);
     NETMGR_ASSERT(retCode == NO_ERROR,
                    "Failed to create kernel net worker thread.",
                    retCode);
   }
-
-  /* Initialize the task queue */
-  spTaskQueue = FQueueCreate(NET_MGR_TASK_QUEUE_SIZE,
-                             sizeof(S_KernelNetworkWorkerTask));
-  NETMGR_ASSERT(spTaskQueue != NULL,
-                "Failed to create task queue.",
-                ERR_NO_MEMORY);
-
-  /* Initialize the task semaphore */
-  retCode = KernelSemaphoreInit(&sTaskSemaphore,
-                                KSEMAPHORE_FLAG_QUEUING_FIFO,
-                                0);
-  NETMGR_ASSERT(retCode == NO_ERROR,
-                 "Failed to initialize task semaphore.",
-                 retCode);
+  /* Initialize the device queue */
+  spDeviceQueue = KMalloc(sizeof(S_DevQueueNode*) * cpuCount,
+                          KMALLOC_NO_FREE_POOL);
+  spDeviceQueueLock = KMalloc(sizeof(T_Spinlock) * cpuCount,
+                              KMALLOC_NO_FREE_POOL);
+  spPeriodicTaskQueue = KMalloc(sizeof(S_FastQueue*) * cpuCount,
+                                KMALLOC_NO_FREE_POOL);
+  for (i = 0; i < cpuCount; ++i)
+  {
+    spDeviceQueue[i] = NULL;
+    spPeriodicTaskQueue[i] = FQueueCreate(NET_MGR_TASK_QUEUE_SIZE,
+                                          sizeof(S_KernelNetworkWorkerTask));
+    SPINLOCK_INIT(spDeviceQueueLock[i]);
+  }
 }
 
 E_Return NetManagerCreateBufferPool(const size_t     kBufferSize,
@@ -611,14 +683,18 @@ E_Return NetManagerRegisterDevice(T_NetUpLink      pUplink,
                                   T_NetDownLink    pDownlink,
                                   T_NetSend        pSend,
                                   T_NetControl     pCtrl,
+                                  T_NetInterrupt   pInterrupt,
                                   const uint8_t    kBus,
                                   const uint8_t    kDevice,
                                   const uint8_t    kFunction,
                                   void*            pDriverData,
-                                  S_NetworkDevice* pDevice)
+                                  S_NetworkDevice* pDevice,
+                                  const uint32_t   kAllocatedCore)
 {
-  E_Return retCode;
-  char     name[NET_MGR_IFACE_NAME_MAX_LENGTH + NET_MGR_IFACE_PATH_MAX_LENGTH];
+  E_Return        retCode;
+  S_DevQueueNode* pDevNode;
+  char            name[NET_MGR_IFACE_NAME_MAX_LENGTH +
+                       NET_MGR_IFACE_PATH_MAX_LENGTH];
 
   if (pUplink != NULL &&
       pDownlink != NULL &&
@@ -626,12 +702,14 @@ E_Return NetManagerRegisterDevice(T_NetUpLink      pUplink,
       pCtrl != NULL &&
       pDevice != NULL)
   {
-    pDevice->pDriverData          = pDriverData;
-    pDevice->operations.pUplink   = pUplink;
-    pDevice->operations.pDownlink = pDownlink;
-    pDevice->operations.pSend     = pSend;
-    pDevice->operations.pControl  = pCtrl;
-    pDevice->pFreeBufferQueue     = NULL;
+    pDevice->pDriverData           = pDriverData;
+    pDevice->operations.pUplink    = pUplink;
+    pDevice->operations.pDownlink  = pDownlink;
+    pDevice->operations.pSend      = pSend;
+    pDevice->operations.pControl   = pCtrl;
+    pDevice->operations.pInterrupt = pInterrupt;
+    pDevice->pFreeBufferQueue      = NULL;
+    pDevice->hasPendingTask        = false;
 
     /* Setup the device name */
     if (kFunction == 0xFF)
@@ -668,6 +746,13 @@ E_Return NetManagerRegisterDevice(T_NetUpLink      pUplink,
 
     if (pDevice->fsDriver != VFS_DRIVER_INVALID)
     {
+      pDevNode = KMalloc(sizeof(S_DevQueueNode), KMALLOC_FREE_POOL);
+      pDevNode->pDevice = pDevice;
+      /* Add the device to the manager thread */
+      SpinlockAcquire(&spDeviceQueueLock[kAllocatedCore]);
+      pDevNode->pNext = spDeviceQueue[kAllocatedCore];
+      spDeviceQueue[kAllocatedCore] = pDevNode;
+      SpinlockRelease(&spDeviceQueueLock[kAllocatedCore]);
       retCode = NO_ERROR;
     }
     else
@@ -694,6 +779,9 @@ S_NetworkFragmentList* NetManagerAllocateFragmentList(void)
 }
 
 #include <KernelOutput.h>
+uint64_t timeStart;
+uint64_t timeEnd;
+uint64_t packets = 0;
 void NetManagerProcessReceivedPacket(S_NetworkFragmentList* pFragmentList,
                                      S_NetworkDevice*       pDevice)
 {
@@ -706,6 +794,20 @@ void NetManagerProcessReceivedPacket(S_NetworkFragmentList* pFragmentList,
                  i + 1,
                  pFragmentList->fragmentCount,
                  pFragmentList->pFragments[i].size);
+  }
+
+  if (packets == 0)
+  {
+    timeStart = TimeGetUptime();
+  }
+  packets++;
+  if (packets == 10000)
+  {
+    timeEnd = TimeGetUptime();
+    KPrintf("Received 10000 packets in %llu ns\n", timeEnd - timeStart);
+    KPrintf("Average time per packet: %llu ns\n", (timeEnd - timeStart) / 10000);
+    KPrintf("Average speed: %llu Mbps\n", (1000000000 / ((timeEnd - timeStart) / 10000)) * 1500 * 8 / 1024 / 1024);
+    packets = 0;
   }
 
   NetManagerFreeFragmentList(pFragmentList, pDevice);
@@ -727,28 +829,14 @@ void NetManagerFreeFragmentList(S_NetworkFragmentList* pFragmentList,
   KFree(pFragmentList);
 }
 
-void NetManagerSubmitTask(T_NetManagerTask   task,
-                          void*              pArg,
-                          S_KernelSemaphore* pCompletionSemaphore)
+void NetManagerSubmitTask(S_NetworkDevice* pDevice)
 {
-  S_KernelNetworkWorkerTask newTask;
-  E_Return                  retCode;
+  uint32_t coreId;
 
-  /* Create the task structure */
-  newTask.pTask = task;
-  newTask.pArg = pArg;
-  newTask.pCompletionSemaphore = pCompletionSemaphore;
-
-  /* Enqueue the task */
-  KERNEL_LOCK(sTaskQueueLock);
-  FQueuePush(spTaskQueue, &newTask);
-  KERNEL_UNLOCK(sTaskQueueLock);
-
-  /* Signal the task semaphore */
-  retCode = KernelSemaphorePost(&sTaskSemaphore);
-  NETMGR_ASSERT(retCode == NO_ERROR,
-                "Failed to signal task semaphore.",
-                retCode);
+  /* Set the task to be submitted on the current core */
+  pDevice->hasPendingTask = true;
+  coreId = CPUGetId();
+  SetThreadToReady(spKernelNetThreads[coreId]);
 }
 
 void NetManagerReleaseTransmitBuffer(void*        pBufferAddress,
@@ -761,7 +849,8 @@ void NetManagerReleaseTransmitBuffer(void*        pBufferAddress,
 
 T_NetManagerTaskHandle NetManagerAddPeriodicTask(T_NetManagerTask task,
                                                  void*            pArg,
-                                                 const uint32_t   kPeriodNs)
+                                                 const uint32_t   kPeriodNs,
+                                                 const uint32_t   kCpuId)
 {
   S_TimerPeriodicTask*               pTaskHandle;
   S_KernelNetworkWorkerPeriodicTask* pPeriodicTask;
@@ -777,7 +866,9 @@ T_NetManagerTaskHandle NetManagerAddPeriodicTask(T_NetManagerTask task,
   pTaskHandle->pArg = pPeriodicTask;
 
   /* Add the task to the periodic task list */
-  pPeriodicTask->timerHandle  = TimeManagerAddTask(pTaskHandle, kPeriodNs);
+  pPeriodicTask->timerHandle  = TimeManagerAddTask(pTaskHandle,
+                                                   kPeriodNs,
+                                                   kCpuId);
 
   return pTaskHandle;
 }

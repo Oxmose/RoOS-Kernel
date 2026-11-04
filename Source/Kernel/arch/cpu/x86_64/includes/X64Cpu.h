@@ -212,9 +212,6 @@ typedef struct
   uint64_t rbx;
   /** @brief CPU's rax register. */
   uint64_t rax;
-
-  /** @brief FXSAVE / FXRSTOR data region. */
-  uint8_t fxDataRegion[];
 } __attribute__((packed)) S_SignalInterruptContext;
 
 typedef struct
@@ -351,6 +348,21 @@ const S_VirtualCPU* CPUGetVirtualCPU(const S_KernelThread* kpThread);
 uint32_t CPUGetLAPICId(void);
 
 /**
+ * @brief Returns the LAPIC ID of the CPU with the given core ID.
+ *
+ * @details Returns the LAPIC ID of the CPU with the given core ID. This
+ * function is used to get the LAPIC ID of the CPU with the given core ID. The
+ * LAPIC ID is used to identify the CPU in the system. This function is used by
+ * the scheduler to get the LAPIC ID of the CPU with the given core ID. The
+ * LAPIC ID is used to identify the CPU in the system.
+ *
+ * @param[in] kCoreId The core ID of the CPU for which to get the LAPIC ID.
+ *
+ * @return The LAPIC ID of the CPU with the given core ID is returned.
+ */
+uint32_t CPUGetLAPICIdByCore(const uint32_t kCoreId);
+
+/**
  * @brief Writes byte on port.
  *
  * @param[in] kValue The value to send to the port.
@@ -424,28 +436,6 @@ static inline uint32_t CPUPortReadWord(const uint16_t kPort)
   __asm__ __volatile__("inl %1,%0" : "=a" (rega) : "Nd" (kPort));
   return rega;
 }
-
-/**
- * @brief Registers the LAPIC driver.
- *
- * @details Registers the LAPIC driver used by the CPU manager to end IPI,
- * start other CPUs and get the LAPIC Ids. This function must be called
- * before any other in the CPU manager. The function should only be called
- * once.
- *
- * @param[in] kpLAPICDriver The LAPIC driver to register.
- */
-void CPURegisterLAPICDriver(const S_LAPICDriver* kpLAPICDriver);
-
-/**
- * @brief Registers the LAPIC Timer driver.
- *
- * @details Registers the LAPIC Timer driver used by the CPU manager to
- * initialize the LAPIC Timer for secondary CPUs
- *
- * @param[in] kpLAPICDriver The LAPIC driver to register.
- */
-void CPURegisterLAPICTimerDriver(const S_LAPICTimerDriver* kpLAPICTimerDrv);
 
 /**
  * @brief Returns the CPU 1GB page support.
@@ -546,6 +536,23 @@ void CPUBIOSCall(S_BIOSRegisters* pRegs,
                  const size_t     kBufferSize,
                  uintptr_t*       pInitialDataLocation);
 
+/**
+ * @brief Locks a spinlock.
+ *
+ * @details Locks a spinlock. This function is safe in kernel mode.
+ *
+ * @param[in, out] pLock The pointer to the lock to lock.
+*/
+void SpinLock(T_Spinlock* pLock);
+
+/**
+ * @brief Unlocks a spinlock.
+ *
+ * @details Unlocks a spinlock. This function is safe in kernel mode.
+ *
+ * @param[out] pLock The pointer to the lock to unlock.
+*/
+void SpinUnlock(T_Spinlock* pLock);
 #endif /* #ifndef __CPU_X86_64_X64_CPU_H_ */
 
 /************************************ EOF *************************************/

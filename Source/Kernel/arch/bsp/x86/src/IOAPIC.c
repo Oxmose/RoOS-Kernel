@@ -37,10 +37,10 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <Critical.h>
+#include <Interrupts.h>
 #include <KernelHeap.h>
 #include <KernelError.h>
-#include <DeviceTree.h>
-#include <Interrupts.h>
+#include <KernelOutput.h>
 #include <DriverManager.h>
 
 /* Configuration files */
@@ -55,13 +55,6 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/** @brief FDT property for acpi handle */
-#define IOAPIC_FDT_ACPI_NODE_PROP "acpi-node"
-/** @brief FDT property for lapic handle */
-#define IOAPIC_FDT_LAPIC_NODE_PROP "lapic-node"
-/** @brief FDT property for is-interrupt-driver */
-#define IOAPIC_FDT_INT_DRIVER_PROP "interrupt-controller"
-
 /** @brief PROCFS directory path */
 #define PROCFS_DIR_PATH "ioapic"
 /** @brief PROCFS string length */
@@ -118,7 +111,6 @@
 /** @brief IO-APIC masked. */
 #define IO_APIC_MASKED (1 << 16)
 
-
 /** @brief Current module name */
 #define MODULE_NAME "X86 IO-APIC"
 
@@ -142,7 +134,7 @@ typedef struct S_IOAPICControler
   /** @brief Last IRQ handled by the current IO-APIC. */
   uint8_t gsil;
   /** @brief The controller lock to avoid concurrent accesses */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
   /** @brief On system with multiple IO-APICs link to the next */
   struct S_IOAPICControler* pNext;
 } S_IOAPICControler;
@@ -212,16 +204,12 @@ static inline void _Write(S_IOAPICControler* pCtrl,
 /**
  * @brief Attaches the IO-APIC driver to the system.
  *
- * @details Attaches the IO-APIC driver to the system. This function will use
- * the FDT to initialize the IO-APIC hardware and retreive the IO-APIC
- * parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ * @details Attaches the IO-APIC driver to the system. This function will
+ *  initialize the IO-APIC hardware and retreive the IO-APIC parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
+static E_Return _Attach(void);
 
 /**
  * @brief Sets the IRQ EOI for the desired IRQ number.
@@ -323,12 +311,12 @@ static E_Return _CreateProcFSEntry(void);
 
 /************************** Static global variables ***************************/
 /** @brief PIC driver instance. */
-static S_Driver sX86IOAPICDriver =
+static S_LayerDriver  sX86IOAPICDriver =
 {
   .pName         = "X86 IO-APIC Driver",
   .pDescription  = "X86 IO-APIC Driver for roOs",
-  .pCompatible   = "x86,x86-io-apic",
   .pVersion      = "3.0",
+  .layer         = 1,
   .pDriverAttach = _Attach
 };
 
@@ -341,12 +329,6 @@ static S_InterruptDriver sIOAPICDriver =
 
 /** @brief IO-APIC driver controller instance */
 static S_IOAPICControler* spDrvCtrl = NULL;
-
-/** @brief IOAPIC ACPI driver handle */
-static const S_ACPIDriver* skpACPIDriver;
-
-/** @brief LAPIC driver handle */
-static S_LAPICDriver* pLAPICDriver;
 
 /** @brief CPU's spurious interrupt line */
 static uint32_t sSpuriousIntLine;
@@ -379,7 +361,7 @@ static size_t sProcFSStringLength = 0;
 {
   uint32_t value;
 
-  KERNEL_LOCK(pCtrl->lock);
+  SpinlockAcquire(&pCtrl->lock);
 
   /* Set IOREGSEL */
   _MMIOWrite32((void*)(pCtrl->baseAddr + IOREGSEL), kRegister);
@@ -387,7 +369,7 @@ static size_t sProcFSStringLength = 0;
   /* Get register value */
   value = _MMIORead32((void*)(pCtrl->baseAddr + IOWIN));
 
-  KERNEL_UNLOCK(pCtrl->lock);
+  SpinlockRelease(&pCtrl->lock);
 
   return value;
 }
@@ -396,7 +378,7 @@ static inline void _Write(S_IOAPICControler* pCtrl,
                           const uint32_t     kRegister,
                           const uint32_t     kVal)
 {
-  KERNEL_LOCK(pCtrl->lock);
+  SpinlockAcquire(&pCtrl->lock);
 
   /* Set IOREGSEL */
   _MMIOWrite32((void*)(pCtrl->baseAddr + IOREGSEL), kRegister);
@@ -404,53 +386,25 @@ static inline void _Write(S_IOAPICControler* pCtrl,
   /* Set register value */
   _MMIOWrite32((void*)(pCtrl->baseAddr + IOWIN), kVal);
 
-  KERNEL_UNLOCK(pCtrl->lock);
+  SpinlockRelease(&pCtrl->lock);
 }
 
-static E_Return _Attach(const S_FDTNode* kpFdtNode)
+static E_Return _Attach(void)
 {
-  const uint32_t*     kpACPINodeProp;
-  const uint32_t*     kpLAPICNodeProp;
   S_IOAPICControler*  pNewDrvCtrl;
   const S_IOAPICNode* kpIOAPICNode;
   E_Return            retCode;
-  size_t              propLen;
-  size_t              acpiPropLen;
-  size_t              lapicPropLen;
   uint8_t             i;
   uint32_t            ioapicVerRegister;
   uintptr_t           ioApicPhysAddr;
   size_t              toMap;
   uint8_t             irqId;
 
-  retCode       = NO_ERROR;
-  pLAPICDriver  = NULL;
-  skpACPIDriver = NULL;
-
   /* Get CPU's spurious interrupt line */
   sSpuriousIntLine = CPUGetInterruptConfig()->spuriousInterruptLine;
 
-  /* Get the handles */
-  kpACPINodeProp = FDTGetProp(kpFdtNode,
-                              IOAPIC_FDT_ACPI_NODE_PROP,
-                              &acpiPropLen);
-  kpLAPICNodeProp = FDTGetProp(kpFdtNode,
-                               IOAPIC_FDT_LAPIC_NODE_PROP,
-                               &lapicPropLen);
-  IOAPIC_ASSERT(kpACPINodeProp != NULL && acpiPropLen == sizeof(uint32_t) &&
-                kpLAPICNodeProp != NULL && lapicPropLen == sizeof(uint32_t),
-                "Invalid acpi-node or lapic-node property",
-                ERR_INVALID_VALUE);
-
-  /* Get the drivers */
-  skpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpACPINodeProp));
-  pLAPICDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpLAPICNodeProp));
-  IOAPIC_ASSERT(skpACPIDriver != NULL && pLAPICDriver != NULL,
-                "Invalid acpi or lapic driver",
-                ERR_INVALID_VALUE);
-
   /* Get the IOAPICs */
-  kpIOAPICNode = skpACPIDriver->pGetIOAPICList();
+  kpIOAPICNode = ACPIGetIOAPICList();
   while (kpIOAPICNode != NULL)
   {
     pNewDrvCtrl = KMalloc(sizeof(S_IOAPICControler), KMALLOC_NO_FREE_POOL);
@@ -459,7 +413,7 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
     pNewDrvCtrl->pNext = spDrvCtrl;
     spDrvCtrl = pNewDrvCtrl;
 
-    KERNEL_SPINLOCK_INIT(pNewDrvCtrl->lock);
+    SPINLOCK_INIT(pNewDrvCtrl->lock);
 
     /* Map the IO APIC */
     ioApicPhysAddr = kpIOAPICNode->ioApic.ioApicAddr & ~PAGE_SIZE_MASK;
@@ -498,19 +452,23 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
       _Write(pNewDrvCtrl, IOREDTBLXL(irqId), IO_APIC_MASKED);
     }
 
+    KERNEL_DEBUG(IOAPIC_DRIVER_DEBUG_ENABLED,
+                  MODULE_NAME,
+                  "Attached IO-APIC ID: %d, Version: %d, GSI %d / %d",
+                  pNewDrvCtrl->identifier,
+                  pNewDrvCtrl->version,
+                  pNewDrvCtrl->gsib,
+                  pNewDrvCtrl->gsil - 1);
+
     /* Go to next */
     kpIOAPICNode = kpIOAPICNode->pNext;
   }
 
-  /* Register if needed */
-  if (FDTGetProp(kpFdtNode, IOAPIC_FDT_INT_DRIVER_PROP, &propLen) != NULL)
-  {
-    /* Register as interrupt controller */
-    retCode = InterruptSetDriver(&sIOAPICDriver);
-    IOAPIC_ASSERT(retCode == NO_ERROR,
-                  "Failed to register IO-APIC in interrupt manager",
-                  retCode);
-  }
+  /* Register as interrupt controller */
+  retCode = InterruptSetDriver(&sIOAPICDriver);
+  IOAPIC_ASSERT(retCode == NO_ERROR,
+                "Failed to register IO-APIC in interrupt manager",
+                retCode);
 
   retCode = _CreateProcFSEntry();
   IOAPIC_ASSERT(retCode == NO_ERROR, "Failed to create ProcFS entry", retCode);
@@ -522,7 +480,7 @@ static void _SetIRQEOI(const uint32_t kIntNumber)
 {
   (void)kIntNumber;
   /* Calls the LAPIC EOI function */
-  pLAPICDriver->pSetIRQEOI();
+  LAPICSetIRQEOI();
 }
 
 static E_InterruptType _HandleSpurious(const uint32_t kIntNumber)
@@ -658,7 +616,7 @@ static E_Return _CreateProcFSEntry(void)
 
 void IOAPICSetupIRQ(const uint32_t            kIRQNumber,
                     const uint32_t            kInterruptLine,
-                    const uint32_t            kLapicDestination,
+                    const uint32_t            kCoreDestination,
                     const E_IOAPICTriggerMode kTriggerMode,
                     const E_IOAPICPolarity    kPolarity)
 {
@@ -667,9 +625,11 @@ void IOAPICSetupIRQ(const uint32_t            kIRQNumber,
   uint32_t           registerLow;
   uint32_t           registerHigh;
   uint32_t           remapIRQ;
+  uint32_t           lapicId;
   S_IOAPICControler* pCtrl;
 
-  remapIRQ = skpACPIDriver->pGetRemapedIRQ(kIRQNumber);
+  lapicId = CPUGetLAPICIdByCore(kCoreDestination);
+  remapIRQ = ACPIGetRemapedIRQ(kIRQNumber);
 
   /* Find the controller */
   pCtrl = spDrvCtrl;
@@ -682,6 +642,14 @@ void IOAPICSetupIRQ(const uint32_t            kIRQNumber,
     pCtrl = pCtrl->pNext;
   }
 
+  KERNEL_DEBUG(IOAPIC_DRIVER_DEBUG_ENABLED,
+                MODULE_NAME,
+                "Setting up IRQ %d on IO-APIC ID: %d, GSI %d / %d",
+                kIRQNumber,
+                pCtrl->identifier,
+                pCtrl->gsib,
+                pCtrl->gsil - 1);
+
   IOAPIC_ASSERT(pCtrl != NULL,
                 "Failed to find the IO-APIC controller for the given IRQ",
                 ERR_INVALID_VALUE);
@@ -693,7 +661,7 @@ void IOAPICSetupIRQ(const uint32_t            kIRQNumber,
   irqRegisterLow  = 0x10 + (uint8_t)(remapIRQ & 0xFF) * 2;
   irqRegisterHigh = irqRegisterLow + 1;
   registerLow     = kInterruptLine;
-  registerHigh    = (kLapicDestination << 24);
+  registerHigh    = (lapicId << 24);
 
   /* Setup the IRQ modes */
   registerLow |= IO_APIC_DELIVERY_FIXED | IO_APIC_DEST_PHYSICAL;
@@ -726,7 +694,12 @@ void IOAPICDisableIRQ(const uint32_t kIRQNumber)
   uint32_t           remapIRQ;
   S_IOAPICControler* pCtrl;
 
-  remapIRQ = skpACPIDriver->pGetRemapedIRQ(kIRQNumber);
+  remapIRQ = ACPIGetRemapedIRQ(kIRQNumber);
+
+  KERNEL_DEBUG(IOAPIC_DRIVER_DEBUG_ENABLED,
+                MODULE_NAME,
+                "Disabling IRQ %d on IO-APIC",
+                kIRQNumber);
 
   /* Find the controller */
   pCtrl = spDrvCtrl;
@@ -759,6 +732,6 @@ void IOAPICDisableIRQ(const uint32_t kIRQNumber)
 }
 
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86IOAPICDriver);
+DRIVERMGR_REG_LAYER(sX86IOAPICDriver);
 
 /************************************ EOF *************************************/

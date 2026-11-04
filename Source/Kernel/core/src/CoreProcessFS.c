@@ -428,7 +428,7 @@ static ssize_t _ProcFSStatusRead(void*  pExtraData,
     {
       pProcess = (S_KernelProcess*)pExtraData;
 
-      KERNEL_LOCK(pProcess->lock);
+      SpinlockAcquire(&pProcess->lock);
       allocatedMemory = MemoryGetProcessAllocatedMemory(pProcess);
       uThreadCount = 0;
       kThreadCount = 0;
@@ -542,7 +542,7 @@ static ssize_t _ProcFSStatusRead(void*  pExtraData,
       {
         retCode = -1;
       }
-      KERNEL_UNLOCK(pProcess->lock);
+      SpinlockRelease(&pProcess->lock);
 
       KFreeUser(pBufferChar, NULL);
     }
@@ -588,7 +588,7 @@ static ssize_t _ProcFSSchedStatsRead(void*  pExtraData,
     {
       pProcess = (S_KernelProcess*)pExtraData;
 
-      KERNEL_LOCK(pProcess->lock);
+      SpinlockAcquire(&pProcess->lock);
       allocatedMemory = MemoryGetProcessAllocatedMemory(pProcess);
       uThreadCount    = 0;
       kThreadCount    = 0;
@@ -712,7 +712,7 @@ static ssize_t _ProcFSSchedStatsRead(void*  pExtraData,
       {
         retCode = -1;
       }
-      KERNEL_UNLOCK(pProcess->lock);
+      SpinlockRelease(&pProcess->lock);
       KFreeUser(pBufferChar, pProcess->pHeap);
     }
     else
@@ -840,7 +840,7 @@ E_Return CoreProcessFSCreateEntry(S_KernelProcess* pProcess)
   char     procFsEntryName[PROC_FS_ENTRY_NAME_MAX_LENGTH];
 
   /* Init the ProcFS lock */
-  KERNEL_SPINLOCK_INIT(pProcess->procFSLock);
+  SPINLOCK_INIT(pProcess->procFSLock);
 
   /* Create the ProcFS entry for the process */
   size = snprintf(procFsEntryName,
@@ -1047,7 +1047,7 @@ E_Return CoreProcessFSCreateThreadEntry(S_KernelThread* pThread)
              "%d/threads",
              pThread->pProcess->pid);
 
-    KERNEL_LOCK(pThread->pProcess->procFSLock);
+    SpinlockAcquire(&pThread->pProcess->procFSLock);
 
     error = ProcFSCreateDir(procFsEntryName,
                             parentName,
@@ -1093,7 +1093,7 @@ E_Return CoreProcessFSCreateThreadEntry(S_KernelThread* pThread)
       }
     }
 
-    KERNEL_UNLOCK(pThread->pProcess->procFSLock);
+    SpinlockRelease(&pThread->pProcess->procFSLock);
   }
   else
   {
@@ -1119,7 +1119,7 @@ void CoreProcessFSDeleteThreadEntry(S_KernelThread* pThread)
                        "Failed to remove ProcFS scheduler stats entry.",
                        retCode);
 
-  KERNEL_LOCK(pThread->pProcess->procFSLock);
+  SpinlockAcquire(&pThread->pProcess->procFSLock);
 
   /* Delete the ProcFS entry for the thread */
   retCode = ProcFSRemoveDir((S_ProcFSDirEntry **)&pThread->pProcFSEntry);
@@ -1127,7 +1127,7 @@ void CoreProcessFSDeleteThreadEntry(S_KernelThread* pThread)
                        "Failed to remove ProcFS entry.",
                        retCode);
 
-  KERNEL_UNLOCK(pThread->pProcess->procFSLock);
+  SpinlockRelease(&pThread->pProcess->procFSLock);
 }
 
 /************************************ EOF *************************************/

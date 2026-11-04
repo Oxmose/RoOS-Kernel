@@ -437,26 +437,14 @@ static void _FormatIDTEntry(S_CPUIDTEntry*  pEntry,
                             const uint8_t   kIst);
 
 /**
- * @brief Attaches the CPU Manager driver to the system.
- *
- * @details Attaches the CPU Manager driver to the system. This function will
- * use the FDT to initialize the CPU Manager hardware and retreive the CPU
- * Manager parameters.
- *
- * @param[in] kpNode The FDT node with the compatible declared
- * by the driver.
- *
- * @return The success state or the error code.
- */
-static E_Return _CPUAttach(const S_FDTNode* kpNode);
-
-/**
  * @brief Checks the architecture's feature and requirements for roOs.
  *
  * @details Checks the architecture's feature and requirements for roOs. If a
  * requirement is not met, a kernel panic is raised.
+ *
+ * @param[in] kCPUId The ID of the CPU to validate.
  */
-static void _ValidateArchitecture(void);
+static void _ValidateArchitecture(const uint32_t kCPUId);
 
 /**
  * @brief IPI interrupt handler.
@@ -588,12 +576,6 @@ static uint8_t sDFStack[DOUBLE_FAULT_STACK_SIZE * SOC_MAX_CPU_COUNT] __attribute
 
 /** @brief Queues used to communicate with IPIs. */
 static S_FastQueue*** spIPIRequestQueue;
-
-/** @brief Stores the LAPIC driver instance */
-static const S_LAPICDriver* kspLAPICDriver = NULL;
-
-/** @brief Stores the LAPIC timer driver instance */
-static const S_LAPICTimerDriver* kspLAPICTimerDriver = NULL;
 
 /** @brief Stores the CPUs LAPIS identifiers. */
 static uint32_t spCPUIds[SOC_MAX_CPU_COUNT];
@@ -873,16 +855,6 @@ const S_CPUInterruptConfiguration ksInterruptConfig =
   .ipiInterruptLine       = CPU_IPI_INT_LINE,
 };
 
-/** @brief CPU driver instance. */
-static S_Driver sX86CPUDriver =
-{
-  .pName         = "X86 CPU Driver",
-  .pDescription  = "X86 CPU Driver for roOs",
-  .pCompatible   = "generic,x86_64",
-  .pVersion      = "1.0",
-  .pDriverAttach = _CPUAttach
-};
-
 /** @brief ProcFS entry for the CPU driver  */
 static S_ProcFSDirEntry* spProcFSEntry = NULL;
 
@@ -896,6 +868,9 @@ static S_ProcFSFileOperations sProcFSOps =
   .pReadDir = NULL,
   .pIOCTL   = NULL
 };
+
+/** @brief CPU local data pointer */
+static S_CPULocalData* spCPULocalData;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -1039,8 +1014,6 @@ static void _SetupGDT(S_CPUConfig* pCPUConfig)
   /* Load segment selectors with a far jump for CS*/
   __asm__ __volatile__("movw %w0,%%ds\n\t"
                        "movw %w0,%%es\n\t"
-                       "movw %w0,%%fs\n\t"
-                       "movw %w0,%%gs\n\t"
                        "movw %w0,%%ss\n\t"
                        :
                        : "r" (KERNEL_DS_64));
@@ -1125,25 +1098,16 @@ static void _FormatIDTEntry(S_CPUIDTEntry*  pEntry,
   pEntry->reserved = 0;
 }
 
-static E_Return _CPUAttach(const S_FDTNode* kpNode)
-{
-  (void)kpNode;
-  return NO_ERROR;
-}
-
-static void _ValidateArchitecture(void)
+static void _ValidateArchitecture(const uint32_t kCPUId)
 {
   uint32_t          cr0Reg;
-  uint32_t          cpuId;
   S_CPUInformation* pNewCpuInfo;
 
-  cpuId = CPUGetId();
-
   /* Link */
-  pNewCpuInfo = &spCPUConfiguration[cpuId]->cpuInfo;
+  pNewCpuInfo = &spCPUConfiguration[kCPUId]->cpuInfo;
 
   /* CPU identifier */
-  pNewCpuInfo->id = cpuId;
+  pNewCpuInfo->id = kCPUId;
 
   /* Get the informations from CPUID */
   CPUIDAnalyzeCPU(pNewCpuInfo);
@@ -1190,9 +1154,9 @@ static void _ValidateArchitecture(void)
              "CPU addressing width incompatible with virtual address width",
              ERR_NOT_SUPPORTED);
 
-  spCPUConfiguration[cpuId]->cpu1GBPageSupport = pNewCpuInfo->flags.page1gb;
-  spCPUConfiguration[cpuId]->physAddressWidth = pNewCpuInfo->physAddressWidth;
-  spCPUConfiguration[cpuId]->virtAddressWidth = pNewCpuInfo->virtAddressWidth;
+  spCPUConfiguration[kCPUId]->cpu1GBPageSupport = pNewCpuInfo->flags.page1gb;
+  spCPUConfiguration[kCPUId]->physAddressWidth = pNewCpuInfo->physAddressWidth;
+  spCPUConfiguration[kCPUId]->virtAddressWidth = pNewCpuInfo->virtAddressWidth;
 
   /* Save the global support to xsaveopt */
   _xSaveoptSupported = pNewCpuInfo->flags.xsaveopt;
@@ -1306,7 +1270,7 @@ void CPUInit(void)
   _SetupGDT(spCPUConfiguration[0]);
 
   /* Validate architecture */
-  _ValidateArchitecture();
+  _ValidateArchitecture(0);
 
   /* Init the procfs entries */
   error = _CreateProcFSEntry();
@@ -1318,24 +1282,45 @@ void CPUInit(void)
   sAllCPUBooted = false;
 }
 
+void CPUSetupLAPICIds(void)
+{
+  const S_LAPICNode* kpLapicNode;
+  uint32_t           i;
+
+  /* Check if we need to enable more CPUs */
+  kpLapicNode = ACPIGetLAPICList();
+  i = 0;
+  while (kpLapicNode != NULL && i < SOC_MAX_CPU_COUNT)
+  {
+    /* If not self */
+    if ((kpLapicNode->lapic.flags & 1) != 0)
+    {
+      spCPUIds[i] = kpLapicNode->lapic.lapicId;
+      ++i;
+    }
+
+    /* Go to next */
+    kpLapicNode = kpLapicNode->pNext;
+  }
+}
+
 void CPUStartSMP(void)
 {
   const S_LAPICNode* kpLapicNode;
 
   /* Check if the LAPIC driver was registered */
-  CPU_ASSERT(kspLAPICDriver != NULL, "No LAPIC driver.", ERR_NOT_SUPPORTED);
   CPU_ASSERT(_bootedCPUCount == 1,
              "Multiple CPUs already started.",
              ERR_UNAUTHORIZED_ACTION);
 
   /* Init the current CPU information */
-  spCPUIds[0] = kspLAPICDriver->pGetLAPICId();
+  spCPUIds[0] = LAPICGetLAPICId();
 
   /* Initialize IPIs */
   _InitializeIPI();
 
   /* Check if we need to enable more CPUs */
-  kpLapicNode = kspLAPICDriver->pGetLAPICList();
+  kpLapicNode = ACPIGetLAPICList();
   while (kpLapicNode != NULL && _bootedCPUCount < SOC_MAX_CPU_COUNT)
   {
     /* If not self */
@@ -1345,7 +1330,7 @@ void CPUStartSMP(void)
       if ((kpLapicNode->lapic.flags & 1) != 0)
       {
         /* Start the CPU */
-        kspLAPICDriver->pStartCpu(kpLapicNode->lapic.lapicId);
+        LAPICStartCpu(kpLapicNode->lapic.lapicId);
       }
     }
 
@@ -1368,6 +1353,10 @@ void CPUAPInit(const uint8_t kCPUId)
                        :
                        : "m" (sIDTPtr.size), "m" (sIDTPtr.base));
 
+  /* Setup the local storage for the CPU */
+  CPUSetupLocalStorage(kCPUId);
+  SchedulerAPInit(kCPUId);
+
   /* Create the internal structure */
   spCPUConfiguration[kCPUId] = KMalloc(sizeof(S_CPUConfig),
                                        KMALLOC_NO_FREE_POOL);
@@ -1382,15 +1371,11 @@ void CPUAPInit(const uint8_t kCPUId)
   _SetupGDT(spCPUConfiguration[kCPUId]);
 
   /* Validate architecture */
-  _ValidateArchitecture();
+  _ValidateArchitecture(kCPUId);
 
   /* Initialize the CPU LAPIC */
-  kspLAPICDriver->pInitApCPU();
-  spCPUIds[kCPUId] = kspLAPICDriver->pGetLAPICId();
-  if (kspLAPICTimerDriver != NULL)
-  {
-    kspLAPICTimerDriver->pInitApCPU(kCPUId);
-  }
+  LAPICInitApCPU();
+  LAPICTimerInitApCPU(kCPUId);
 
   /* Initialize the system calls */
   CPUSystemCallInit((uintptr_t)&CPUSyscallHandler, USER_CS_64, KERNEL_CS_64);
@@ -1412,7 +1397,12 @@ void CPUAPInit(const uint8_t kCPUId)
 
 uint32_t CPUGetLAPICId(void)
 {
-  return kspLAPICDriver->pGetLAPICId();
+  return LAPICGetLAPICId();
+}
+
+uint32_t CPUGetLAPICIdByCore(const uint32_t kCoreId)
+{
+  return spCPUIds[kCoreId];
 }
 
 const S_VirtualCPU* CPUGetVirtualCPU(const S_KernelThread* kpThread)
@@ -1467,28 +1457,47 @@ void* CPUCreateVirtualCPU(S_KernelThread* pThread)
   S_InterruptContext* pIntContext;
   S_CPUState*         pCPUState;
   uint64_t*           pMXCSR;
+  bool                fxDataManaged;
 
   /* Allocate the new VCPU */
   pVCpu = KMallocUser(sizeof(S_VirtualCPU), pThread->pProcess->pHeap);
   if (pVCpu != NULL)
   {
     /* Setup the FX Data and align */
-    fxDataSize = spCPUConfiguration[0]->cpuInfo.fxStateSize + ALIGN_64_BYTES;
-    pVCpu->fxDataRegionSize = fxDataSize;
-    pVCpu->fxDataRegionNonAligned = (uintptr_t)KMallocUser(fxDataSize,
-                                                 pThread->pProcess->pHeap);
-
-    if (pVCpu->fxDataRegionNonAligned != (uintptr_t)NULL)
+    if (pThread->type != THREAD_TYPE_KERNEL)
     {
-      memset((void*)pVCpu->fxDataRegionNonAligned, 0, fxDataSize);
-      pVCpu->fxDataRegion = ALIGN_UP(pVCpu->fxDataRegionNonAligned,
-                                     ALIGN_64_BYTES);
+      fxDataSize = spCPUConfiguration[0]->cpuInfo.fxStateSize + ALIGN_64_BYTES;
+      pVCpu->fxDataRegionSize = fxDataSize;
+      pVCpu->fxDataRegionNonAligned = (uintptr_t)KMallocUser(fxDataSize,
+                                                  pThread->pProcess->pHeap);
+      if (pVCpu->fxDataRegionNonAligned != (uintptr_t)NULL)
+      {
+        memset((void*)pVCpu->fxDataRegionNonAligned, 0, fxDataSize);
+        pVCpu->fxDataRegion = ALIGN_UP(pVCpu->fxDataRegionNonAligned,
+                                       ALIGN_64_BYTES);
 
-      /* Set MXCSR */
-      pMXCSR = (uint64_t*)(pVCpu->fxDataRegion + FX_DATA_MXCSR_OFFSET);
-      *pMXCSR = FX_DATA_MXCSR_VALUE;
-      *(pMXCSR + 1) = 0;
+        /* Set MXCSR */
+        pMXCSR = (uint64_t*)(pVCpu->fxDataRegion + FX_DATA_MXCSR_OFFSET);
+        *pMXCSR = FX_DATA_MXCSR_VALUE;
+        *(pMXCSR + 1) = 0;
 
+        fxDataManaged = true;
+      }
+      else
+      {
+        fxDataManaged = false;
+      }
+    }
+    else
+    {
+      pVCpu->fxDataRegion = 0;
+      pVCpu->fxDataRegionSize = 0;
+      pVCpu->fxDataRegionNonAligned = 0;
+      fxDataManaged = true;
+    }
+
+    if (fxDataManaged == true)
+    {
       /* Setup the virtual CPU context */
       stack = pThread->kernelStackEnd;
 
@@ -1556,7 +1565,10 @@ void CPUDestroyVirtualCPU(S_KernelThread* pThread)
 
   pVCpu = pThread->pVCpu;
 
-  KFreeUser((void*)pVCpu->fxDataRegionNonAligned, pThread->pProcess->pHeap);
+  if (pVCpu->fxDataRegionNonAligned != 0)
+  {
+    KFreeUser((void*)pVCpu->fxDataRegionNonAligned, pThread->pProcess->pHeap);
+  }
   KFreeUser(pThread->pVCpu, pThread->pProcess->pHeap);
 }
 
@@ -1589,16 +1601,16 @@ const S_CPUInterruptConfiguration* CPUGetInterruptConfig(void)
   return &ksInterruptConfig;
 }
 
-void CPUUpdateMemoryConfig(const S_KernelThread* kpThread)
+void CPUUpdateMemoryConfig(S_KernelThread* pThread)
 {
   uintptr_t                cr3Value;
-  uint8_t                  cpuId;
   S_ProcessMemoryMetadata* pMemProcInfo;
+  S_CPULocalData*          pLocalStorage;
 
-  cpuId = CPUGetId();
+  pLocalStorage = CPUGetLocalStorage();
 
   /* The process contains the pointer to the page directory */
-  pMemProcInfo = kpThread->pProcess->pMemoryData;
+  pMemProcInfo = pThread->pProcess->pMemoryData;
 
   /* Check if we need to change */
   __asm__ __volatile__ ("mov %%cr3, %%rax\n\t"
@@ -1611,29 +1623,25 @@ void CPUUpdateMemoryConfig(const S_KernelThread* kpThread)
     CPUSetPageDirectory(pMemProcInfo->PDPhysAddress);
   }
 
-  if (kpThread->type == THREAD_TYPE_USER)
+  if (pThread->type == THREAD_TYPE_USER)
   {
     /* Update the TSS */
-    spCPUConfiguration[cpuId]->tss.rsp0 = ALIGN_DOWN(kpThread->kernelStackEnd -
-                                                     ALIGN_8_BYTES,
-                                                     ALIGN_8_BYTES);
+    spCPUConfiguration[pLocalStorage->cpuId]->tss.rsp0 =
+      ALIGN_DOWN(pThread->kernelStackEnd - ALIGN_8_BYTES, ALIGN_8_BYTES);
   }
 
   /* Update the thread local storage */
   __asm__ __volatile__("wrmsr\n\t"
                        :
-                       :"a"(kpThread->pUserThreadData),
-                        "d"((uintptr_t)kpThread->pUserThreadData >> 32),
+                       :"a"(pThread->pUserThreadData),
+                        "d"((uintptr_t)pThread->pUserThreadData >> 32),
                         "c"(0xC0000100)
                        :);
 
-  /* Updates the kernel GS base in user for kernel (since we have swapgs) */
-  __asm__ __volatile__("wrmsr\n\t"
-                       :
-                       :"a"(&kpThread->pVCpu),
-                        "d"((uintptr_t)&kpThread->pVCpu >> 32),
-                        "c"(0xC0000101)
-                       :);
+  /* Update the CPU local storage */
+  pLocalStorage->pCurrentThread  = pThread;
+  pLocalStorage->pCurrentProcess = pThread->pProcess;
+  pLocalStorage->cpuReservedData = pThread->pVCpu;
 }
 
 void CPUSendIPI(const uint32_t kFlags, const S_IPIParameters* kpParams)
@@ -1645,42 +1653,43 @@ void CPUSendIPI(const uint32_t kFlags, const S_IPIParameters* kpParams)
 
   KERNEL_ENTER_CRITICAL_LOCAL(intState);
 
-  srcCpuId = CPUGetId();
+  if (_bootedCPUCount > 1)
+  {
+    srcCpuId = CPUGetId();
 
-  /* Check if we should only send to one CPU */
-  if ((kFlags & CPU_IPI_BROADCAST_TO_OTHER) == 0 &&
-     (kFlags & CPU_IPI_BROADCAST_TO_ALL) == 0)
-  {
-    /* Get the CPU to send to */
-    destCpuId = kFlags & CPU_IPI_SEND_TO_CPU_MASK;
+    /* Check if we should only send to one CPU */
+    if ((kFlags & CPU_IPI_BROADCAST_TO_OTHER) == 0 &&
+        (kFlags & CPU_IPI_BROADCAST_TO_ALL) == 0)
+    {
+      /* Get the CPU to send to */
+      destCpuId = kFlags & CPU_IPI_SEND_TO_CPU_MASK;
 
-    /* Check if in bounds */
-    if (destCpuId < _bootedCPUCount)
-    {
-      FQueuePush(spIPIRequestQueue[destCpuId][srcCpuId], kpParams);
-      kspLAPICDriver->pSendIPI(spCPUIds[destCpuId],
-                               ksInterruptConfig.ipiInterruptLine);
+      /* Check if in bounds */
+      if (destCpuId < _bootedCPUCount)
+      {
+        FQueuePush(spIPIRequestQueue[destCpuId][srcCpuId], kpParams);
+        LAPICSendIPI(spCPUIds[destCpuId], ksInterruptConfig.ipiInterruptLine);
+      }
     }
-  }
-  else if ((kFlags & CPU_IPI_BROADCAST_TO_ALL) == CPU_IPI_BROADCAST_TO_ALL)
-  {
-    /* Send to all */
-    for (i = 0; i < _bootedCPUCount; ++i)
+    else if ((kFlags & CPU_IPI_BROADCAST_TO_ALL) == CPU_IPI_BROADCAST_TO_ALL)
     {
-      FQueuePush(spIPIRequestQueue[i][srcCpuId], kpParams);
-      kspLAPICDriver->pSendIPI(spCPUIds[i], ksInterruptConfig.ipiInterruptLine);
-    }
-  }
-  else if ((kFlags & CPU_IPI_BROADCAST_TO_OTHER) == CPU_IPI_BROADCAST_TO_OTHER)
-  {
-    /* Send to all excepted the caller */
-    for (i = 0; i < _bootedCPUCount; ++i)
-    {
-      if (i != srcCpuId)
+      /* Send to all */
+      for (i = 0; i < _bootedCPUCount; ++i)
       {
         FQueuePush(spIPIRequestQueue[i][srcCpuId], kpParams);
-        kspLAPICDriver->pSendIPI(spCPUIds[i],
-                                 ksInterruptConfig.ipiInterruptLine);
+        LAPICSendIPI(spCPUIds[i], ksInterruptConfig.ipiInterruptLine);
+      }
+    }
+    else if ((kFlags & CPU_IPI_BROADCAST_TO_OTHER) == CPU_IPI_BROADCAST_TO_OTHER)
+    {
+      /* Send to all excepted the caller */
+      for (i = 0; i < _bootedCPUCount; ++i)
+      {
+        if (i != srcCpuId)
+        {
+          FQueuePush(spIPIRequestQueue[i][srcCpuId], kpParams);
+          LAPICSendIPI(spCPUIds[i], ksInterruptConfig.ipiInterruptLine);
+        }
       }
     }
   }
@@ -1701,16 +1710,6 @@ uint8_t CPUGetVirtualAddressWidth(void)
 bool CPUGet1GBPageSupport(void)
 {
   return spCPUConfiguration[0]->cpu1GBPageSupport;
-}
-
-void CPURegisterLAPICDriver(const S_LAPICDriver* kpLAPICDriver)
-{
-  kspLAPICDriver = kpLAPICDriver;
-}
-
-void CPURegisterLAPICTimerDriver(const S_LAPICTimerDriver* kpLAPICTimerDriver)
-{
-  kspLAPICTimerDriver = kpLAPICTimerDriver;
 }
 
 bool CPUValidateCPUMask(const S_CPUMask* kpMask)
@@ -2398,8 +2397,7 @@ void CPUThreadSignalFromInt(S_KernelThread* pThread,
   pCPUState = (S_CPUState*)pVCpu->context;
 
   /* Create the signal user context on the user stack */
-  signalContextSize = sizeof(S_SignalInterruptContext) +
-                      pVCpu->fxDataRegionSize;
+  signalContextSize = sizeof(S_SignalInterruptContext);
   pSignalContext = (S_SignalInterruptContext*)(pIntContext->rsp -
                                                signalContextSize -
                                                8);
@@ -2426,9 +2424,6 @@ void CPUThreadSignalFromInt(S_KernelThread* pThread,
     pSignalContext->rdx    = pCPUState->rdx;
     pSignalContext->rcx    = pCPUState->rcx;
     pSignalContext->rax    = pCPUState->rax;
-    memcpy(pSignalContext->fxDataRegion,
-           (void*)pVCpu->fxDataRegionNonAligned,
-           pVCpu->fxDataRegionSize);
 
     /* Update the interrupt context to execute the signal handler */
     pIntContext->rip = handler;
@@ -2500,9 +2495,6 @@ void CPUThreadSignalReturn(void* pUserContext)
 {
   uint64_t* isFromSyscall;
   uintptr_t userContext;
-  uint32_t  intState;
-
-  KERNEL_ENTER_CRITICAL_LOCAL(intState);
 
   /* Skip the origin flag */
   userContext   = (uintptr_t)pUserContext + 8;
@@ -2515,8 +2507,6 @@ void CPUThreadSignalReturn(void* pUserContext)
   {
     CPURestoreContextFromSyscallSignal(userContext);
   }
-
-  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 }
 
 bool CPUIsReturningToUser(const S_KernelThread* kpThread)
@@ -2533,6 +2523,88 @@ bool CPUIsReturningToUser(const S_KernelThread* kpThread)
   return isReturning;
 }
 
+void CPUSetupLocalStorage(const uint32_t kCPUId)
+{
+  S_CPULocalData* pLocalStorage;
+  uint32_t        i;
+
+  if (kCPUId == 0)
+  {
+    pLocalStorage = KMalloc(sizeof(S_CPULocalData) * (sNumberOfCPUs + 1),
+                            KMALLOC_NO_FREE_POOL);
+    pLocalStorage = (S_CPULocalData*)ALIGN_UP((uintptr_t)pLocalStorage,
+                                               sizeof(S_CPULocalData));
+    spCPULocalData = pLocalStorage;
+
+    /* Setup the CPU local data */
+    for (i = 0; i < sNumberOfCPUs; ++i)
+    {
+      spCPULocalData[i].cpuId = i;
+      spCPULocalData[i].pSelf = pLocalStorage + i;
+    }
+  }
+  else
+  {
+    pLocalStorage = spCPULocalData + kCPUId;
+  }
+
+  /* Updates the kernel GS base in user for kernel (since we have swapgs) */
+  __asm__ __volatile__("wrmsr\n\t"
+                       :
+                       :"a"(pLocalStorage),
+                        "d"((uintptr_t)pLocalStorage >> 32),
+                        "c"(0xC0000101)
+                       :);
+}
+
+uint32_t CPUGetId(void)
+{
+  S_CPULocalData* pLocalStorage;
+  uint32_t        cpuId;
+
+  pLocalStorage = CPUGetLocalStorage();
+  cpuId = pLocalStorage->cpuId;
+
+  return cpuId;
+}
+
+void SpinlockAcquire(T_Spinlock* pSpinlock)
+{
+  S_KernelThread* pThread;
+
+  if (SchedulerIsInitialized() == true)
+  {
+    pThread = GetCurrentThread();
+    ++pThread->preemptionCount;
+  }
+
+  SpinLock(pSpinlock);
+}
+
+void SpinlockRelease(T_Spinlock* pSpinlock)
+{
+  S_KernelThread* pThread;
+
+  if (SchedulerIsInitialized() == true)
+  {
+    pThread = GetCurrentThread();
+    CPU_ASSERT(pThread->preemptionCount > 0,
+                "Preemption count is already zero",
+                ERR_INVALID_VALUE);
+
+    SpinUnlock(pSpinlock);
+    --pThread->preemptionCount;
+    if (pThread->preemptionCount == 0 && pThread->needReschedule == true)
+    {
+      CPUSaveContextAndSchedule(pThread->pVCpu);
+    }
+  }
+  else
+  {
+    SpinUnlock(pSpinlock);
+  }
+}
+
 /* Stack protection support */
 #ifdef _STACK_PROT
 #define STACK_CHK_GUARD 0x595e9fbd94fda766ULL
@@ -2547,7 +2619,5 @@ __attribute__((noreturn)) void __stack_chk_fail(void)
   }
 }
 #endif
-/***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86CPUDriver);
 
 /************************************ EOF *************************************/

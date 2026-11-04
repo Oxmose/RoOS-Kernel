@@ -95,16 +95,16 @@ union uu {
 
 typedef unsigned int    qshift_t;
 
-static void shl(digit *p, int len, int sh);
+static void shl(digit* p, int len, int sh);
 
-uint64_t __qdivrem(uint64_t uq, uint64_t vq, uint64_t *arq);
+uint64_t __qdivrem(uint64_t uq, uint64_t vq, uint64_t* arq);
 
 uint64_t __umoddi3(uint64_t a, uint64_t b);
 
 uint64_t __udivdi3(uint64_t a, uint64_t b);
 
 /*
- * __qdivrem(u, v, rem) returns u/v and, optionally, sets *rem to u%v.
+ * __qdivrem(u, v, rem) returns u/v and, optionally, sets* rem to u%v.
  *
  * We do this in base 2-sup-HALF_BITS, so that all intermediate products
  * fit within uint32_t.  As a consequence, the maximum length dividend and
@@ -112,10 +112,10 @@ uint64_t __udivdi3(uint64_t a, uint64_t b);
  * leading zeros).
  */
 uint64_t
-__qdivrem(uint64_t uq, uint64_t vq, uint64_t *arq)
+__qdivrem(uint64_t uq, uint64_t vq, uint64_t* arq)
 {
     union uu tmp;
-    digit *u, *v, *q;
+    digit* u, *v, *q;
     digit v1, v2;
     uint32_t qhat, rhat, t;
     int m, n, d, j, i;
@@ -314,7 +314,7 @@ __qdivrem(uint64_t uq, uint64_t vq, uint64_t *arq)
  * We may assume len >= 0.  NOTE THAT THIS WRITES len+1 DIGITS.
  */
 static void
-shl(digit *p, int len, int sh)
+shl(digit* p, int len, int sh)
 {
     int i;
 

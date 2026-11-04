@@ -56,9 +56,9 @@ typedef struct
    /** @brief Semaphore lock state */
   volatile int32_t lockState;
   /** @brief Semaphore lock. */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
   /** @brief Semaphore waiting threads queue */
-  S_KernelQueue *pWaitingList;
+  S_KernelQueue* pWaitingList;
 } S_KernelSemaphore;
 
 /*******************************************************************************

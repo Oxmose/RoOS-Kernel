@@ -100,10 +100,6 @@ CPUBIOSCall:
   push r9
   mov  r9, ss
   push r9
-  mov  r9, fs
-  push r9
-  mov  r9, gs
-  push r9
 
   ; Save the arguments
   mov [_biosCallArray], rdi
@@ -143,8 +139,6 @@ _CPUBiosCall32BitsGdtSetup:
   mov ds, eax
   mov es, eax
   mov ss, eax
-  mov fs, eax
-  mov gs, eax
 
   ; Disable paging
   mov eax, cr0
@@ -160,8 +154,6 @@ _CPUBiosCall16BitsGdtSetup:
   mov ds, ax
   mov es, ax
   mov ss, ax
-  mov fs, ax
-  mov gs, ax
 
   ; Load IVT
   lidt [_idt16Ptr]
@@ -179,8 +171,6 @@ _CPUBiosCallRealMode:
   mov ds, ax
   mov es, ax
   mov ss, ax
-  mov fs, ax
-  mov gs, ax
 
   ; Set destination register for data
   lea ax, [_savedDataBuffer]
@@ -220,8 +210,6 @@ _CPUBiosCallProtecteMode:
   mov ds, eax
   mov es, eax
   mov ss, eax
-  mov fs, eax
-  mov gs, eax
 
   ; Enable paging
   mov eax, cr0
@@ -237,19 +225,12 @@ _CPUBiosCallLongMode:
   mov ds, ax
   mov es, ax
   mov ss, ax
-  mov fs, ax
-  mov gs, ax
 
   ; Restore the initial Stack, IDT and GDT
   lgdt [_savedGDTPointer]
   lidt [_savedIDTPointer]
 
   ; Restore the registers and the stack
-
-  pop r9
-  mov gs, r9
-  pop r9
-  mov fs, r9
   pop r9
   mov ss, r9
   pop r9

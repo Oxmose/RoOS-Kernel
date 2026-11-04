@@ -330,7 +330,7 @@ static inline void _RemoveFree(S_Chunk* pChunk, S_ProcessHeap* pHeap);
  * @param[in, out] pChunk The chunk to be placed in the list.
  * @param[in, out] pHeap The process heap containing the free chunk list.
  */
-static inline void _PushFree(S_Chunk *pChunk, S_ProcessHeap* pHeap);
+static inline void _PushFree(S_Chunk* pChunk, S_ProcessHeap* pHeap);
 
 /*******************************************************************************
  * FUNCTIONS
@@ -511,7 +511,7 @@ static inline void _RemoveFree(S_Chunk* pChunk, S_ProcessHeap* pHeap)
   pHeap->sMemFree -= len;
 }
 
-static inline void _PushFree(S_Chunk *pChunk, S_ProcessHeap* pHeap)
+static inline void _PushFree(S_Chunk* pChunk, S_ProcessHeap* pHeap)
 {
   uint32_t len = _MemoryChunkSize(pChunk);
   int      n   = _MemoryChunkSlot(len);
