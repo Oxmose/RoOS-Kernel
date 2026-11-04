@@ -642,6 +642,10 @@ void IOAPICSetupIRQ(const uint32_t            kIRQNumber,
     pCtrl = pCtrl->pNext;
   }
 
+  IOAPIC_ASSERT(pCtrl != NULL,
+                "Failed to find the IO-APIC controller for the given IRQ",
+                ERR_INVALID_VALUE);
+
   KERNEL_DEBUG(IOAPIC_DRIVER_DEBUG_ENABLED,
                 MODULE_NAME,
                 "Setting up IRQ %d on IO-APIC ID: %d, GSI %d / %d",
@@ -650,9 +654,7 @@ void IOAPICSetupIRQ(const uint32_t            kIRQNumber,
                 pCtrl->gsib,
                 pCtrl->gsil - 1);
 
-  IOAPIC_ASSERT(pCtrl != NULL,
-                "Failed to find the IO-APIC controller for the given IRQ",
-                ERR_INVALID_VALUE);
+
 
   /* Update the IRQ number */
   remapIRQ -= pCtrl->gsib;

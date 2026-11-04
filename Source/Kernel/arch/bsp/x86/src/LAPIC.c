@@ -732,8 +732,6 @@ static E_Return _TimerAttach(void)
   pDrvCtrl  = NULL;
   pTimerDrv = NULL;
 
-  retCode = NO_ERROR;
-
   cpuCount = CPUGetCount();
 
   /* Init structures */

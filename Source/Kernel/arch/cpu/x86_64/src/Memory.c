@@ -3219,7 +3219,7 @@ uintptr_t MemoryMapStack(const size_t     kSize,
 
   if (pageBaseAddress != 0)
   {
-    SpinlockAcquire(&*pLock);
+    SpinlockAcquire(pLock);
     /* Now map, we do not need contiguous frames */
     for (i = 0; i < pageCount; ++i)
     {
@@ -3275,7 +3275,7 @@ uintptr_t MemoryMapStack(const size_t     kSize,
 
       pageBaseAddress = (uintptr_t)NULL;
     }
-    SpinlockRelease(&*pLock);
+    SpinlockRelease(pLock);
 
     if (pageBaseAddress != (uintptr_t)NULL)
     {
@@ -3335,7 +3335,7 @@ void MemoryUnmapStack(const uintptr_t  kEndAddress,
     pgDir = pProcMem->PDPhysAddress;
   }
 
-  SpinlockAcquire(&*pLock);
+  SpinlockAcquire(pLock);
   /* Free the frames and memory */
   for (i = 0; i < pageCount; ++i)
   {
@@ -3359,7 +3359,7 @@ void MemoryUnmapStack(const uintptr_t  kEndAddress,
     _ReleaseUserPages(baseAddress - KERNEL_PAGE_SIZE, pageCount + 1, pProcess);
   }
 
-  SpinlockRelease(&*pLock);
+  SpinlockRelease(pLock);
 }
 
 uintptr_t MemoryMgrGetPhysAddr(const uintptr_t        kVirtualAddress,

@@ -109,7 +109,7 @@
 typedef struct
 {
   /** @brief RTC IRQ number. */
-  uint8_t irqNumber;
+  int16_t irqNumber;
   /** @brief Selected interrupt frequency. */
   uint64_t selectedFrequency;
   /** @brief Keeps track on the RTC enabled state. */

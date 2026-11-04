@@ -31,3 +31,4 @@ exclude_paths:
   - ".gitignore"
   - "LICENSE"
   - "README.md"
+  - "Source/Kernel/core/src/KernelShell.c"
