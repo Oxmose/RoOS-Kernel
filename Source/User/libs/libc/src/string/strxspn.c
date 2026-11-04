@@ -70,7 +70,7 @@
  * FUNCTIONS
  ******************************************************************************/
 
-size_t __strxspn(const char *s, const char *map, int parity)
+size_t __strxspn(const char* s, const char* map, int parity)
 {
     char matchmap[UCHAR_MAX + 1];
     size_t n = 0;

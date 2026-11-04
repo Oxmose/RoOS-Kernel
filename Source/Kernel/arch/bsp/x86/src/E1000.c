@@ -37,6 +37,7 @@
 #include <PCIExpress.h>
 #include <NetManager.h>
 #include <KernelHeap.h>
+#include <KernelMutex.h>
 #include <KernelError.h>
 #include <KernelQueue.h>
 #include <TimerManager.h>
@@ -733,7 +734,7 @@
 /** @brief Default auto-negotiation mask */
 #define E1000_AUTONEG_MASK 0x002F
 /** @brief Default interrupt throttle value */
-#define E1000_INT_THROTTLE_INIT 0
+#define E1000_INT_THROTTLE_INIT 4000
 /** @brief Default RX interrupt delay value */
 #define E1000_RX_INT_DELAY_INIT 0
 /** @brief Default TX interrupt delay value */
@@ -860,8 +861,6 @@
 
 /** @brief Maximum number of times to poll the device */
 #define E1000_POLL_MAX_BUDGET 64
-/** @brief Maximum number per batch to process TX descriptors */
-#define E1000_TX_MAX_BUDGET 16
 /** @brief Maximum number per batch to clean TX descriptors */
 #define E1000_TX_CLEAN_BUDGET 32
 /** @brief Number of times to wait for transactions to complete */
@@ -967,7 +966,7 @@ typedef struct
   /** @brief The physical address of the buffer. */
   uintptr_t physAddr;
   /** @brief The virtual address of the buffer. */
-  void *virtAddr;
+  void* virtAddr;
 } S_E1000BufferDescriptor;
 
 /** @brief E1000 TX Buffer Metadata Structure */
@@ -983,7 +982,7 @@ typedef struct
 typedef struct S_E1000Driver
 {
   /** @brief The PCI device descriptor. */
-  S_PCIDevice *pPCIDevice;
+  S_PCIDevice* pPCIDevice;
   /** @brief The PCI device identifier. */
   uint16_t deviceId;
 
@@ -1003,20 +1002,20 @@ typedef struct S_E1000Driver
   uint8_t phyAddress;
 
   /** @brief The RX descriptor ring address. */
-  S_RXBufferDescriptor *rxDescriptorRing;
+  S_RXBufferDescriptor* pRXDescriptorRing;
   /** @brief The addresses of the RX descriptors in use. */
-  S_E1000BufferDescriptor *rxDescriptorAddresses;
+  S_E1000BufferDescriptor* pRXDescriptorAddresses;
   /** @brief The RX descriptor memory size (ring + addresses). */
   size_t rxDescriptorMemorySize;
   /** @brief The index of the next RX descriptor to use. */
   uint32_t rxDescriptorIdx;
   /** @brief The list of RX fragments. */
-  S_NetworkFragmentList *rxFragmentList;
+  S_NetworkFragmentList* pRXFragmentList;
 
   /** @brief The TX descriptor ring address. */
-  S_TXBufferDescriptor *txDescriptorRing;
+  S_TXBufferDescriptor* pTXDescriptorRing;
   /** @brief The addresses of the TX descriptors in use. */
-  S_E1000TXBufferMetadata *txDescriptorMeta;
+  S_E1000TXBufferMetadata* pTXDescriptorMeta;
   /** @brief The TX descriptor memory size (ring + addresses). */
   size_t txDescriptorMemorySize;
   /** @brief The index of the next TX descriptor to use. */
@@ -1025,8 +1024,10 @@ typedef struct S_E1000Driver
   uint32_t txDescriptorCleanIdx;
   /** @brief The index of the next TX descriptor to watch. */
   uint32_t txDescriptorWatchIdx;
-  /** @brief The number of TX descriptors in use. */
-  uint32_t txDescriptorInUse;
+  /** @brief The ticket for the next TX operation. */
+  uint32_t txTicket;
+  /** @brief The service index for the next TX operation. */
+  uint32_t txService;
 
   /** @brief Whether to use legacy interrupts. */
   bool useLegacyInterrupts;
@@ -1037,9 +1038,10 @@ typedef struct S_E1000Driver
   S_NetworkDevice networkDevice;
 
   /** @brief The lock for the TX ring. */
-  S_KernelSpinlock txRingLock;
-  /** @brief The lock for the device. */
-  S_KernelSpinlock linkLock;
+  T_Spinlock txRingLock;
+
+  /** @brief The lock for the device configuration. */
+  S_KernelMutex configLock;
 
   /** @brief The number of RX buffers. */
   uint32_t rxBufferCount;
@@ -1081,13 +1083,13 @@ typedef struct S_E1000Driver
   /** @brief Whether the RX operation is running. */
   bool rxOperationRunning;
   /** @brief Whether the TX operation is running. */
-  bool txOperationRunning;
+  T_U32Atomic txOperationRunning;
   /** @brief Whether the TX complete operation is running. */
   bool txCompleteOperationRunning;
   /** @brief Whether the link operation is running. */
   bool linkOperationRunning;
   /** @brief Whether the IOCTL operation is running. */
-  bool ioctlOperationRunning;
+  T_U32Atomic ioctlOperationRunning;
 
   /** @brief Whether the link is up. */
   bool isLinkUp;
@@ -1097,16 +1099,18 @@ typedef struct S_E1000Driver
   /** @brief The network statistics for the device. */
   S_NetworkStatistics stats;
   /** @brief The lock for the network statistics. */
-  S_KernelSpinlock statsLock;
+  T_Spinlock statsLock;
 
   /** @brief The task handle for the statistics operation. */
   T_NetManagerTask statTaskHandle;
 
-  /** @brief The lock for the IOCTL operations. */
-  S_KernelSpinlock ioLock;
+  /** @brief The cached value of the Interrupt Cause Read register. */
+  uint32_t cachedICR;
+  /** @brief The core that will handle the interrupts for this driver. */
+  uint32_t handlerCore;
 
   /** @brief The next E1000 driver in the linked list. */
-  struct S_E1000Driver *pNext;
+  struct S_E1000Driver* pNext;
 } S_E1000Driver;
 
 /*******************************************************************************
@@ -1226,7 +1230,7 @@ static E_Return _WriteMDIO(const S_E1000Driver* kpDriver,
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(S_PCIDevice *pDevice);
+static E_Return _Attach(S_PCIDevice* pDevice);
 
 /**
  * @brief Detaches the E1000 driver from the system.
@@ -1464,6 +1468,32 @@ static void _SetupMulticastTable(S_E1000Driver* pDriver);
 static void _SetupVLAN(S_E1000Driver* pDriver);
 
 /**
+ * @brief Brings the E1000 device link up after locking the configuration.
+ *
+ * @details Brings the E1000 device link up, which means it will start
+ * transmitting and receiving packets. This function allocates the necessary
+ * resources and initializes the device for operation.
+ *
+ * @param[in] pNetworkDevice The network device to set up.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _DevUplink(S_NetworkDevice* pNetworkDevice);
+
+/**
+ * @brief Brings the E1000 device link down after locking the configuration.
+ *
+ * @details Brings the E1000 device link down, which means it will stop
+ * transmitting and receiving packets. This function releases the allocated
+ * resources and deinitializes the device.
+ *
+ * @param[in] pNetworkDevice The network device to set down.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _DevDownlink(S_NetworkDevice* pNetworkDevice);
+
+/**
  * @brief Brings the E1000 device link up.
  *
  * @details Brings the E1000 device link up, which means it will start
@@ -1474,7 +1504,7 @@ static void _SetupVLAN(S_E1000Driver* pDriver);
  *
  * @return The success state or the error code.
  */
-static E_Return _DevUplink(S_NetworkDevice* pNetworkDevice);
+static E_Return _DevUplinkSafe(S_E1000Driver* pDriver);
 
 /**
  * @brief Brings the E1000 device link down.
@@ -1487,7 +1517,7 @@ static E_Return _DevUplink(S_NetworkDevice* pNetworkDevice);
  *
  * @return The success state or the error code.
  */
-static E_Return _DevDownlink(S_NetworkDevice* pNetworkDevice);
+static E_Return _DevDownlinkSafe(S_E1000Driver* pDriver);
 
 /**
  * @brief Waits for the completion of a transaction on the E1000 device.
@@ -1756,7 +1786,7 @@ static S_PCIDriver sX86E1000Driver =
 /** @brief E1000 driver linked list. */
 static S_E1000Driver* spDriverList = NULL;
 /** @brief E1000 driver list lock. */
-static S_KernelSpinlock sDriverListLock = KERNEL_SPINLOCK_INIT_VALUE;
+static T_Spinlock sDriverListLock = SPINLOCK_INIT_VALUE;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -1928,7 +1958,6 @@ static E_Return _WriteMDIO(const S_E1000Driver* kpDriver,
              (kRegAddress << E1000_MDIO_ADDR_SHIFT) |
              (kpDriver->phyAddress << E1000_MDIO_PHY_SHIFT);
   _MMIOWrite32(E1000_REG(kpDriver->barAddress, E1000_MDIC), regValue);
-
   timeout = TimeGetUptime() + E1000_MDIO_ACCESS_TIMEOUT_NS;
   do
   {
@@ -1962,6 +1991,7 @@ static E_Return _Attach(S_PCIDevice* pDevice)
   E_Return       err;
   S_E1000Driver* pE1000Driver;
   uint8_t        function;
+  uint32_t       intState;
 
   KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                MODULE_NAME,
@@ -1974,82 +2004,94 @@ static E_Return _Attach(S_PCIDevice* pDevice)
   {
     pE1000Driver = KMalloc(sizeof(S_E1000Driver), KMALLOC_FREE_POOL);
     memset(pE1000Driver, 0, sizeof(S_E1000Driver));
-    KERNEL_SPINLOCK_INIT(pE1000Driver->txRingLock);
-    KERNEL_SPINLOCK_INIT(pE1000Driver->linkLock);
-    KERNEL_SPINLOCK_INIT(pE1000Driver->statsLock);
-    KERNEL_SPINLOCK_INIT(pE1000Driver->ioLock);
+    SPINLOCK_INIT(pE1000Driver->txRingLock);
+    SPINLOCK_INIT(pE1000Driver->statsLock);
 
-    pE1000Driver->pPCIDevice = pDevice;
-
-    err = _ProbeDevice(pDevice->pFunction->deviceID, pE1000Driver);
+    err = KernelMutexInit(&pE1000Driver->configLock, KMUTEX_FLAG_QUEUING_PRIO);
     if (err == NO_ERROR)
     {
-      KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
-                   MODULE_NAME,
-                   "Attaching E1000 driver to device %04X",
-                   pDevice->pFunction->deviceID);
+      pE1000Driver->pPCIDevice = pDevice;
 
-      err = _DetectDevice(pDevice, pE1000Driver);
+      err = _ProbeDevice(pDevice->pFunction->deviceID, pE1000Driver);
       if (err == NO_ERROR)
       {
-        if (pDevice->isMultiFunction == true)
-        {
-          function = pDevice->function;
-        }
-        else
-        {
-          function = 0xFF;
-        }
+        KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+                    MODULE_NAME,
+                    "Attaching E1000 driver to device %04X",
+                    pDevice->pFunction->deviceID);
 
-        err = _SetupDeviceInterrupts(pE1000Driver);
+        err = _DetectDevice(pDevice, pE1000Driver);
         if (err == NO_ERROR)
         {
-           err = NetManagerRegisterDevice(_DevUplink,
-                                          _DevDownlink,
-                                          _TransmitPacket,
-                                          _IOControl,
-                                          pDevice->bus,
-                                          pDevice->slot,
-                                          function,
-                                          pE1000Driver,
-                                          &pE1000Driver->networkDevice);
-          if (err == NO_ERROR)
+          if (pDevice->isMultiFunction == true)
           {
-            KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
-                        MODULE_NAME,
-                        "E1000 driver registered interface %s",
-                        pE1000Driver->networkDevice.pName);
-
-            KERNEL_LOCK(sDriverListLock);
-            pE1000Driver->pNext = spDriverList;
-            spDriverList = pE1000Driver;
-            KERNEL_UNLOCK(sDriverListLock);
+            function = pDevice->function;
           }
           else
           {
-            KERNEL_ERROR("Failed to register E1000 driver with manager\n");
+            function = 0xFF;
+          }
+
+          err = _SetupDeviceInterrupts(pE1000Driver);
+          if (err == NO_ERROR)
+          {
+            err = NetManagerRegisterDevice(_DevUplink,
+                                            _DevDownlink,
+                                            _TransmitPacket,
+                                            _IOControl,
+                                            _HandleInterruptWorker,
+                                            pDevice->bus,
+                                            pDevice->slot,
+                                            function,
+                                            pE1000Driver,
+                                            &pE1000Driver->networkDevice,
+                                            pE1000Driver->handlerCore);
+            if (err == NO_ERROR)
+            {
+              KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+                          MODULE_NAME,
+                          "E1000 driver registered interface %s",
+                          pE1000Driver->networkDevice.pName);
+              KERNEL_ENTER_CRITICAL_LOCAL(intState);
+              SpinlockAcquire(&sDriverListLock);
+
+              pE1000Driver->pNext = spDriverList;
+              spDriverList = pE1000Driver;
+
+              SpinlockRelease(&sDriverListLock);
+              KERNEL_EXIT_CRITICAL_LOCAL(intState);
+            }
+            else
+            {
+              KERNEL_ERROR("Failed to register E1000 driver with manager\n");
+              _Detach(pE1000Driver);
+            }
+          }
+          else
+          {
+            KERNEL_ERROR("Failed to setup E1000 driver interrupts\n");
             _Detach(pE1000Driver);
           }
         }
         else
         {
-          KERNEL_ERROR("Failed to setup E1000 driver interrupts\n");
+          KERNEL_ERROR("Failed to detect E1000 device %04X\\%04X\n",
+                      pDevice->pFunction->vendorID,
+                      pDevice->pFunction->deviceID);
           _Detach(pE1000Driver);
         }
       }
       else
       {
-        KERNEL_ERROR("Failed to detect E1000 device %04X\\%04X\n",
-                     pDevice->pFunction->vendorID,
-                     pDevice->pFunction->deviceID);
-        _Detach(pE1000Driver);
+        KERNEL_ERROR("Unknown device E1000 device %04X\\%04X\n",
+                    pDevice->pFunction->vendorID,
+                    pDevice->pFunction->deviceID);
+        KFree(pE1000Driver);
       }
     }
     else
     {
-      KERNEL_ERROR("Unknown device E1000 device %04X\\%04X\n",
-                   pDevice->pFunction->vendorID,
-                   pDevice->pFunction->deviceID);
+      KERNEL_ERROR("Failed to initialize E1000 driver mutex\n");
       KFree(pE1000Driver);
     }
   }
@@ -2067,13 +2109,14 @@ static E_Return _Attach(S_PCIDevice* pDevice)
 static void _Detach(S_E1000Driver* pDriver)
 {
   E_Return       retCode;
+  uint32_t       intState;
   S_E1000Driver* pPrevDriver;
 
   if (pDriver->interruptLine > 0)
   {
     if (pDriver->useLegacyInterrupts == true)
     {
-      PCISetupInterruptMSI(pDriver->pPCIDevice, 0, false);
+      PCISetupInterruptMSI(pDriver->pPCIDevice, 0, 0, false);
     }
     else
     {
@@ -2093,7 +2136,8 @@ static void _Detach(S_E1000Driver* pDriver)
   }
 
   /* Remove from the list */
-  KERNEL_LOCK(sDriverListLock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquire(&sDriverListLock);
   if (spDriverList == pDriver)
   {
     spDriverList = pDriver->pNext;
@@ -2110,7 +2154,8 @@ static void _Detach(S_E1000Driver* pDriver)
       pPrevDriver->pNext = pDriver->pNext;
     }
   }
-  KERNEL_UNLOCK(sDriverListLock);
+  SpinlockRelease(&sDriverListLock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
   KFree(pDriver);
 }
@@ -2450,8 +2495,8 @@ static E_Return _AllocateDeviceRXResources(S_E1000Driver* pDriver)
 
   /* Allocate the RX buffer descriptor ring */
   pDriver->rxDescriptorIdx  = 0;
-  pDriver->rxFragmentList   = NULL;
-  pDriver->rxDescriptorRing = MemoryKernelAllocate(toAllocate,
+  pDriver->pRXFragmentList   = NULL;
+  pDriver->pRXDescriptorRing = MemoryKernelAllocate(toAllocate,
                                                    MEMMGR_MAP_KERNEL |
                                                    MEMMGR_MAP_RW     |
                                                    MEMMGR_MAP_CACHE_DISABLED,
@@ -2460,8 +2505,8 @@ static E_Return _AllocateDeviceRXResources(S_E1000Driver* pDriver)
   if (retCode == NO_ERROR)
   {
     /* Allocate the RX buffer descriptor addresses */
-    pDriver->rxDescriptorAddresses = (void *)
-      ((uintptr_t)pDriver->rxDescriptorRing +
+    pDriver->pRXDescriptorAddresses = (void *)
+      ((uintptr_t)pDriver->pRXDescriptorRing +
        (pDriver->rxBufferCount * sizeof(S_RXBufferDescriptor)));
 
     /* Allocate the RX descriptor ring size */
@@ -2489,7 +2534,7 @@ static E_Return _AllocateDeviceRXResources(S_E1000Driver* pDriver)
     }
     else
     {
-      internalRetCode = MemoryKernelFree(pDriver->rxDescriptorRing, toAllocate);
+      internalRetCode = MemoryKernelFree(pDriver->pRXDescriptorRing, toAllocate);
       E1000_ASSERT(internalRetCode == NO_ERROR,
                    "Failed to free RX descriptor ring",
                    internalRetCode);
@@ -2524,9 +2569,10 @@ static E_Return _AllocateDeviceTXResources(S_E1000Driver* pDriver)
   pDriver->txDescriptorIdx      = 0;
   pDriver->txDescriptorCleanIdx = 0;
   pDriver->txDescriptorWatchIdx = 0;
-  pDriver->txDescriptorInUse    = 0;
+  pDriver->txService            = 0;
+  pDriver->txTicket             = 0;
 
-  pDriver->txDescriptorRing = MemoryKernelAllocate(toAllocate,
+  pDriver->pTXDescriptorRing = MemoryKernelAllocate(toAllocate,
                                                    MEMMGR_MAP_KERNEL |
                                                    MEMMGR_MAP_RW     |
                                                    MEMMGR_MAP_CACHE_DISABLED,
@@ -2534,8 +2580,8 @@ static E_Return _AllocateDeviceTXResources(S_E1000Driver* pDriver)
   if (retCode == NO_ERROR)
   {
     /* ALlocate the TX buffer descriptor addresses */
-    pDriver->txDescriptorMeta = (void *)
-      ((uintptr_t)pDriver->txDescriptorRing +
+    pDriver->pTXDescriptorMeta = (void *)
+      ((uintptr_t)pDriver->pTXDescriptorRing +
        (pDriver->txBufferCount * sizeof(S_TXBufferDescriptor)));
     pDriver->txDescriptorMemorySize = toAllocate;
 
@@ -2597,7 +2643,7 @@ static void _ReleaseDeviceRXResources(S_E1000Driver* pDriver)
                pDriver->pPCIDevice->function);
 
   /* Free the RX buffer descriptor ring */
-  retCode = MemoryKernelFree(pDriver->rxDescriptorRing,
+  retCode = MemoryKernelFree(pDriver->pRXDescriptorRing,
                              pDriver->rxDescriptorMemorySize);
   E1000_ASSERT(retCode == NO_ERROR,
                "Failed to free RX descriptor ring",
@@ -2622,7 +2668,7 @@ static void _ReleaseDeviceTXResources(S_E1000Driver* pDriver)
                pDriver->pPCIDevice->function);
 
   /* Free the TX buffer descriptor ring */
-  retCode = MemoryKernelFree(pDriver->txDescriptorRing,
+  retCode = MemoryKernelFree(pDriver->pTXDescriptorRing,
                              pDriver->txDescriptorMemorySize);
   E1000_ASSERT(retCode == NO_ERROR,
                "Failed to free TX descriptor ring",
@@ -2716,8 +2762,8 @@ static void _InitializeDeviceRX(S_E1000Driver* pDriver)
 
   /* Initialize the RX descriptor ring */
   bufferAddress    = (uintptr_t)pDriver->networkDevice.pBufferPool;
-  pRXDescRing      = pDriver->rxDescriptorRing;
-  pRXDescAddresses = pDriver->rxDescriptorAddresses;
+  pRXDescRing      = pDriver->pRXDescriptorRing;
+  pRXDescAddresses = pDriver->pRXDescriptorAddresses;
   for (i = 0; i < pDriver->rxBufferCount; ++i)
   {
     pRXDescAddresses[i].virtAddr = (void *)(bufferAddress +
@@ -2727,8 +2773,8 @@ static void _InitializeDeviceRX(S_E1000Driver* pDriver)
         NULL,
         NULL);
     pRXDescAddresses[i].physAddr = physAddr;
-    _MMIOWrite64(&pRXDescRing[i].bufferAddress, physAddr);
-    _MMIOWrite64(&pRXDescRing[i].length, pDriver->bufferSize);
+    pRXDescRing[i].bufferAddress = physAddr;
+    pRXDescRing[i].length = pDriver->bufferSize;
   }
 
   /* Initialize the RX descriptor ring status */
@@ -2833,7 +2879,7 @@ static void _InitializeDeviceTX(S_E1000Driver* pDriver)
 
   /* Initialize the TX descriptor ring status */
   physAddr = (uintptr_t)MemoryMgrGetPhysAddr(
-      (uintptr_t)pDriver->txDescriptorRing,
+      (uintptr_t)pDriver->pTXDescriptorRing,
       NULL,
       NULL);
   _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_TDBAL),
@@ -2867,14 +2913,15 @@ static void _InitializeDeviceTX(S_E1000Driver* pDriver)
 
 static E_Return _SetupDeviceInterrupts(S_E1000Driver* pDriver)
 {
-  E_Return err;
-  S_PCIDevice *pDevice;
+  E_Return     err;
+  S_PCIDevice* pDevice;
 
   pDevice = pDriver->pPCIDevice;
 
   if (pDriver->interruptLine <= 0)
   {
     pDriver->interruptLine = AllocateInterruptLine();
+    pDriver->handlerCore = GetBalancedInterruptHandlerCore();
   }
 
   if (pDriver->interruptLine > 0)
@@ -2892,7 +2939,10 @@ static E_Return _SetupDeviceInterrupts(S_E1000Driver* pDriver)
       pDriver->useLegacyInterrupts = false;
 
       /* Setup MSI */
-      err = PCISetupInterruptMSI(pDevice, pDriver->interruptLine, true);
+      err = PCISetupInterruptMSI(pDevice,
+                                 pDriver->interruptLine,
+                                 pDriver->handlerCore,
+                                 true);
       if (err != NO_ERROR)
       {
         KERNEL_ERROR("E1000 device %04X:%04X:%04X failed to setup MSI\n",
@@ -2915,10 +2965,10 @@ static E_Return _SetupDeviceInterrupts(S_E1000Driver* pDriver)
       err = PrepareDeviceLegacyInterrupt(pDevice);
       if (err == NO_ERROR)
       {
-        /* Setup the IRQ in the IOAPIC*/
-        IOAPICSetupIRQ(pDevice->irqLine,
+        /* Setup the IRQ in the IOAPIC TODO: Use ACPI to get the correct IRQ */
+        IOAPICSetupIRQ(pDriver->pPCIDevice->irqLine,
                        pDriver->interruptLine,
-                       CPUGetLAPICId(),
+                       pDriver->handlerCore,
                        IOAPIC_TRIGGER_MODE_LEVEL,
                        IOAPIC_POLARITY_HIGH);
       }
@@ -2945,12 +2995,19 @@ static E_Return _SetupDeviceInterrupts(S_E1000Driver* pDriver)
                      pDriver->intThrottle);
 
         InterruptSetEOI(pDriver->interruptLine);
+
+        KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+                     MODULE_NAME,
+                     "E1000 device %04X:%04X:%04X interrupt handler registered",
+                     pDriver->pPCIDevice->bus,
+                     pDriver->pPCIDevice->slot,
+                     pDriver->pPCIDevice->function);
       }
       else
       {
         if (pDriver->useLegacyInterrupts == true)
         {
-          PCISetupInterruptMSI(pDevice, 0, false);
+          PCISetupInterruptMSI(pDevice, 0, 0, false);
         }
         else
         {
@@ -3248,12 +3305,14 @@ static void _SetPhyNonCopper(S_E1000Driver* pDriver)
 
   /* Advertise flow control capabilities based on flow control settings */
   if (pDriver->flowControl == FLOW_CONTROL_RX_PAUSE ||
-      pDriver->flowControl == FLOW_CONTROL_RX_TX_PAUSE) {
-      regValue |= E1000_TXCW_PAUSE;
+      pDriver->flowControl == FLOW_CONTROL_RX_TX_PAUSE)
+  {
+    regValue |= E1000_TXCW_PAUSE;
   }
   if (pDriver->flowControl == FLOW_CONTROL_TX_PAUSE ||
-      pDriver->flowControl == FLOW_CONTROL_RX_TX_PAUSE) {
-      regValue |= E1000_TXCW_ASYM_PD;
+      pDriver->flowControl == FLOW_CONTROL_RX_TX_PAUSE)
+  {
+    regValue |= E1000_TXCW_ASYM_PD;
   }
 
   _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_TXCW), regValue);
@@ -3335,12 +3394,53 @@ static void _SetupVLAN(S_E1000Driver* pDriver)
 static E_Return _DevUplink(S_NetworkDevice* pNetworkDevice)
 {
   E_Return       retCode;
-  uint32_t       regValue;
+  E_Return       internalErr;
   S_E1000Driver* pDriver;
 
   pDriver = (S_E1000Driver *)pNetworkDevice->pDriverData;
 
-  KERNEL_LOCK(pDriver->linkLock);
+  internalErr = KernelMutexLock(&pDriver->configLock);
+  E1000_ASSERT(internalErr == NO_ERROR,
+               "E1000 device failed to lock config mutex\n",
+               internalErr);
+
+  retCode = _DevUplinkSafe(pDriver);
+
+  internalErr = KernelMutexUnlock(&pDriver->configLock);
+  E1000_ASSERT(internalErr == NO_ERROR,
+               "E1000 device failed to unlock config mutex\n",
+               internalErr);
+
+  return retCode;
+}
+
+static E_Return _DevDownlink(S_NetworkDevice* pNetworkDevice)
+{
+  E_Return       retCode;
+  E_Return       internalErr;
+  S_E1000Driver* pDriver;
+
+  pDriver = (S_E1000Driver *)pNetworkDevice->pDriverData;
+
+  internalErr = KernelMutexLock(&pDriver->configLock);
+  E1000_ASSERT(internalErr == NO_ERROR,
+               "E1000 device failed to lock config mutex\n",
+               internalErr);
+
+  retCode = _DevDownlinkSafe(pDriver);
+
+  internalErr = KernelMutexUnlock(&pDriver->configLock);
+  E1000_ASSERT(internalErr == NO_ERROR,
+               "E1000 device failed to unlock config mutex\n",
+               internalErr);
+
+  return retCode;
+}
+
+static E_Return _DevUplinkSafe(S_E1000Driver* pDriver)
+{
+  E_Return retCode;
+  uint32_t regValue;
 
   if (pDriver->isInitialized == false)
   {
@@ -3382,9 +3482,6 @@ static E_Return _DevUplink(S_NetworkDevice* pNetworkDevice)
       /* Setup VLAN */
       _SetupVLAN(pDriver);
 
-      pDriver->isInitialized = true;
-      CPUMemoryFenceRelease();
-
       /* Initialize the device's PHY */
       regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000_CTRL));
       regValue |= E1000_CTRL_SLU | E1000_CTRL_ASDE;
@@ -3395,11 +3492,14 @@ static E_Return _DevUplink(S_NetworkDevice* pNetworkDevice)
       /* Start the periodic stats task */
       pDriver->statTaskHandle = NetManagerAddPeriodicTask(_UpdateStatistics,
                                                 pDriver,
-                                                E1000_STAT_UPDATE_INTERVAL_NS);
+                                                E1000_STAT_UPDATE_INTERVAL_NS,
+                                                pDriver->handlerCore);
 
       /* Enable all interrupts */
       _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMS),
                    E1000_ENABLED_INTERRUPTS);
+
+      pDriver->isInitialized = true;
 
       KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                    MODULE_NAME,
@@ -3427,19 +3527,13 @@ static E_Return _DevUplink(S_NetworkDevice* pNetworkDevice)
     retCode = NO_ERROR;
   }
 
-  KERNEL_UNLOCK(pDriver->linkLock);
-
-
   return retCode;
 }
 
-static E_Return _DevDownlink(S_NetworkDevice* pNetworkDevice)
+static E_Return _DevDownlinkSafe(S_E1000Driver* pDriver)
 {
-  E_Return       retCode;
-  S_E1000Driver* pDriver;
-  uint32_t       regValue;
-
-  pDriver = (S_E1000Driver *)pNetworkDevice->pDriverData;
+  E_Return retCode;
+  uint32_t regValue;
 
   KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                MODULE_NAME,
@@ -3448,7 +3542,6 @@ static E_Return _DevDownlink(S_NetworkDevice* pNetworkDevice)
                pDriver->pPCIDevice->slot,
                pDriver->pPCIDevice->function);
 
-  KERNEL_LOCK(pDriver->linkLock);
   if (pDriver->isInitialized == true)
   {
     KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
@@ -3460,10 +3553,10 @@ static E_Return _DevDownlink(S_NetworkDevice* pNetworkDevice)
 
     pDriver->isInitialized = false;
 
+    NetManagerRemovePeriodicTask(pDriver->statTaskHandle);
+
     /* Disable all interrupts */
     _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMC), 0xFFFFFFFF);
-
-    KERNEL_UNLOCK(pDriver->linkLock);
 
     /* Wait until all pending transactions are completed */
     retCode = _WaitForTransactionCompletion(pDriver);
@@ -3492,8 +3585,6 @@ static E_Return _DevDownlink(S_NetworkDevice* pNetworkDevice)
       regValue &= ~(E1000_CTRL_ASDE | E1000_CTRL_SLU);
       _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_CTRL), regValue);
 
-      NetManagerRemovePeriodicTask(pDriver->statTaskHandle);
-
       KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                   MODULE_NAME,
                   "E1000 device %04X:%04X:%04X device downlink completed",
@@ -3509,11 +3600,9 @@ static E_Return _DevDownlink(S_NetworkDevice* pNetworkDevice)
                    pDriver->pPCIDevice->slot,
                    pDriver->pPCIDevice->function);
     }
-
   }
   else
   {
-    KERNEL_UNLOCK(pDriver->linkLock);
     KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                  MODULE_NAME,
                  "E1000 device %04X:%04X:%04X device already downlink",
@@ -3540,12 +3629,14 @@ static E_Return _WaitForTransactionCompletion(S_E1000Driver* pDriver)
                pDriver->pPCIDevice->slot,
                pDriver->pPCIDevice->function);
 
+  SleepNs(E1000_TRANSACTION_WAIT_NS, NULL);
+
   waitCount = 0;
   while ((pDriver->rxOperationRunning == true ||
-          pDriver->txOperationRunning == true ||
+          pDriver->txOperationRunning > 0 ||
           pDriver->txCompleteOperationRunning == true ||
           pDriver->linkOperationRunning == true ||
-          pDriver->ioctlOperationRunning == true) &&
+          pDriver->ioctlOperationRunning > 0) &&
           waitCount < E1000_TRANSACTION_WAIT_COUNT)
   {
     SleepNs(E1000_TRANSACTION_WAIT_NS, NULL);
@@ -3602,34 +3693,51 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
   uint64_t       regValue;
   uint32_t       requiredPackets;
   uint32_t       availableDescriptors;
+  uint32_t       transmitTicket;
 
   pDriver = (S_E1000Driver *)pDevice->pDriverData;
 
-  pDriver->txOperationRunning = true;
-  CPUMemoryFenceRelease();
+  AtomicIncrement32(&pDriver->txOperationRunning);
 
-  KERNEL_LOCK(pDriver->linkLock);
   if (pDriver->isInitialized == true)
   {
-    KERNEL_LOCK(pDriver->txRingLock);
+    SpinlockAcquire(&pDriver->txRingLock);
     sentBytes = 0;
-    tailIdx = _MMIORead32(E1000_REG(pDriver->barAddress, E1000_TDT));
-    if (pDriver->txDescriptorIdx >= pDriver->txDescriptorCleanIdx)
+    tailIdx = pDriver->txDescriptorIdx;
+    if (tailIdx >= pDriver->txDescriptorCleanIdx)
     {
       availableDescriptors = (pDriver->txBufferCount - 1) -
-                             (pDriver->txDescriptorIdx -
-                              pDriver->txDescriptorCleanIdx);
+                             (tailIdx - pDriver->txDescriptorCleanIdx);
     }
     else
     {
-      availableDescriptors = (pDriver->txDescriptorCleanIdx -
-                              pDriver->txDescriptorIdx) -
-                              1;
+      availableDescriptors = pDriver->txDescriptorCleanIdx - tailIdx - 1;
     }
     requiredPackets = (kSize + E1000_TX_BUFFER_SIZE - 1) / E1000_TX_BUFFER_SIZE;
 
     if (requiredPackets <= availableDescriptors)
     {
+      /* Update the transmit descriptor tail */
+      pDriver->txDescriptorIdx = (tailIdx + requiredPackets) %
+                                 pDriver->txBufferCount;
+      /* Manage to indicate clean on last packet */
+      if (kIsLastOfBurst == true)
+      {
+        if (pDriver->txDescriptorIdx == 0)
+        {
+          pDriver->txDescriptorWatchIdx = pDriver->txBufferCount - 1;
+        }
+        else
+        {
+          pDriver->txDescriptorWatchIdx = pDriver->txDescriptorIdx - 1;
+        }
+      }
+
+      /* Get the transmit ticket for this burst */
+      transmitTicket = pDriver->txTicket++;
+
+      SpinlockRelease(&pDriver->txRingLock);
+
       /* Check if we have enough space in the transmit ring */
       while ((size_t)sentBytes < kSize)
       {
@@ -3643,8 +3751,7 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
         packetSize = MIN(kSize - sentBytes, E1000_TX_BUFFER_SIZE);
 
         /* Send the packet */
-        _MMIOWrite64(&pDriver->txDescriptorRing[tailIdx].bufferAddress,
-                     physAddr);
+        pDriver->pTXDescriptorRing[tailIdx].bufferAddress = physAddr;
 
         /* Save the metadata for the last packet only */
         sentBytes += packetSize;
@@ -3653,35 +3760,38 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
         {
           regValue |= E1000_TX_CMD_EOP | E1000_TX_CMD_IFCS;
 
-          pDriver->txDescriptorMeta[tailIdx].virtAddr = (uintptr_t)kpBuffer;
-          pDriver->txDescriptorMeta[tailIdx].length = kSize;
+          pDriver->pTXDescriptorMeta[tailIdx].virtAddr = (uintptr_t)kpBuffer;
+          pDriver->pTXDescriptorMeta[tailIdx].length = kSize;
         }
         else
         {
-          pDriver->txDescriptorMeta[tailIdx].virtAddr = (uintptr_t)NULL;
-          pDriver->txDescriptorMeta[tailIdx].length = 0;
+          pDriver->pTXDescriptorMeta[tailIdx].virtAddr = (uintptr_t)NULL;
+          pDriver->pTXDescriptorMeta[tailIdx].length = 0;
         }
 
         /* Manage RS to indicate clean on last packet */
-        ++pDriver->txDescriptorInUse;
-        if (pDriver->txDescriptorInUse == E1000_TX_MAX_BUDGET ||
-            (kIsLastOfBurst == true && (size_t)sentBytes == kSize))
+        if (kIsLastOfBurst == true && (size_t)sentBytes == kSize)
         {
           regValue |= E1000_TX_CMD_RS;
-          pDriver->txDescriptorWatchIdx = tailIdx;
-          pDriver->txDescriptorInUse = 0;
         }
 
-        _MMIOWrite64(&pDriver->txDescriptorRing[tailIdx].length, regValue);
+        pDriver->pTXDescriptorRing[tailIdx].length = regValue;
 
         /* Update the transmit descriptor tail */
         tailIdx = (tailIdx + 1) % pDriver->txBufferCount;
-        pDriver->txDescriptorIdx = tailIdx;
       }
 
-      CPUMemoryFenceAcquire();
+      /* Wait for the transmit service to complete */
+      while (pDriver->txService != transmitTicket)
+      {
+        CPUPause();
+      }
+
       /* Update the transmit descriptor tail */
       _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_TDT), tailIdx);
+
+      /* Increment the transmit service */
+      ++pDriver->txService;
     }
     else
     {
@@ -3689,19 +3799,18 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
       {
         ++pDriver->stats.txDropped;
       }
+
+      SpinlockRelease(&pDriver->txRingLock);
+
       sentBytes = -EBUSY;
     }
-
-    KERNEL_UNLOCK(pDriver->txRingLock);
   }
   else
   {
-    sentBytes = -ENODEV;
+    sentBytes = -ENETDOWN;
   }
-  KERNEL_UNLOCK(pDriver->linkLock);
 
-  CPUMemoryFenceAcquire();
-  pDriver->txOperationRunning = false;
+  AtomicDecrement32(&pDriver->txOperationRunning);
 
   return sentBytes;
 }
@@ -3715,13 +3824,9 @@ static ssize_t _IOControl(struct S_NetworkDevice* pDevice,
 
   pDriver = (S_E1000Driver *)pDevice->pDriverData;
 
-  pDriver->ioctlOperationRunning = true;
-  CPUMemoryFenceRelease();
-
-  KERNEL_LOCK(pDriver->linkLock);
   if (pDriver->isInitialized == true)
   {
-    KERNEL_UNLOCK(pDriver->linkLock);
+    AtomicIncrement32(&pDriver->ioctlOperationRunning);
 
     switch (kCommand)
     {
@@ -3765,10 +3870,11 @@ static ssize_t _IOControl(struct S_NetworkDevice* pDevice,
         retCode = -EINVAL;
         break;
     }
+
+    AtomicDecrement32(&pDriver->ioctlOperationRunning);
   }
   else
   {
-    KERNEL_UNLOCK(pDriver->linkLock);
     KERNEL_ERROR("E1000 device %04X:%04X:%04X ioctl requested on uninitialized"
                  " device\n",
                  pDriver->pPCIDevice->bus,
@@ -3776,9 +3882,6 @@ static ssize_t _IOControl(struct S_NetworkDevice* pDevice,
                  pDriver->pPCIDevice->function);
     retCode = -ENODEV;
   }
-
-  CPUMemoryFenceAcquire();
-  pDriver->ioctlOperationRunning = false;
 
   return retCode;
 }
@@ -3795,7 +3898,7 @@ static bool _E1000InterruptHandler(void)
   intId = CPUGetContextInterruptNumber(pCurrentThread);
 
   /* Find the E1000 driver associated with this interrupt */
-  KERNEL_LOCK(sDriverListLock);
+  SpinlockAcquire(&sDriverListLock);
   pDriver = spDriverList;
   while (pDriver != NULL)
   {
@@ -3805,13 +3908,11 @@ static bool _E1000InterruptHandler(void)
     }
     pDriver = pDriver->pNext;
   }
-  KERNEL_UNLOCK(sDriverListLock);
+  SpinlockRelease(&sDriverListLock);
+
 
   if (pDriver != NULL)
   {
-    /* Mask the interrupt in the device */
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMC), 0xFFFFFFFF);
-
     status = _MMIORead32(E1000_REG(pDriver->barAddress, E1000_ICR));
     KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                  MODULE_NAME,
@@ -3820,54 +3921,61 @@ static bool _E1000InterruptHandler(void)
                  pDriver->pPCIDevice->slot,
                  pDriver->pPCIDevice->function,
                  status);
-
-    if ((status & E1000_ICR_LSC) == E1000_ICR_LSC)
+    if ((status & (E1000_ICR_RXT0 | E1000_ICR_LSC | E1000_ICR_TXDW)) != 0)
     {
-      NetManagerSubmitTask(_HandleLinkStatusChange, pDriver, NULL);
-    }
-    if ((status & E1000_ICR_RXT0) == E1000_ICR_RXT0 ||
-        (status & E1000_ICR_TXDW) == E1000_ICR_TXDW)
-    {
-      NetManagerSubmitTask(_HandleInterruptWorker, pDriver, NULL);
+      pDriver->cachedICR = status;
+      NetManagerSubmitTask(&pDriver->networkDevice);
     }
   }
 
   /* Acknowledge the interrupt in the IOAPIC */
   InterruptSetEOI(intId);
 
-  return false;
+  return true;
 }
 
 static void _HandleInterruptWorker(void* pDriverPtr)
 {
   S_E1000Driver* pDriver;
+  uint32_t       icrStatus;
 
   pDriver = (S_E1000Driver *)pDriverPtr;
 
-  KERNEL_LOCK(pDriver->linkLock);
-  if (pDriver->isInitialized == true)
-  {
-    KERNEL_UNLOCK(pDriver->linkLock);
+  KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "E1000 device %04X:%04X:%04X handling interrupt",
+               pDriver->pPCIDevice->bus,
+               pDriver->pPCIDevice->slot,
+               pDriver->pPCIDevice->function);
 
+
+  /* Mask the interrupt in the device */
+  _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMC), 0xFFFFFFFF);
+
+  icrStatus = pDriver->cachedICR;
+
+  if (icrStatus & E1000_ICR_TXDW)
+  {
     /* Handle transmit Complete */
     _CompleteTransmit(pDriver, NULL);
+  }
 
+  if (icrStatus & E1000_ICR_RXT0)
+  {
     /* Handle the received packet */
     _HandleReceivedPacket(pDriver);
+  }
 
-    /* Re-enable the interrupt in the device */
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMS),
-                 E1000_ENABLED_INTERRUPTS);
-  }
-  else
+  if (icrStatus & E1000_ICR_LSC)
   {
-    KERNEL_UNLOCK(pDriver->linkLock);
-    KERNEL_ERROR("E1000 device %04X:%04X:%04X interrupt requested on "
-                 "uninitialized device\n",
-                 pDriver->pPCIDevice->bus,
-                 pDriver->pPCIDevice->slot,
-                 pDriver->pPCIDevice->function);
+    _HandleLinkStatusChange(pDriver);
   }
+
+  pDriver->cachedICR = 0;
+
+  /* Re-enable the interrupt in the device */
+  _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMS),
+               E1000_ENABLED_INTERRUPTS);
 }
 
 static void _HandleLinkStatusChange(void* pDriverPtr)
@@ -3878,7 +3986,6 @@ static void _HandleLinkStatusChange(void* pDriverPtr)
   pDriver = (S_E1000Driver *)pDriverPtr;
 
   pDriver->linkOperationRunning = true;
-  CPUMemoryFenceRelease();
 
   /* Read the link status */
   status = _MMIORead32(E1000_REG(pDriver->barAddress, E1000_STATUS));
@@ -3904,22 +4011,18 @@ static void _HandleLinkStatusChange(void* pDriverPtr)
   }
 
   /* Enable the interrupt in the device */
-  KERNEL_LOCK(pDriver->linkLock);
   if (pDriver->isInitialized == true)
   {
     /* Re-enable the interrupt in the device */
     _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMS),
                  E1000_ENABLED_INTERRUPTS);
   }
-  KERNEL_UNLOCK(pDriver->linkLock);
 
-  CPUMemoryFenceAcquire();
   pDriver->linkOperationRunning = false;
 }
 
 static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
 {
-  uint32_t                status;
   uint32_t                watchIdx;
   uint32_t                cleanIdx;
   uint32_t                nextIdx;
@@ -3928,7 +4031,6 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
   S_KernelThread*         pCurThread;
 
   pDriver->txCompleteOperationRunning = true;
-  CPUMemoryFenceRelease();
 
   KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
               MODULE_NAME,
@@ -3942,7 +4044,7 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
     freeCount = 0;
 
     /* Check if there is anything to clean */
-    KERNEL_LOCK(pDriver->txRingLock);
+    SpinlockAcquire(&pDriver->txRingLock);
     nextIdx  = pDriver->txDescriptorIdx;
     watchIdx = pDriver->txDescriptorWatchIdx;
     cleanIdx = pDriver->txDescriptorCleanIdx;
@@ -3950,7 +4052,6 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
     if (cleanIdx != nextIdx)
     {
       /* Check if the next to watch is done processing */
-      status = _MMIORead32(&pDriver->txDescriptorRing[watchIdx].status);
       KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                   MODULE_NAME,
                   "E1000 device %04X:%04X:%04X checking descriptor %u status: 0x%08X",
@@ -3958,8 +4059,8 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
                   pDriver->pPCIDevice->slot,
                   pDriver->pPCIDevice->function,
                   watchIdx,
-                  status);
-      if ((status & E1000_TXD_STAT_DD) == E1000_TXD_STAT_DD)
+                  pDriver->pTXDescriptorRing[watchIdx].status);
+      if ((pDriver->pTXDescriptorRing[watchIdx].status & E1000_TXD_STAT_DD) == E1000_TXD_STAT_DD)
       {
         while (cleanIdx != nextIdx && freeCount < E1000_TX_CLEAN_BUDGET)
         {
@@ -3971,10 +4072,10 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
                       pDriver->pPCIDevice->function,
                       cleanIdx);
           /* Clean the descriptor */
-          _MMIOWrite32(&pDriver->txDescriptorRing[cleanIdx].status, 0);
+          pDriver->pTXDescriptorRing[cleanIdx].status = 0;
 
           /* Release the buffer */
-          if (pDriver->txDescriptorMeta[cleanIdx].length != 0)
+          if (pDriver->pTXDescriptorMeta[cleanIdx].length != 0)
           {
             KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                         MODULE_NAME,
@@ -3982,12 +4083,12 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
                         pDriver->pPCIDevice->bus,
                         pDriver->pPCIDevice->slot,
                         pDriver->pPCIDevice->function,
-                        pDriver->txDescriptorMeta[cleanIdx].virtAddr,
-                        pDriver->txDescriptorMeta[cleanIdx].length);
+                        pDriver->pTXDescriptorMeta[cleanIdx].virtAddr,
+                        pDriver->pTXDescriptorMeta[cleanIdx].length);
             freeBuffers[freeCount].virtAddr =
-                pDriver->txDescriptorMeta[cleanIdx].virtAddr;
+                pDriver->pTXDescriptorMeta[cleanIdx].virtAddr;
             freeBuffers[freeCount].length =
-                pDriver->txDescriptorMeta[cleanIdx].length;
+                pDriver->pTXDescriptorMeta[cleanIdx].length;
             ++freeCount;
           }
 
@@ -4004,7 +4105,7 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
       }
       pDriver->txDescriptorCleanIdx = cleanIdx;
     }
-    KERNEL_UNLOCK(pDriver->txRingLock);
+    SpinlockRelease(&pDriver->txRingLock);
 
     /* Release the buffers */
     for (nextIdx = 0; nextIdx < freeCount; ++nextIdx)
@@ -4045,7 +4146,6 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
                        pDriver->txDescriptorIdx);
   }
 
-  CPUMemoryFenceAcquire();
   pDriver->txCompleteOperationRunning = false;
 }
 
@@ -4053,7 +4153,6 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
 {
   uint32_t               pktIdx;
   uint16_t               pktSize;
-  uint32_t               status;
   S_RXBufferDescriptor*  pRXDescRing;
   S_NetworkPacketBuffer  packetBuffer;
   bool                   isFreeBufferAvailable;
@@ -4066,18 +4165,16 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
   S_KernelThread*        pCurThread;
 
   pktIdx = pDriver->rxDescriptorIdx;
-  pRXDescRing = pDriver->rxDescriptorRing;
-  pFragmentList = pDriver->rxFragmentList;
+  pRXDescRing = pDriver->pRXDescriptorRing;
+  pFragmentList = pDriver->pRXFragmentList;
 
   pDriver->rxOperationRunning = true;
-  CPUMemoryFenceRelease();
 
   do
   {
     /* Go through all descriptors to check the reception status */
-    status = _MMIORead32(&pRXDescRing[pktIdx].status) & 0xFF;
     pollBudget = 0;
-    while ((status & E1000_RXD_STAT_DD) != 0 &&
+    while ((pRXDescRing[pktIdx].status & E1000_RXD_STAT_DD) != 0 &&
           pollBudget < E1000_POLL_MAX_BUDGET)
     {
       /* Process the received packet */
@@ -4089,9 +4186,9 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
                   pDriver->pPCIDevice->function);
 
       /* Get the packet size and buffer addresses */
-      pktSize = _MMIORead32(&pRXDescRing[pktIdx].length) & 0xFFFF;
-      physAddr = pDriver->rxDescriptorAddresses[pktIdx].physAddr;
-      virtAddr = (uintptr_t)pDriver->rxDescriptorAddresses[pktIdx].virtAddr;
+      pktSize = pRXDescRing[pktIdx].length;
+      physAddr = pDriver->pRXDescriptorAddresses[pktIdx].physAddr;
+      virtAddr = (uintptr_t)pDriver->pRXDescriptorAddresses[pktIdx].virtAddr;
 
       /* Compose the fragment list */
       if (pFragmentList == NULL)
@@ -4104,7 +4201,7 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
           pFragmentList->pFragments[0].size = pktSize;
           pFragmentList->fragmentCount = 1;
 
-          pDriver->rxFragmentList = pFragmentList;
+          pDriver->pRXFragmentList = pFragmentList;
         }
         else
         {
@@ -4133,13 +4230,13 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
                                           &packetBuffer);
 
         /* Check if the packet is complete */
-        if ((status & E1000_RXD_STAT_EOP) == E1000_RXD_STAT_EOP ||
+        if ((pRXDescRing[pktIdx].status & E1000_RXD_STAT_EOP) == E1000_RXD_STAT_EOP ||
             pFragmentList->fragmentCount >= NET_MGR_MAX_FRAGMENT_COUNT)
         {
           /* Process the complete packet */
           NetManagerProcessReceivedPacket(pFragmentList,
                                           &pDriver->networkDevice);
-          pDriver->rxFragmentList = NULL;
+          pDriver->pRXFragmentList = NULL;
           pFragmentList = NULL;
         }
       }
@@ -4151,27 +4248,29 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
       if (isFreeBufferAvailable == true)
       {
         /* Replace the received packet buffer */
-        pDriver->rxDescriptorAddresses[pktIdx].virtAddr = (void *)
+        pDriver->pRXDescriptorAddresses[pktIdx].virtAddr = (void *)
             packetBuffer.virtAddr;
-        pDriver->rxDescriptorAddresses[pktIdx].physAddr =
+        pDriver->pRXDescriptorAddresses[pktIdx].physAddr =
             packetBuffer.physAddr;
-        _MMIOWrite64(&pRXDescRing[pktIdx].bufferAddress, packetBuffer.physAddr);
-        _MMIOWrite64(&pRXDescRing[pktIdx].length, pDriver->bufferSize);
+        pRXDescRing[pktIdx].bufferAddress = packetBuffer.physAddr;
+        pRXDescRing[pktIdx].length = pDriver->bufferSize;
+        pRXDescRing[pktIdx].status = 0;
       }
       else
       {
-        if (pDriver->rxFragmentList != NULL)
+        if (pDriver->pRXFragmentList != NULL)
         {
           /* Drop the fragment list */
-          NetManagerProcessReceivedPacket(pDriver->rxFragmentList,
+          NetManagerProcessReceivedPacket(pDriver->pRXFragmentList,
                                           &pDriver->networkDevice);
-          pDriver->rxFragmentList = NULL;
+          pDriver->pRXFragmentList = NULL;
           pFragmentList = NULL;
         }
 
         /* Backpressure: drop the packet */
         ++pDriver->stats.rxDropped;
-        _MMIOWrite64(&pRXDescRing[pktIdx].length, pDriver->bufferSize);
+        pRXDescRing[pktIdx].length = pDriver->bufferSize;
+        pRXDescRing[pktIdx].status = 0;
         KERNEL_ERROR("E1000 device %04X:%04X:%04X no free buffer available,"
                     " dropping packet\n",
                     pDriver->pPCIDevice->bus,
@@ -4181,8 +4280,6 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
 
       /* Move to the next descriptor */
       pktIdx = (pktIdx + 1) % pDriver->rxBufferCount;
-      status = _MMIORead32(&pRXDescRing[pktIdx].status) & 0xFF;
-
       ++pollBudget;
     }
 
@@ -4195,11 +4292,9 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
     {
       tail = pktIdx - 1;
     }
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_RDT), tail & 0xFFFF);
 
     /* Update the receive descriptor index */
     pDriver->rxDescriptorIdx = pktIdx;
-
     if (pollBudget == E1000_POLL_MAX_BUDGET)
     {
       /* We still have packets to read, simply yield */
@@ -4208,7 +4303,8 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
     }
   } while (pollBudget == E1000_POLL_MAX_BUDGET);
 
-  CPUMemoryFenceAcquire();
+  _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_RDT), tail & 0xFFFF);
+
   pDriver->rxOperationRunning = false;
 }
 
@@ -4222,7 +4318,7 @@ static void _UpdateStatistics(void* pDriver)
   pDev = (S_E1000Driver*)pDriver;
   bar = (pDev->barAddress);
 
-  KERNEL_LOCK(pDev->statsLock);
+  SpinlockAcquire(&pDev->statsLock);
 
   /* General statistics */
   pDev->stats.rxPackets += _MMIORead32(E1000_REG(bar, E1000_GPRC));
@@ -4274,12 +4370,12 @@ static void _UpdateStatistics(void* pDriver)
                pDev->stats.rxErrors,
                pDev->stats.txErrors);
 
-  KERNEL_UNLOCK(pDev->statsLock);
+  SpinlockRelease(&pDev->statsLock);
 }
 
 static ssize_t _IOControlGetStats(S_E1000Driver* pDriver, void* pArg)
 {
-  ssize_t retCode;
+  ssize_t  retCode;
 
   /* Validate parameters */
   if (pArg != NULL &&
@@ -4290,9 +4386,13 @@ static ssize_t _IOControlGetStats(S_E1000Driver* pDriver, void* pArg)
                            MEMMGR_MAP_RW) == true)
   {
     _UpdateStatistics(pDriver);
-    KERNEL_LOCK(pDriver->statsLock);
+
+    SpinlockAcquire(&pDriver->statsLock);
+
     memcpy(pArg, &pDriver->stats, sizeof(S_NetworkStatistics));
-    KERNEL_UNLOCK(pDriver->statsLock);
+
+    SpinlockRelease(&pDriver->statsLock);
+
     retCode = sizeof(S_NetworkStatistics);
   }
   else
@@ -4310,9 +4410,11 @@ static ssize_t _IOControlGetStats(S_E1000Driver* pDriver, void* pArg)
 
 static ssize_t _IOControlResetStats(S_E1000Driver* pDriver)
 {
-  KERNEL_LOCK(pDriver->statsLock);
+  SpinlockAcquire(&pDriver->statsLock);
+
   memset(&pDriver->stats, 0, sizeof(S_NetworkStatistics));
-  KERNEL_UNLOCK(pDriver->statsLock);
+
+  SpinlockRelease(&pDriver->statsLock);
 
   return 0;
 }
@@ -4321,6 +4423,7 @@ static ssize_t _IOControlSetMACAddress(S_E1000Driver* pDriver, void* pArg)
 {
   ssize_t  retCode;
   uint64_t macAddress;
+  E_Return internalErr;
 
   /* Validate parameters */
   if (pArg != NULL &&
@@ -4352,6 +4455,7 @@ static ssize_t _IOControlSetMACAddress(S_E1000Driver* pDriver, void* pArg)
     }
     else
     {
+
       KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                   MODULE_NAME,
                   "E1000 device %04X:%04X:%04X ioctl set MAC address to "
@@ -4365,8 +4469,20 @@ static ssize_t _IOControlSetMACAddress(S_E1000Driver* pDriver, void* pArg)
                   (uint8_t)((macAddress >> 24) & 0xFF),
                   (uint8_t)((macAddress >> 32) & 0xFF),
                   (uint8_t)((macAddress >> 40) & 0xFF));
+
+      internalErr = KernelMutexLock(&pDriver->configLock);
+      E1000_ASSERT(internalErr == NO_ERROR,
+                   "E1000 device failed to lock config mutex\n",
+                   internalErr);
+
       pDriver->macAddress = macAddress;
       _SetDeviceMAC(pDriver, macAddress);
+
+      internalErr = KernelMutexUnlock(&pDriver->configLock);
+      E1000_ASSERT(internalErr == NO_ERROR,
+                   "E1000 device failed to unlock config mutex\n",
+                   internalErr);
+
       retCode = 0;
     }
   }
@@ -4384,6 +4500,7 @@ static ssize_t _IOControlGetMACAddress(S_E1000Driver* pDriver, void* pArg)
 {
   ssize_t   retCode;
   uint64_t* pMACAddress;
+  E_Return  internalErr;
 
   /* Validate parameters */
   if (pArg != NULL &&
@@ -4393,9 +4510,21 @@ static ssize_t _IOControlGetMACAddress(S_E1000Driver* pDriver, void* pArg)
                            MEMMGR_MAP_KERNEL |
                            MEMMGR_MAP_RW) == true)
   {
+    internalErr = KernelMutexLock(&pDriver->configLock);
+    E1000_ASSERT(internalErr == NO_ERROR,
+                 "E1000 device failed to lock config mutex\n",
+                 internalErr);
+
+
     pMACAddress  = (uint64_t*)pArg;
     *pMACAddress = pDriver->macAddress;
-    retCode      = sizeof(pDriver->macAddress);
+
+    internalErr = KernelMutexUnlock(&pDriver->configLock);
+    E1000_ASSERT(internalErr == NO_ERROR,
+                 "E1000 device failed to unlock config mutex\n",
+                 internalErr);
+
+    retCode = sizeof(pDriver->macAddress);
   }
   else
   {
@@ -4408,8 +4537,9 @@ static ssize_t _IOControlGetMACAddress(S_E1000Driver* pDriver, void* pArg)
 
 static ssize_t _IOControlSetLoopbackMode(S_E1000Driver* pDriver, void* pArg)
 {
-  ssize_t retCode;
-  bool    isLoopbackEnabled;
+  ssize_t  retCode;
+  E_Return internalErr;
+  bool     isLoopbackEnabled;
 
   /* Validate parameters */
   if (pArg != NULL &&
@@ -4428,8 +4558,11 @@ static ssize_t _IOControlSetLoopbackMode(S_E1000Driver* pDriver, void* pArg)
                 pDriver->pPCIDevice->function,
                 isLoopbackEnabled ? "enabled" : "disabled");
 
-    KERNEL_LOCK(pDriver->ioLock);
-    KERNEL_LOCK(pDriver->linkLock);
+    internalErr = KernelMutexLock(&pDriver->configLock);
+    E1000_ASSERT(internalErr == NO_ERROR,
+                 "E1000 device failed to lock config mutex\n",
+                 internalErr);
+
     if (isLoopbackEnabled == true)
     {
       pDriver->loopbackMode = LOOPBACK_PHY;
@@ -4438,20 +4571,18 @@ static ssize_t _IOControlSetLoopbackMode(S_E1000Driver* pDriver, void* pArg)
     {
       pDriver->loopbackMode = LOOPBACK_NONE;
     }
+
     if (pDriver->isInitialized == true)
     {
-      KERNEL_UNLOCK(pDriver->linkLock);
-
       /* Reinitialize the network device */
-      _DevDownlink(&pDriver->networkDevice);
-      _DevUplink(&pDriver->networkDevice);
+      _DevDownlinkSafe(pDriver);
+      _DevUplinkSafe(pDriver);
     }
-    else
-    {
-      KERNEL_UNLOCK(pDriver->linkLock);
-    }
-    KERNEL_UNLOCK(pDriver->ioLock);
 
+    internalErr = KernelMutexUnlock(&pDriver->configLock);
+    E1000_ASSERT(internalErr == NO_ERROR,
+                 "E1000 device failed to unlock config mutex\n",
+                 internalErr);
     retCode = 0;
   }
   else
@@ -4479,7 +4610,6 @@ static ssize_t _IOControlGetLinkStatus(S_E1000Driver* pDriver, void* pArg)
                            MEMMGR_MAP_KERNEL |
                            MEMMGR_MAP_RW) == true)
   {
-    KERNEL_LOCK(pDriver->linkLock);
     if (pDriver->isInitialized == true)
     {
       *(bool*)pArg = pDriver->isLinkUp;
@@ -4488,7 +4618,6 @@ static ssize_t _IOControlGetLinkStatus(S_E1000Driver* pDriver, void* pArg)
     {
       *(bool*)pArg = false;
     }
-    KERNEL_UNLOCK(pDriver->linkLock);
 
     KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                 MODULE_NAME,
@@ -4514,41 +4643,40 @@ static ssize_t _IOControlGetLinkStatus(S_E1000Driver* pDriver, void* pArg)
 
 static ssize_t _IOControlSetAutoNeg(S_E1000Driver* pDriver)
 {
-  ssize_t retCode;
+  ssize_t  retCode;
+  E_Return internalErr;
 
-  KERNEL_LOCK(pDriver->linkLock);
-  if (pDriver->isInitialized == true)
-  {
-    KERNEL_UNLOCK(pDriver->linkLock);
+  internalErr = KernelMutexLock(&pDriver->configLock);
+  E1000_ASSERT(internalErr == NO_ERROR,
+                "E1000 device failed to lock config mutex\n",
+                internalErr);
 
-    /* Set the auto-negotiation parameters */
-    pDriver->autoNegMask = E1000_AUTONEG_MASK;
-    pDriver->linkSpeed   = LINK_SPEED_AUTONEG;
-    pDriver->duplexType  = DUPLEX_AUTONEG;
+  /* Set the auto-negotiation parameters */
+  pDriver->autoNegMask = E1000_AUTONEG_MASK;
+  pDriver->linkSpeed   = LINK_SPEED_AUTONEG;
+  pDriver->duplexType  = DUPLEX_AUTONEG;
 
-    KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+  KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                 MODULE_NAME,
                 "E1000 device %04X:%04X:%04X ioctl set auto-negotiation",
                 pDriver->pPCIDevice->bus,
                 pDriver->pPCIDevice->slot,
                 pDriver->pPCIDevice->function);
 
+  if (pDriver->isInitialized == true)
+  {
+
+
     /* Reinitialize the network device */
-    _DevDownlink(&pDriver->networkDevice);
-    _DevUplink(&pDriver->networkDevice);
+    _DevDownlinkSafe(pDriver);
+    _DevUplinkSafe(pDriver);
     retCode = 0;
   }
-  else
-  {
-    KERNEL_UNLOCK(pDriver->linkLock);
-    KERNEL_ERROR("E1000 device %04X:%04X:%04X ioctl set auto-negotiation called"
-                 " on uninitialized device\n",
-                 pDriver->pPCIDevice->bus,
-                 pDriver->pPCIDevice->slot,
-                 pDriver->pPCIDevice->function);
-    retCode = -ENODEV;
-  }
-  KERNEL_UNLOCK(pDriver->ioLock);
+
+  internalErr = KernelMutexUnlock(&pDriver->configLock);
+  E1000_ASSERT(internalErr == NO_ERROR,
+               "E1000 device failed to unlock config mutex\n",
+               internalErr);
 
   return retCode;
 }
@@ -4558,6 +4686,7 @@ static ssize_t _IOControlForceSpeedDuplex(S_E1000Driver* pDriver, void* pArg)
   ssize_t              retCode;
   S_NetworkLinkConfig* pConfig;
   bool                 valid;
+  E_Return             internalErr;
 
   /* Validate parameters */
   if (pArg != NULL &&
@@ -4567,6 +4696,7 @@ static ssize_t _IOControlForceSpeedDuplex(S_E1000Driver* pDriver, void* pArg)
                            MEMMGR_MAP_KERNEL |
                            MEMMGR_MAP_RW) == true)
   {
+
     /* Gather parameters */
     pConfig = (S_NetworkLinkConfig*)pArg;
     valid = false;
@@ -4584,17 +4714,16 @@ static ssize_t _IOControlForceSpeedDuplex(S_E1000Driver* pDriver, void* pArg)
 
     if (valid == true)
     {
-      KERNEL_UNLOCK(pDriver->ioLock);
-      KERNEL_LOCK(pDriver->linkLock);
-      if (pDriver->isInitialized == true)
-      {
-        KERNEL_UNLOCK(pDriver->linkLock);
+      internalErr = KernelMutexLock(&pDriver->configLock);
+      E1000_ASSERT(internalErr == NO_ERROR,
+                   "E1000 device failed to lock config mutex\n",
+                   internalErr);
 
-        pDriver->autoNegMask = 0;
-        pDriver->linkSpeed   = pConfig->linkSpeed;
-        pDriver->duplexType  = pConfig->duplexType;
+      pDriver->autoNegMask = 0;
+      pDriver->linkSpeed   = pConfig->linkSpeed;
+      pDriver->duplexType  = pConfig->duplexType;
 
-        KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+      KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                     MODULE_NAME,
                     "E1000 device %04X:%04X:%04X ioctl force speed/duplex to "
                     "%s/%s",
@@ -4607,22 +4736,19 @@ static ssize_t _IOControlForceSpeedDuplex(S_E1000Driver* pDriver, void* pArg)
                   (pConfig->duplexType == DUPLEX_HALF) ? "Half" :
                   (pConfig->duplexType == DUPLEX_FULL) ? "Full" : "N/A");
 
-        /* Reinitialize the network device */
-        _DevDownlink(&pDriver->networkDevice);
-        _DevUplink(&pDriver->networkDevice);
-        retCode = 0;
-      }
-      else
+      if (pDriver->isInitialized == true)
       {
-        KERNEL_UNLOCK(pDriver->linkLock);
-        KERNEL_ERROR("E1000 device %04X:%04X:%04X ioctl force speed/duplex "
-                     "called on uninitialized device\n",
-                     pDriver->pPCIDevice->bus,
-                     pDriver->pPCIDevice->slot,
-                     pDriver->pPCIDevice->function);
-        retCode = -ENODEV;
+        /* Reinitialize the network device */
+        _DevDownlinkSafe(pDriver);
+        _DevUplinkSafe(pDriver);
       }
-      KERNEL_UNLOCK(pDriver->ioLock);
+
+      retCode = 0;
+
+      internalErr = KernelMutexUnlock(&pDriver->configLock);
+      E1000_ASSERT(internalErr == NO_ERROR,
+                   "E1000 device failed to unlock config mutex\n",
+                   internalErr);
     }
     else
     {
@@ -4646,6 +4772,7 @@ static ssize_t _IOControlForceSpeedDuplex(S_E1000Driver* pDriver, void* pArg)
 
   return retCode;
 }
+
 /***************************** DRIVER REGISTRATION ****************************/
 DRIVERMGR_REG_PCI(sX86E1000Driver);
 

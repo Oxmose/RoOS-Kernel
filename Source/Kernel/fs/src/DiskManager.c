@@ -435,7 +435,7 @@ static void _DetectAndAttachPartitions(void* pArgs);
 
 /************************** Static global variables ***************************/
 /** @brief Allocated indices lock */
-S_KernelSpinlock sDisksAllocatedIndicesLock = KERNEL_SPINLOCK_INIT_VALUE;
+T_Spinlock sDisksAllocatedIndicesLock = SPINLOCK_INIT_VALUE;
 /** @brief The indices of the allocated disk types. */
 static uint32_t sDisksAllocatedIndices[DISK_TYPE_COUNT] = {0};
 /** @brief The prefices of the allocated disk types. */
@@ -451,7 +451,7 @@ static const char* sDisksAllocatedPrefices[DISK_TYPE_COUNT] =
 /** @brief The list of all disk devices. */
 S_DiskDevice* sDisksList = NULL;
 /** @brief Disk manager lock */
-S_KernelSpinlock sDisksManagerLock = KERNEL_SPINLOCK_INIT_VALUE;
+T_Spinlock sDisksManagerLock = SPINLOCK_INIT_VALUE;
 /** @brief Stores the CRC32 table for the GPT checksum calculation */
 static uint32_t skCrc32Table[256] =
 {
@@ -953,11 +953,11 @@ static E_Return _DetectAndAttachMBRPartitions(S_DiskDevice* pDevice)
             if (diskDriver != VFS_DRIVER_INVALID)
             {
               /* Add the partition device to the list of sub-devices */
-              KERNEL_LOCK(sDisksManagerLock);
+              SpinlockAcquire(&sDisksManagerLock);
               pPartitionDevice->pNext = pDevice->pSubDevices;
               pDevice->pSubDevices = pPartitionDevice;
               ++(pDevice->subDeviceCount);
-              KERNEL_UNLOCK(sDisksManagerLock);
+              SpinlockRelease(&sDisksManagerLock);
             }
             else
             {
@@ -1111,11 +1111,11 @@ static E_Return _DetectAndAttachGPTPartitions(S_DiskDevice* pDevice)
                     if (diskDriver != VFS_DRIVER_INVALID)
                     {
                       /* Add the partition device to the list of sub-devices */
-                      KERNEL_LOCK(sDisksManagerLock);
+                      SpinlockAcquire(&sDisksManagerLock);
                       pPartitionDevice->pNext = pDevice->pSubDevices;
                       pDevice->pSubDevices = pPartitionDevice;
                       ++(pDevice->subDeviceCount);
-                      KERNEL_UNLOCK(sDisksManagerLock);
+                      SpinlockRelease(&sDisksManagerLock);
                     }
                     else
                     {
@@ -1251,7 +1251,7 @@ E_Return DiskManagerAddDevice(const E_DiskType           kDeviceType,
       pSectorSizeOperation != NULL &&
       pSectorCountOperation != NULL)
   {
-    KERNEL_LOCK(sDisksAllocatedIndicesLock);
+    SpinlockAcquire(&sDisksAllocatedIndicesLock);
 
     /* Create the new device */
     pNewDevice = KMalloc(sizeof(S_DiskDevice), KMALLOC_FREE_POOL);
@@ -1259,7 +1259,7 @@ E_Return DiskManagerAddDevice(const E_DiskType           kDeviceType,
     index = sDisksAllocatedIndices[kDeviceType]++;
 
     /* Search for any partition in the device */
-    KERNEL_UNLOCK(sDisksAllocatedIndicesLock);
+    SpinlockRelease(&sDisksAllocatedIndicesLock);
 
     /* Construct the device path */
     pathLength = strnlen(DISK_MGR_ROOT_PATH, 32);
@@ -1318,12 +1318,12 @@ E_Return DiskManagerAddDevice(const E_DiskType           kDeviceType,
     {
       /* Detect and attach partitions delayed */
       KWorkerSubmitTask(_DetectAndAttachPartitions, pNewDevice, NULL);
-      KERNEL_LOCK(sDisksManagerLock);
+      SpinlockAcquire(&sDisksManagerLock);
       *pDiskDriver = diskDriver;
       pNewDevice->pDiskDriver = diskDriver;
       pNewDevice->pNext = sDisksList;
       sDisksList = pNewDevice;
-      KERNEL_UNLOCK(sDisksManagerLock);
+      SpinlockRelease(&sDisksManagerLock);
 
       retVal = NO_ERROR;
     }
@@ -1348,7 +1348,7 @@ E_Return DiskManagerRemoveDevice(T_VFSDriver diskDriver)
   E_Return      error;
 
   error = ERR_NOT_FOUND;
-  KERNEL_LOCK(sDisksManagerLock);
+  SpinlockAcquire(&sDisksManagerLock);
   pDevice = sDisksList;
   while (pDevice != NULL)
   {
@@ -1388,7 +1388,7 @@ E_Return DiskManagerRemoveDevice(T_VFSDriver diskDriver)
     }
     pDevice = pDevice->pNext;
   }
-  KERNEL_UNLOCK(sDisksManagerLock);
+  SpinlockRelease(&sDisksManagerLock);
 
   return error;
 }

@@ -156,96 +156,6 @@ typedef struct S_PCIConfigNode
   struct S_PCIConfigNode* pNext;
 } S_PCIConfigNode;
 
-
-/** @brief x86 ACPI driver. */
-typedef struct
-{
-  /**
-   * @brief Returns the number of LAPIC detected in the system.
-   *
-   * @details Returns the number of LAPIC detected in the system.
-   *
-   * @return The number of LAPIC detected in the system is returned.
-   */
-  uint8_t (*pGetLAPICCount)(void);
-
-  /**
-   * @brief Returns the list of detected LAPICs.
-   *
-   * @details Returns the list of detected LAPICs. This list should not be
-   * modified and is generated during the attach of the ACPI while parsing
-   * its tables.
-   *
-   * @return The list of detected LAPICs descriptors is returned.
-   */
-  const S_LAPICNode* (*pGetLAPICList)(void);
-
-  /**
-   * @brief Returns the detected LAPIC base address.
-   *
-   * @details Returns the detected LAPIC base address.
-   *
-   * @return The detected LAPIC base address is returned.
-   */
-  uintptr_t (*pGetLAPICBaseAddress)(void);
-
-  /**
-   * @brief Returns the number of IO-APIC detected in the system.
-   *
-   * @details Returns the number of IO-APIC detected in the system.
-   *
-   * @return The number of IO-APIC detected in the system is returned.
-   */
-  uint8_t (*pGetIOAPICCount)(void);
-
-  /**
-   * @brief Returns the list of detected IO-APICs.
-   *
-   * @details Returns the list of detected IO-APICs. This list should not be
-   * modified and is generated during the attach of the ACPI while parsing
-   * its tables.
-   *
-   * @return The list of detected IO-APICs descriptors is returned.
-   */
-  const S_IOAPICNode* (*pGetIOAPICList)(void);
-
-  /**
-   * @brief Returns the list of detected HPETs.
-   *
-   * @details Returns the list of detected HPETs. This list should not be
-   * modified and is generated during the attach of the ACPI while parsing
-   * its tables.
-   *
-   * @return The list of detected HPETs descriptors is returned.
-   */
-  const S_HPETNode* (*pGetHPETList)(void);
-
-  /**
-   * @brief Checks if the IRQ has been remaped in the IO-APIC structure.
-   *
-   * @details Checks if the IRQ has been remaped in the IO-APIC structure. This
-   * function must be called after the init_acpi function.
-   *
-   * @param[in] kIRQNumber The initial IRQ number to check.
-   *
-   * @return The remapped IRQ number corresponding to the irq number given as
-   * parameter.
-   */
-  uint32_t (*pGetRemapedIRQ)(const uint32_t kIRQNumber);
-
-  /**
-   * @brief Returns the list of detected PCI configuration spaces.
-   *
-   * @details Returns the list of detected PCI configuration spaces. This list
-   * should not be modified and is generated during the attach of the ACPI while
-   * parsing its tables.
-   *
-   * @return The list of detected PCI configuration spaces descriptors is
-   * returned.
-   */
-  const S_PCIConfigNode* (*pGetPCIConfigList)(void);
-} S_ACPIDriver;
-
 /*******************************************************************************
  * MACROS
  ******************************************************************************/
@@ -267,7 +177,90 @@ typedef struct
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-/* None */
+/**
+   * @brief Returns the number of LAPIC detected in the system.
+   *
+   * @details Returns the number of LAPIC detected in the system.
+   *
+   * @return The number of LAPIC detected in the system is returned.
+   */
+  uint8_t ACPIGetLAPICCount(void);
+
+  /**
+   * @brief Returns the list of detected LAPICs.
+   *
+   * @details Returns the list of detected LAPICs. This list should not be
+   * modified and is generated during the attach of the ACPI while parsing
+   * its tables.
+   *
+   * @return The list of detected LAPICs descriptors is returned.
+   */
+  const S_LAPICNode* ACPIGetLAPICList(void);
+
+  /**
+   * @brief Returns the detected LAPIC base address.
+   *
+   * @details Returns the detected LAPIC base address.
+   *
+   * @return The detected LAPIC base address is returned.
+   */
+  uintptr_t ACPIGetLAPICBaseAddress(void);
+
+  /**
+   * @brief Returns the number of IO-APIC detected in the system.
+   *
+   * @details Returns the number of IO-APIC detected in the system.
+   *
+   * @return The number of IO-APIC detected in the system is returned.
+   */
+  uint8_t ACPIGetIOAPICCount(void);
+
+  /**
+   * @brief Returns the list of detected IO-APICs.
+   *
+   * @details Returns the list of detected IO-APICs. This list should not be
+   * modified and is generated during the attach of the ACPI while parsing
+   * its tables.
+   *
+   * @return The list of detected IO-APICs descriptors is returned.
+   */
+  const S_IOAPICNode* ACPIGetIOAPICList(void);
+
+  /**
+   * @brief Returns the list of detected HPETs.
+   *
+   * @details Returns the list of detected HPETs. This list should not be
+   * modified and is generated during the attach of the ACPI while parsing
+   * its tables.
+   *
+   * @return The list of detected HPETs descriptors is returned.
+   */
+  const S_HPETNode* ACPIGetHPETList(void);
+
+  /**
+   * @brief Checks if the IRQ has been remaped in the IO-APIC structure.
+   *
+   * @details Checks if the IRQ has been remaped in the IO-APIC structure. This
+   * function must be called after the init_acpi function.
+   *
+   * @param[in] kIRQNumber The initial IRQ number to check.
+   *
+   * @return The remapped IRQ number corresponding to the irq number given as
+   * parameter.
+   */
+  uint32_t ACPIGetRemapedIRQ(const uint32_t kIRQNumber);
+
+  /**
+   * @brief Returns the list of detected PCI configuration spaces.
+   *
+   * @details Returns the list of detected PCI configuration spaces. This list
+   * should not be modified and is generated during the attach of the ACPI while
+   * parsing its tables.
+   *
+   * @return The list of detected PCI configuration spaces descriptors is
+   * returned.
+   */
+  const S_PCIConfigNode* ACPIGetPCIConfigList(void);
 
 #endif /* #ifndef __X86_ACPI_H_ */
 

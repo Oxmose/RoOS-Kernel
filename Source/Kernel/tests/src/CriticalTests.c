@@ -65,7 +65,7 @@ static volatile uint64_t criticalValueTest;
 static volatile uint64_t lockValueTest;
 static T_U32Atomic incValueTest;
 static T_U32Atomic decValueTest;
-static S_KernelSpinlock lock = KERNEL_SPINLOCK_INIT_VALUE;
+static T_Spinlock lock = SPINLOCK_INIT_VALUE;
 static T_Spinlock spinlock = SPINLOCK_INIT_VALUE;
 
 /*******************************************************************************
@@ -117,11 +117,11 @@ static void* _CriticalGlobalRoutine0(void* args)
 
   for (i = 0; i < 1000000; ++i)
   {
-    KERNEL_LOCK(lock);
+    SpinlockAcquire(&lock);
     save = criticalValueTest;
     for (j = 0; j < 100; ++j);
     criticalValueTest = save + 1;
-    KERNEL_UNLOCK(lock);
+    SpinlockRelease(&lock);
   }
 
   return NULL;
@@ -136,11 +136,11 @@ static void* _CriticalGlobalRoutine1(void* args)
 
   for (i = 0; i < 1000000; ++i)
   {
-    KernelLock(&lock);
+    SpinlockAcquire(&lock);
     save = criticalValueTest;
     for (j = 0; j < 100; ++j);
     criticalValueTest = save + 1;
-    KernelUnlock(&lock);
+    SpinlockRelease(&lock);
   }
 
   return NULL;

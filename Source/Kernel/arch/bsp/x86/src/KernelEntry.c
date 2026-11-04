@@ -156,7 +156,7 @@ void X64KernelEntry(void)
   DriverManagerInit(true);
   KERNEL_SUCCESS("Drivers Pre Init initialized.\n");
 
-  /* Initilize the scheduler */
+  /* Initialize the scheduler */
   SchedulerInit();
   KERNEL_SUCCESS("Scheduler initialized.\n");
 
@@ -172,13 +172,13 @@ void X64KernelEntry(void)
   TimeManagerInit();
   KERNEL_SUCCESS("Time manager initialized.\n");
 
-  /* Initialize the drivers */
-  DriverManagerInit(false);
-  KERNEL_SUCCESS("Drivers initialized.\n");
-
   /* Initialize the network manager */
   NetManagerInit();
   KERNEL_SUCCESS("Network manager initialized.\n");
+
+  /* Initialize the drivers */
+  DriverManagerInit(false);
+  KERNEL_SUCCESS("Drivers initialized.\n");
 
   /* Initialize the console */
   ConsoleInit();

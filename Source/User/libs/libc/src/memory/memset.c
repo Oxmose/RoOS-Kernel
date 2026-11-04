@@ -70,9 +70,9 @@
  * FUNCTIONS
  ******************************************************************************/
 
-void *memset(void *dst, int c, size_t n)
+void* memset(void* dst, int c, size_t n)
 {
-    char *q = dst;
+    char* q = dst;
 
 #if defined(__i386__)
     size_t nl = n >> 2;

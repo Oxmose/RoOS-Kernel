@@ -70,10 +70,10 @@
  * FUNCTIONS
  ******************************************************************************/
 
-void *memccpy(void *dst, const void *src, int c, size_t n)
+void* memccpy(void* dst, const void* src, int c, size_t n)
 {
-    char *q = dst;
-    const char *p = src;
+    char* q = dst;
+    const char* p = src;
 
     while (n--) {
         char ch;

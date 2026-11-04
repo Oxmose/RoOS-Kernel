@@ -102,13 +102,21 @@ SECTIONS
         *(.rodata)
         *(.rodata*)
     } > KERNEL_RO_DATA
-    .roos_driver_tbl ALIGN(8) : AT(ADDR(.roos_driver_tbl) - KERNEL_MEM_OFFSET)
+    .roos_lyrdriver_tbl ALIGN(8) : AT(ADDR(.roos_lyrdriver_tbl) - KERNEL_MEM_OFFSET)
     {
         . = ALIGN(8);
-        _START_DRV_TABLE_ADDR = .;
-        *(.roos_driver_tbl)
+        _START_LYR_DRV_TABLE_ADDR = .;
+        *(.roos_lyrdriver_tbl)
         QUAD(0x0);
-        _END_DRV_TABLE_ADDR = .;
+        _END_LYR_DRV_TABLE_ADDR = .;
+    } > KERNEL_RO_DATA
+    .roos_fdtdriver_tbl ALIGN(8) : AT(ADDR(.roos_fdtdriver_tbl) - KERNEL_MEM_OFFSET)
+    {
+        . = ALIGN(8);
+        _START_FDT_DRV_TABLE_ADDR = .;
+        *(.roos_fdtdriver_tbl)
+        QUAD(0x0);
+        _END_FDT_DRV_TABLE_ADDR = .;
     } > KERNEL_RO_DATA
     .roos_pci_tbl ALIGN(8) : AT(ADDR(.roos_pci_tbl) - KERNEL_MEM_OFFSET)
     {

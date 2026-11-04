@@ -357,11 +357,13 @@ void TimeWaitNoScheduler(const uint64_t kNs);
  *
  * @param[in] pTask Pointer to the periodic task function.
  * @param[in] kPeriodNs The period of the task in nanoseconds.
+ * @param[in] kCpuId The CPU identifer of which to execute the task.
  *
  * @return A handle to the added task, which can be used to remove it later.
  */
 T_TimerHandle TimeManagerAddTask(S_TimerPeriodicTask* pTask,
-                                 const uint32_t       kPeriodNs);
+                                 const uint32_t       kPeriodNs,
+                                 const uint32_t       kCpuId);
 
 /**
  * @brief Removes a periodic task from the timer manager.
@@ -373,6 +375,33 @@ T_TimerHandle TimeManagerAddTask(S_TimerPeriodicTask* pTask,
  * TimeManagerAddTask.
  */
 void TimeManagerRemoveTask(T_TimerHandle taskHandle);
+
+/**
+ * @brief Adds a timer to the timer manager.
+ *
+ * @details Adds a timer to the timer manager. The timer will be used to keep
+ * track of the time and will be used by the kernel's time management functions.
+ *
+ * @param[in] pTimer Pointer to the kernel's timer driver abstraction.
+ * @param[in] kTimerType The type of the timer to add.
+ *
+ * @return The success state or the error code.
+ */
+E_Return TimeManagerAddTimer(S_KernelTimer*    pTimer,
+                             const E_TimerType kTimerType);
+
+/**
+ * @brief Returns the time in nanoseconds from an auxiliary timer.
+ *
+ * @details Returns the time in nanoseconds from an auxiliary timer. The
+ * auxiliary timer is a timer that can be used for general purpose. The
+ * auxiliary timer is not used by the kernel's time management functions.
+ *
+ * @param[in] kAuxTimerId The id of the auxiliary timer to get the time from.
+ *
+ * @return The time in nanoseconds from the auxiliary timer.
+ */
+uint64_t TimeGetAuxTimeNs(const uint8_t kAuxTimerId);
 
 #endif /* #ifndef __TIME_TIME_MANAGER_H_ */
 

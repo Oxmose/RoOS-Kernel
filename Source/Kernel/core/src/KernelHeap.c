@@ -279,7 +279,7 @@ static inline void _RemoveFree(S_Chunk* pChunk, S_ProcessHeap* pHeap);
  * @param[in, out] pChunk The chunk to be placed in the list.
  * @param[in, out] pHeap The process heap containing the free chunk list.
  */
-static inline void _PushFree(S_Chunk *pChunk, S_ProcessHeap* pHeap);
+static inline void _PushFree(S_Chunk* pChunk, S_ProcessHeap* pHeap);
 
 /**
  * @brief Allocate memory from the kernel heap with ability to free later.
@@ -341,7 +341,7 @@ static uintptr_t sNonFreeHeapHead;
 /** @brief Stores the end pointer of the non-free heap. */
 static uintptr_t sNonFreeHeapEnd;
 /** @brief Non free Heap lock */
-static S_KernelSpinlock sLock;
+static T_Spinlock sLock;
 /** @brief Main kernel heap */
 static S_ProcessHeap sKernelHeap;
 
@@ -461,7 +461,7 @@ static inline void _RemoveFree(S_Chunk* pChunk, S_ProcessHeap* pHeap)
   pHeap->sMemFree -= len;
 }
 
-static inline void _PushFree(S_Chunk *pChunk, S_ProcessHeap* pHeap)
+static inline void _PushFree(S_Chunk* pChunk, S_ProcessHeap* pHeap)
 {
   uint32_t len = _MemoryChunkSize(pChunk);
   int      n   = _MemoryChunkSlot(len);
@@ -483,7 +483,7 @@ static void* _KMalloc(const size_t kSize, S_ProcessHeap* pHeap)
 
   if (kSize != 0)
   {
-    KERNEL_LOCK(pHeap->lock);
+    SpinlockAcquire(&pHeap->lock);
 
     /* Ensure to stay aligned */
     alignLeft = (HEADER_SIZE + kSize) & (ALIGN - 1);
@@ -551,7 +551,7 @@ static void* _KMalloc(const size_t kSize, S_ProcessHeap* pHeap)
       allocated = NULL;
     }
 
-    KERNEL_UNLOCK(pHeap->lock);
+    SpinlockRelease(&pHeap->lock);
   }
   else
   {
@@ -570,7 +570,7 @@ static void* _KMallocNoFree(const size_t kSize)
 
   if (kSize != 0)
   {
-    KERNEL_LOCK(sLock);
+    SpinlockAcquire(&sLock);
 
     allocAlign = (sNonFreeHeapHead + (ALIGN - 1)) & ~((uintptr_t)ALIGN - 1);
     if (allocAlign + kSize <= sNonFreeHeapEnd)
@@ -579,7 +579,7 @@ static void* _KMallocNoFree(const size_t kSize)
       sNonFreeHeapHead = kSize + allocAlign;
     }
 
-    KERNEL_UNLOCK(sLock);
+    SpinlockRelease(&sLock);
   }
 
   return allocated;
@@ -598,7 +598,7 @@ void _KFree(void* ptr, S_ProcessHeap* pHeap)
     pHeap != &sKernelHeap);
 
 
-  KERNEL_LOCK(pHeap->lock);
+  SpinlockAcquire(&pHeap->lock);
 
   pChunk = (S_Chunk*)((int8_t*)ptr - HEADER_SIZE);
 
@@ -632,7 +632,7 @@ void _KFree(void* ptr, S_ProcessHeap* pHeap)
     _PushFree(pChunk, pHeap);
   }
 
-  KERNEL_UNLOCK(pHeap->lock);
+  SpinlockRelease(&pHeap->lock);
 }
 
 
@@ -680,8 +680,8 @@ void KernelHeapInit(void)
   sKernelHeap.sMemFree = len - HEADER_SIZE;
   sKernelHeap.sMemMeta = sizeof(S_Chunk) * 2 + HEADER_SIZE;
 
-  KERNEL_SPINLOCK_INIT(sKernelHeap.lock);
-  KERNEL_SPINLOCK_INIT(sLock);
+  SPINLOCK_INIT(sKernelHeap.lock);
+  SPINLOCK_INIT(sLock);
 }
 
 E_Return CreateProcessHeap(S_ProcessHeap** ppHeap)
@@ -742,7 +742,7 @@ E_Return CreateProcessHeap(S_ProcessHeap** ppHeap)
     pHeap->sMemFree = len - HEADER_SIZE;
     pHeap->sMemMeta = sizeof(S_Chunk) * 2 + HEADER_SIZE;
 
-    KERNEL_SPINLOCK_INIT(pHeap->lock);
+    SPINLOCK_INIT(pHeap->lock);
 
     *ppHeap = pHeap;
   }

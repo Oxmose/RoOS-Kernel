@@ -68,8 +68,8 @@
  * @return Returns a pointer to the next byte after the first occurrence of c in
  * dest, or NULL if c was not found in the copied range.
  */
-void *memccpy(void *restrict dest,
-              const void *restrict src,
+void* memccpy(void* restrict dest,
+              const void* restrict src,
               int c,
               size_t count);
 
@@ -85,7 +85,7 @@ void *memccpy(void *restrict dest,
  *
  * @return Returns a pointer to the matched byte, or NULL if no match is found.
  */
-void *memchr(const void *ptr, int ch, size_t count);
+void* memchr(const void* ptr, int ch, size_t count);
 
 /**
  * @brief Scans a memory region for the last occurrence of a byte value.
@@ -99,7 +99,7 @@ void *memchr(const void *ptr, int ch, size_t count);
  *
  * @return Returns a pointer to the matched byte, or NULL if no match is found.
  */
-void *memrchr(const void *ptr, int ch, size_t count);
+void* memrchr(const void* ptr, int ch, size_t count);
 
 /**
  * @brief Compares two memory blocks.
@@ -114,7 +114,7 @@ void *memrchr(const void *ptr, int ch, size_t count);
  * @return Returns a negative value if lhs is less than rhs, a positive value if
  * lhs is greater than rhs, and zero if the memory blocks are equal.
  */
-int memcmp(const void *lhs, const void *rhs, size_t count);
+int memcmp(const void* lhs, const void* rhs, size_t count);
 
 /**
  * @brief Copies a memory block.
@@ -129,7 +129,7 @@ int memcmp(const void *lhs, const void *rhs, size_t count);
  *
  * @return Returns a pointer to dest.
  */
-void *memcpy(void *dest, const void *src, size_t count);
+void* memcpy(void* dest, const void* src, size_t count);
 
 /**
  * @brief Moves a memory block.
@@ -143,7 +143,7 @@ void *memcpy(void *dest, const void *src, size_t count);
  *
  * @return Returns a pointer to dest.
  */
-void *memmove(void *dest, const void *src, size_t count);
+void* memmove(void* dest, const void* src, size_t count);
 
 /**
  * @brief Fills a memory block with a byte value.
@@ -157,7 +157,7 @@ void *memmove(void *dest, const void *src, size_t count);
  *
  * @return Returns a pointer to the memory block.
  */
-void *memset(void *ptr, int value, size_t count);
+void* memset(void* ptr, int value, size_t count);
 
 /**
  * @brief Finds the first occurrence of a sequence in memory.
@@ -173,9 +173,9 @@ void *memset(void *ptr, int value, size_t count);
  * @return Returns a pointer to the first occurrence of needle, or NULL if not
  * found.
  */
-void *memmem(const void *haystack,
+void* memmem(const void* haystack,
              size_t haystackLen,
-             const void *needle,
+             const void* needle,
              size_t needleLen);
 
 /**
@@ -188,7 +188,7 @@ void *memmem(const void *haystack,
  * @param[in,out] rhs Pointer to the second memory block.
  * @param[in] count Number of bytes to swap.
  */
-void memswap(void *lhs, void *rhs, size_t count);
+void memswap(void* lhs, void* rhs, size_t count);
 
 /**
  * @brief Compares two strings ignoring case.
@@ -202,7 +202,7 @@ void memswap(void *lhs, void *rhs, size_t count);
  * @return Returns a value less than, equal to, or greater than zero according
  * to the comparison result.
  */
-int strcasecmp(const char *lhs, const char *rhs);
+int strcasecmp(const char* lhs, const char* rhs);
 
 /**
  * @brief Compares up to n characters of two strings ignoring case.
@@ -217,7 +217,7 @@ int strcasecmp(const char *lhs, const char *rhs);
  * @return Returns a value less than, equal to, or greater than zero according
  * to the comparison result.
  */
-int strncasecmp(const char *lhs, const char *rhs, size_t count);
+int strncasecmp(const char* lhs, const char* rhs, size_t count);
 
 /**
  * @brief Appends a string to another string.
@@ -230,7 +230,7 @@ int strncasecmp(const char *lhs, const char *rhs, size_t count);
  *
  * @return Returns a pointer to dest.
  */
-char *strcat(char *dest, const char *src);
+char* strcat(char* dest, const char* src);
 
 /**
  * @brief Finds the first occurrence of a character in a string.
@@ -244,7 +244,7 @@ char *strcat(char *dest, const char *src);
  * @return Returns a pointer to the matched character or NULL if no match is
  * found.
  */
-char *strchr(const char *str, int ch);
+char* strchr(const char* str, int ch);
 
 /**
  * @brief Finds the last occurrence of a character in a string.
@@ -258,7 +258,7 @@ char *strchr(const char *str, int ch);
  * @return Returns a pointer to the matched character or NULL if no match is
  * found.
  */
-char *strrchr(const char *str, int ch);
+char* strrchr(const char* str, int ch);
 
 /**
  * @brief Compares two strings.
@@ -271,7 +271,7 @@ char *strrchr(const char *str, int ch);
  * @return Returns a value less than, equal to, or greater than zero according
  * to the comparison result.
  */
-int strcmp(const char *lhs, const char *rhs);
+int strcmp(const char* lhs, const char* rhs);
 
 /**
  * @brief Copies a string.
@@ -284,7 +284,7 @@ int strcmp(const char *lhs, const char *rhs);
  *
  * @return Returns a pointer to dest.
  */
-char *strcpy(char *dest, const char *src);
+char* strcpy(char* dest, const char* src);
 
 /**
  * @brief Computes the length of the initial segment of a string not containing
@@ -299,7 +299,7 @@ char *strcpy(char *dest, const char *src);
  * @return Returns the length of the initial segment of str containing no
  * characters from reject.
  */
-size_t strcspn(const char *str, const char *reject);
+size_t strcspn(const char* str, const char* reject);
 
 /**
  * @brief Duplicates a string.
@@ -312,7 +312,7 @@ size_t strcspn(const char *str, const char *reject);
  * @return Returns a pointer to the newly allocated duplicate string, or NULL on
  * allocation failure.
  */
-char *strdup(const char *str);
+char* strdup(const char* str);
 
 /**
  * @brief Duplicates a string up to a maximum length.
@@ -326,7 +326,7 @@ char *strdup(const char *str);
  * @return Returns a pointer to the newly allocated duplicate string, or NULL on
  * allocation failure.
  */
-char *strndup(const char *str, size_t count);
+char* strndup(const char* str, size_t count);
 
 /**
  * @brief Maps an errno value to an error message string.
@@ -338,7 +338,7 @@ char *strndup(const char *str, size_t count);
  *
  * @return Returns a pointer to the corresponding error string.
  */
-char *strerror(int errnum);
+char* strerror(int errnum);
 
 /**
  * @brief Maps a signal value to a signal description string.
@@ -350,7 +350,7 @@ char *strerror(int errnum);
  *
  * @return Returns a pointer to the corresponding signal description.
  */
-char *strsignal(int signum);
+char* strsignal(int signum);
 
 /**
  * @brief Computes the length of a string.
@@ -362,7 +362,7 @@ char *strsignal(int signum);
  *
  * @return Returns the number of characters in the string.
  */
-size_t strlen(const char *str);
+size_t strlen(const char* str);
 
 /**
  * @brief Computes the length of a string up to a maximum count.
@@ -376,7 +376,7 @@ size_t strlen(const char *str);
  * @return Returns the number of characters in the string before the null byte or
  * before count is reached, whichever comes first.
  */
-size_t strnlen(const char *str, size_t count);
+size_t strnlen(const char* str, size_t count);
 
 /**
  * @brief Appends a string to another string up to a maximum length.
@@ -390,7 +390,7 @@ size_t strnlen(const char *str, size_t count);
  *
  * @return Returns a pointer to dest.
  */
-char *strncat(char *dest, const char *src, size_t count);
+char* strncat(char* dest, const char* src, size_t count);
 
 /**
  * @brief Appends a string to another string with size limit.
@@ -404,7 +404,7 @@ char *strncat(char *dest, const char *src, size_t count);
  *
  * @return Returns the total length of the destination string.
  */
-size_t strlcat(char *dest, const char *src, size_t size);
+size_t strlcat(char* dest, const char* src, size_t size);
 
 /**
  * @brief Compares two strings up to a maximum length.
@@ -419,7 +419,7 @@ size_t strlcat(char *dest, const char *src, size_t size);
  * @return Returns a value less than, equal to, or greater than zero according
  * to the comparison result.
  */
-int strncmp(const char *lhs, const char *rhs, size_t count);
+int strncmp(const char* lhs, const char* rhs, size_t count);
 
 /**
  * @brief Copies a string up to a maximum length.
@@ -433,7 +433,7 @@ int strncmp(const char *lhs, const char *rhs, size_t count);
  *
  * @return Returns a pointer to dest.
  */
-char *strncpy(char *dest, const char *src, size_t count);
+char* strncpy(char* dest, const char* src, size_t count);
 
 /**
  * @brief Copies a string with size limit.
@@ -447,7 +447,7 @@ char *strncpy(char *dest, const char *src, size_t count);
  *
  * @return Returns the total length of the source string.
  */
-size_t strlcpy(char *dest, const char *src, size_t size);
+size_t strlcpy(char* dest, const char* src, size_t size);
 
 /**
  * @brief Searches a string for any character from a set.
@@ -461,12 +461,12 @@ size_t strlcpy(char *dest, const char *src, size_t size);
  * @return Returns a pointer to the first matching character or NULL if none are
  * found.
  */
-char *strpbrk(const char *str, const char *accept);
+char* strpbrk(const char* str, const char* accept);
 
 /**
  * @brief Extracts a token from a string.
  *
- * @details In the string pointed to by *stringp, finds the next token separated
+ * @details In the string pointed to by* stringp, finds the next token separated
  * by characters in delim and replaces the delimiter by a null terminator.
  *
  * @param[in,out] stringp Pointer to the string pointer to parse.
@@ -475,7 +475,7 @@ char *strpbrk(const char *str, const char *accept);
  * @return Returns a pointer to the next token or NULL when no more tokens are
  * available.
  */
-char *strsep(char **stringp, const char *delim);
+char* strsep(char **stringp, const char* delim);
 
 /**
  * @brief Computes the length of the initial segment of a string containing only
@@ -490,7 +490,7 @@ char *strsep(char **stringp, const char *delim);
  * @return Returns the length of the initial segment of str containing only
  * characters from accept.
  */
-size_t strspn(const char *str, const char *accept);
+size_t strspn(const char* str, const char* accept);
 
 /**
  * @brief Finds the first occurrence of a substring.
@@ -504,7 +504,7 @@ size_t strspn(const char *str, const char *accept);
  * @return Returns a pointer to the first occurrence of needle, or NULL if the
  * substring is not found.
  */
-char *strstr(const char *haystack, const char *needle);
+char* strstr(const char* haystack, const char* needle);
 
 /**
  * @brief Extracts tokens from a string.
@@ -519,7 +519,7 @@ char *strstr(const char *haystack, const char *needle);
  * @return Returns a pointer to the next token, or NULL if no more tokens are
  * available.
  */
-char *strtok(char *str, const char *delim);
+char* strtok(char* str, const char* delim);
 
 /**
  * @brief Computes a span over a set of characters with parity filtering.
@@ -533,7 +533,7 @@ char *strtok(char *str, const char *delim);
  *
  * @return Returns the length of the matching prefix.
  */
-size_t __strxspn(const char *s, const char *map, int parity);
+size_t __strxspn(const char* s, const char* map, int parity);
 
 #endif /* #ifndef __LIB_STRING_H_ */
 

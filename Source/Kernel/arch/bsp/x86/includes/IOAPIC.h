@@ -84,13 +84,13 @@ typedef enum
  *
  * @param[in] kIRQNumber The IRQ number to setup.
  * @param[in] kInterruptLine The interrupt line to use for the IRQ.
- * @param[in] kLapicDestination The LAPIC ID of the destination LAPIC.
+ * @param[in] kCoreDestination The core ID of the destination LAPIC.
  * @param[in] kTriggerMode The trigger mode of the IRQ.
  * @param[in] kPolarity The polarity of the IRQ.
  */
 void IOAPICSetupIRQ(const uint32_t            kIRQNumber,
                     const uint32_t            kInterruptLine,
-                    const uint32_t            kLapicDestination,
+                    const uint32_t            kCoreDestination,
                     const E_IOAPICTriggerMode kTriggerMode,
                     const E_IOAPICPolarity    kPolarity);
 

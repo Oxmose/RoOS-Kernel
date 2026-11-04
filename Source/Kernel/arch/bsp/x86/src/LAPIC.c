@@ -25,6 +25,7 @@
  ******************************************************************************/
 /* Included headers */
 #include <CPU.h>
+#include <TSC.h>
 #include <MMIO.h>
 #include <ACPI.h>
 #include <Panic.h>
@@ -33,7 +34,6 @@
 #include <stdint.h>
 #include <Memory.h>
 #include <ProcFS.h>
-#include <DeviceTree.h>
 #include <KernelHeap.h>
 #include <KernelQueue.h>
 #include <KernelError.h>
@@ -52,21 +52,6 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-
-/** @brief FDT property for acpi handle */
-#define LAPIC_FDT_ACPI_NODE_PROP "acpi-node"
-
-/** @brief FDT property for interrupt  */
-#define LAPICT_FDT_INT_PROP "interrupts"
-/** @brief FDT property for frequency */
-#define LAPICT_FDT_SELFREQ_PROP "freq"
-/** @brief FDT property for frequency divider */
-#define LAPICT_FDT_DIVIDER_PROP "bus-freq-divider"
-/** @brief FDT property for base-timer */
-#define LAPICT_TIMER_FDT_BASE_TIMER_PROP "base-timer"
-/** @brief FDT property for LAPIC */
-#define LAPICT_FDT_LAPIC_NODE_PROP "lapic-node"
-
 /** @brief PROCFS directory path */
 #define PROCFS_DIR_PATH "lapic"
 /** @brief PROCFS entry path */
@@ -219,6 +204,9 @@
 /** @brief Defines the number of times the CPU startup IPI is retried */
 #define LAPIC_CPU_STARTUP_RETRIES 5
 
+/** @brief Defines the LAPIC timer frequency in HZ */
+#define LAPIC_TIMER_FREQUENCY_HZ CONFIG_SCHEDULER_TICK_FREQUENCY_HZ
+
 /** @brief Current module name */
 #define MODULE_NAME "X86 LAPIC"
 
@@ -253,8 +241,6 @@ typedef struct
   uint32_t* pDisabledNesting;
   /** @brief LAPIC base addresss */
   uintptr_t lapicBaseAddress;
-  /** @brief Time base driver */
-  const S_KernelTimer* kpBaseTimer;
 } S_LAPICTimerControler;
 
 /** @brief Structure for handling LAPIC timer entries in the proc filesystem. */
@@ -307,77 +293,12 @@ typedef struct
 /**
  * @brief Attaches the LAPIC driver to the system.
  *
- * @details Attaches the LAPIC driver to the system. This function will use
- * the FDT to initialize the LAPIC hardware and retreive the LAPIC parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ * @details Attaches the LAPIC driver to the system. This function will
+ * initialize the LAPIC hardware and retreive the LAPIC parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
-
-/**
- * @brief Sets END OF INTERRUPT for the current CPU Local APIC.
- *
- * @details Sets END OF INTERRUPT for the current CPU Local APIC.
- */
-static void _SetIrqEOI(void);
-
-/**
- * @brief Returns the base address of the local APIC.
- *
- * @details Returns the base address of the local APIC.
- *
- * @return The base address of the LAPIC is returned.
- */
-static uintptr_t _GetBaseAddress(void);
-
-/**
- * @brief Returns the LAPIC identifier.
- *
- * @details Returns the LAPIC identifier for the caller.
- *
- * ­@return The LAPIC identifier is returned.
- */
-static uint8_t _GetLAPICId(void);
-
-/**
- * @brief Enables a CPU given its LAPIC id.
- *
- * @details Enables a CPU given its LAPIC id. The startup sequence is
- * executed, using LAPIC IPI.
- *
- * @param[in] kLAPICId The LAPIC identifier for the CPU to start.
- */
-static void _StartCpu(const uint8_t kLAPICId);
-
-/**
- * @brief Sends an IPI to a CPU given its LAPIC id.
- *
- * @details Sends an IPI to a a CPU given its LAPIC id.
- *
- * @param[in] kLAPICId The LAPIC identifier IPI destination.
- * @param[in] kVector The vector used to trigger the IPI.
- */
-static void _SendIPI(const uint8_t kLAPICId, const uint8_t kVector);
-
-/**
- * @brief Returns the list of detected LAPICs in the system.
- *
- * @details Returns the list of detected LAPICs in the system.
- *
- * @return The list of detected LAPICs in the system is returned.
- */
-static const S_LAPICNode* _GetLAPICList(void);
-
-/**
- * @brief Initializes a secondary CPU LAPIC.
- *
- * @details Initializes a secondary CPU LAPIC. This function initializes
- * the secondary CPU LAPIC interrupts and settings.
- */
-static void _InitApCPU(void);
+static E_Return _Attach(void);
 
 /**
  * @brief Reads into the LAPIC controller memory.
@@ -410,15 +331,11 @@ static inline void _Write(const uintptr_t kBaseAddr,
  * @brief Attaches the LAPIC Timer driver to the system.
  *
  * @details Attaches the LAPIC Timer driver to the system. This function will
- * use the FDT to initialize the LAPIC Timer hardware and retreive the LAPIC
- * Timer parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ * initialize the LAPIC Timer hardware and retreive the LAPIC Timer parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _TimerAttach(const S_FDTNode* kpFdtNode);
+static E_Return _TimerAttach(void);
 
 /**
  * @brief Calibrates the LAPIC Timer frequency.
@@ -524,17 +441,6 @@ static E_Return _TimerRemoveHandler(void* pDrvCtrl);
  * driver.
  */
 static void _TimerAckInterrupt(void* pDrvCtrl);
-
-/**
- * @brief Initializes a secondary CPU LAPIC Timer.
- *
- * @details Initializes a secondary CPU LAPIC Timer. This function
- * initializes the secondary CPU LAPIC timer interrupts and settings.
- *
- * @param[in] kCpuId The CPU identifier for which we should enable the LAPIC
- * timer.
- */
-static void _TimerInitApCPU(const uint8_t kCpuId);
 
 /**
  * @brief Opens the ProcFS main entry.
@@ -697,35 +603,23 @@ extern uint8_t _START_LOW_AP_STARTUP_ADDR;
 
 /************************** Static global variables ***************************/
 /** @brief LAPIC driver instance. */
-static S_Driver sX86LAPICDriver =
+static S_LayerDriver  sX86LAPICDriver =
 {
   .pName         = "X86 Local APIC Driver",
   .pDescription  = "X86 LAPIC Driver for roOs",
-  .pCompatible   = "x86,x86-lapic",
   .pVersion      = "2.0",
+  .layer         = 1,
   .pDriverAttach = _Attach
 };
 
 /** @brief LAPIC Timer driver instance. */
-static S_Driver sX86LAPICTimerDriver =
+static S_LayerDriver  sX86LAPICTimerDriver =
 {
   .pName         = "X86 LAPIC Timer Driver",
   .pDescription  = "X86 LAPIC Timer Driver for roOs",
-  .pCompatible   = "x86,x86-lapic-timer",
   .pVersion      = "1.0",
+  .layer         = 3,
   .pDriverAttach = _TimerAttach
-};
-
-/** @brief LAPIC API driver. */
-static S_LAPICDriver sLAPICAPIDriver =
-{
-  .pSetIRQEOI      = _SetIrqEOI,
-  .pGetBaseAddress = _GetBaseAddress,
-  .pGetLAPICId     = _GetLAPICId,
-  .pStartCpu       = _StartCpu,
-  .pSendIPI        = _SendIPI,
-  .pGetLAPICList   = _GetLAPICList,
-  .pInitApCPU      = _InitApCPU
 };
 
 /** @brief LAPIC driver controller instance. There will be only on for all
@@ -737,12 +631,6 @@ static S_LAPICControler sDrvCtrl =
   .mappingSize     = 0,
   .spuriousIntLine = 0,
   .pLAPICList      = NULL
-};
-
-/** @brief LAPIC Timer API driver instance */
-static S_LAPICTimerDriver sLAPICTimerAPIDriver =
-{
-  .pInitApCPU = _TimerInitApCPU
 };
 
 /** @brief Local timer controller instance, used by AP CPU */
@@ -785,34 +673,19 @@ static size_t sProcFSStringLength = 0;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* kpFdtNode)
+static E_Return _Attach(void)
 {
-  const uint32_t*     kpUintProp;
-  const S_ACPIDriver* skpACPIDriver;
-  E_Return            retCode;
-  size_t              propLen;
-  uintptr_t           lapicPhysAddr;
-  size_t              toMap;
+  E_Return  retCode;
+  uintptr_t lapicPhysAddr;
+  size_t    toMap;
 
   retCode = NO_ERROR;
 
   /* Get the cpu's spurious int line */
   sDrvCtrl.spuriousIntLine = CPUGetInterruptConfig()->spuriousInterruptLine;
 
-  /* Get the ACPI pHandle */
-  kpUintProp = FDTGetProp(kpFdtNode, LAPIC_FDT_ACPI_NODE_PROP, &propLen);
-  LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-               "Failed to get ACPI handle for LAPIC",
-               ERR_INVALID_VALUE);
-
-  /* Get the ACPI driver */
-  skpACPIDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-  LAPIC_ASSERT(skpACPIDriver != NULL,
-               "Failed to get ACPI driver for LAPIC",
-               ERR_NOT_FOUND);
-
   /* Map the IO APIC */
-  lapicPhysAddr = skpACPIDriver->pGetLAPICBaseAddress() & ~PAGE_SIZE_MASK;
+  lapicPhysAddr = ACPIGetLAPICBaseAddress() & ~PAGE_SIZE_MASK;
   toMap = LAPIC_MEMORY_SIZE + (lapicPhysAddr & PAGE_SIZE_MASK);
   toMap = (toMap + PAGE_SIZE_MASK) & ~PAGE_SIZE_MASK;
 
@@ -826,12 +699,11 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
                "Failed to map LAPIC",
                retCode);
 
-  sDrvCtrl.baseAddr |= skpACPIDriver->pGetLAPICBaseAddress() &
-                        PAGE_SIZE_MASK;
+  sDrvCtrl.baseAddr |= ACPIGetLAPICBaseAddress() & PAGE_SIZE_MASK;
   sDrvCtrl.mappingSize = toMap;
 
   /* Get the LAPIC list */
-  sDrvCtrl.pLAPICList = skpACPIDriver->pGetLAPICList();
+  sDrvCtrl.pLAPICList = ACPIGetLAPICList();
 
   /* Enable all interrupts */
   _Write(sDrvCtrl.baseAddr, LAPIC_TPR, 0);
@@ -843,141 +715,19 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
   /* Set spurious interrupt vector */
   _Write(sDrvCtrl.baseAddr, LAPIC_SVR, 0x100 | sDrvCtrl.spuriousIntLine);
 
-  /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(kpFdtNode, &sLAPICAPIDriver);
-  LAPIC_ASSERT(retCode == NO_ERROR, "Failed to set LAPIC API driver", retCode);
-  /* Register the driver in the CPU manager */
-  CPURegisterLAPICDriver(&sLAPICAPIDriver);
-
   retCode = _CreateProcFSEntry();
   LAPIC_ASSERT(retCode == NO_ERROR, "Failed to create ProcFS entry", retCode);
 
   return retCode;
 }
 
-static void _SetIrqEOI(void)
+static E_Return _TimerAttach(void)
 {
-  _Write(sDrvCtrl.baseAddr, LAPIC_EOI, 0);
-}
-
-static uintptr_t _GetBaseAddress(void)
-{
-  return sDrvCtrl.baseAddr;
-}
-
-static uint8_t _GetLAPICId(void)
-{
-  return (uint8_t)(_Read(sDrvCtrl.baseAddr, LAPIC_ID) >> 24);
-}
-
-static void _StartCpu(const uint8_t kLAPICId)
-{
-  uint32_t tryCount;
-  uint32_t oldBootedCpuCount;
-
-  /* Send the INIT IPI */
-  _Write(sDrvCtrl.baseAddr, LAPIC_ICRHI, kLAPICId << ICR_DESTINATION_SHIFT);
-  _Write(sDrvCtrl.baseAddr, LAPIC_ICRLO,
-              ICR_ASSERT | ICR_INIT | ICR_PHYSICAL | ICR_EDGE |
-              ICR_NO_SHORTHAND);
-
-  /* Wait for pending sends */
-  while ((_Read(sDrvCtrl.baseAddr, LAPIC_ICRLO) & ICR_SEND_PENDING) != 0){}
-
-  /* Wait 10ms */
-  TimeWaitNoScheduler(LAPIC_CPU_INIT_DELAY_NS);
-
-  tryCount = 0;
-  oldBootedCpuCount = _bootedCPUCount;
-
-  do
-  {
-    /* Send the STARTUP IPI */
-    _Write(sDrvCtrl.baseAddr,
-           LAPIC_ICRHI,
-           ((uint32_t)kLAPICId) << ICR_DESTINATION_SHIFT);
-    _Write(sDrvCtrl.baseAddr, LAPIC_ICRLO,
-            LAPIC_STARTUP_ADDR(&_START_LOW_AP_STARTUP_ADDR) |
-            ICR_ASSERT | ICR_STARTUP | ICR_PHYSICAL | ICR_EDGE |
-            ICR_NO_SHORTHAND);
-
-    /* Wait for pending sends */
-    while ((_Read(sDrvCtrl.baseAddr, LAPIC_ICRLO) & ICR_SEND_PENDING) != 0){}
-
-    /* Wait 100ms and check if the number of CPUs was updated */
-    TimeWaitNoScheduler(LAPIC_CPU_STARTUP_DELAY_NS);
-    if (oldBootedCpuCount != _bootedCPUCount)
-    {
-      /* Our CPU increased the booted CPU count, stop */
-      break;
-    }
-    ++tryCount;
-  } while (tryCount < 5);
-
-  TimeWaitNoScheduler(LAPIC_CPU_STARTUP_WAIT_DELAY_NS);
-
-  LAPIC_ASSERT(oldBootedCpuCount != _bootedCPUCount,
-               "Failed to start CPU",
-               ERR_UNAUTHORIZED_ACTION);
-}
-
-static void _SendIPI(const uint8_t kLAPICId, const uint8_t kVector)
-{
-  uint32_t intState;
-
-  /* Check if init */
-  if (sDrvCtrl.baseAddr == 0)
-  {
-    return;
-  }
-
-  KERNEL_ENTER_CRITICAL_LOCAL(intState);
-
-  /* Wait for pending sends */
-  while ((_Read(sDrvCtrl.baseAddr, LAPIC_ICRLO) & ICR_SEND_PENDING) != 0){}
-
-  /* Send IPI */
-  _Write(sDrvCtrl.baseAddr, LAPIC_ICRHI, kLAPICId << ICR_DESTINATION_SHIFT);
-  _Write(sDrvCtrl.baseAddr, LAPIC_ICRLO,
-         (kVector & 0xFF) |
-         ICR_PHYSICAL | ICR_ASSERT | ICR_EDGE | ICR_NO_SHORTHAND);
-
-  /* Wait for pending sends */
-  while ((_Read(sDrvCtrl.baseAddr, LAPIC_ICRLO) & ICR_SEND_PENDING) != 0){}
-
-  KERNEL_EXIT_CRITICAL_LOCAL(intState);
-}
-
-static const S_LAPICNode* _GetLAPICList(void)
-{
-  return sDrvCtrl.pLAPICList;
-}
-
-static void _InitApCPU(void)
-{
-  /* We are in a secondary CPU (AP CPU), just setup interrupts */
-  _Write(sDrvCtrl.baseAddr, LAPIC_TPR, 0);
-
-  /* Set logical destination mode */
-  _Write(sDrvCtrl.baseAddr, LAPIC_DFR, 0xffffffff);
-  _Write(sDrvCtrl.baseAddr, LAPIC_LDR, 0x01000000);
-
-  /* Set spurious interrupt vector */
-  _Write(sDrvCtrl.baseAddr, LAPIC_SVR, 0x100 | sDrvCtrl.spuriousIntLine);
-
-  /* Set EOI */
-  _Write(sDrvCtrl.baseAddr, LAPIC_EOI, 0);
-}
-
-static E_Return _TimerAttach(const S_FDTNode* kpFdtNode)
-{
-  const uint32_t*        kpUintProp;
-  size_t                 propLen;
-  uint32_t               cpuCount;
-  E_Return               retCode;
-  S_LAPICTimerControler* pDrvCtrl;
-  S_KernelTimer*         pTimerDrv;
-  S_LAPICDriver*         pLAPICDriver;
+  uint32_t                           cpuCount;
+  E_Return                           retCode;
+  S_LAPICTimerControler*             pDrvCtrl;
+  S_KernelTimer*                     pTimerDrv;
+  const S_CPUInterruptConfiguration* kpCPUIntConfig;
 
   pDrvCtrl  = NULL;
   pTimerDrv = NULL;
@@ -1010,87 +760,17 @@ static E_Return _TimerAttach(const S_FDTNode* kpFdtNode)
   pTimerDrv->pTickManager   = _TimerAckInterrupt;
   pTimerDrv->pDriverCtrl    = pDrvCtrl;
 
+  kpCPUIntConfig = CPUGetInterruptConfig();
+
   /* Get interrupt lines */
-  kpUintProp = FDTGetProp(kpFdtNode, LAPICT_FDT_INT_PROP, &propLen);
-  LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
-               "Invalid Timer FDT configuration.",
-               ERR_INVALID_VALUE);
-  pDrvCtrl->interruptNumber = (uint8_t)FDTTOCPU32(*(kpUintProp + 1));
+  pDrvCtrl->interruptNumber = kpCPUIntConfig->schedulerInterruptLine;
 
-  /* Get selected frequency */
-  kpUintProp = FDTGetProp(kpFdtNode, LAPICT_FDT_SELFREQ_PROP, &propLen);
-  LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-               "Invalid Timer FDT configuration.",
-               ERR_INVALID_VALUE);
-  pDrvCtrl->selectedFrequency = FDTTOCPU32(*kpUintProp);
-
-  /* Get bus frequency divider */
-  kpUintProp = FDTGetProp(kpFdtNode, LAPICT_FDT_DIVIDER_PROP, &propLen);
-  LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-               "Invalid Timer FDT configuration.",
-               ERR_INVALID_VALUE);
-  pDrvCtrl->divider = FDTTOCPU32(*kpUintProp);
-  switch (pDrvCtrl->divider)
-  {
-    case 1:
-      pDrvCtrl->divider = LAPICT_DIVIDER_1;
-      break;
-    case 2:
-      pDrvCtrl->divider = LAPICT_DIVIDER_2;
-      break;
-    case 4:
-      pDrvCtrl->divider = LAPICT_DIVIDER_4;
-      break;
-    case 8:
-      pDrvCtrl->divider = LAPICT_DIVIDER_8;
-      break;
-    case 16:
-      pDrvCtrl->divider = LAPICT_DIVIDER_16;
-      break;
-    case 32:
-      pDrvCtrl->divider = LAPICT_DIVIDER_32;
-      break;
-    case 64:
-      pDrvCtrl->divider = LAPICT_DIVIDER_64;
-      break;
-    case 128:
-      pDrvCtrl->divider = LAPICT_DIVIDER_128;
-      break;
-    default:
-      PANIC(ERR_NOT_SUPPORTED, MODULE_NAME, "Invalid Divider.", false, false);
-  }
-
-  /* Get the LAPIC pHandle */
-  kpUintProp = FDTGetProp(kpFdtNode, LAPICT_FDT_LAPIC_NODE_PROP, &propLen);
-  LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-               "Invalid Timer FDT configuration.",
-               ERR_INVALID_VALUE);
-
-  /* Get the LAPIC driver */
-  pLAPICDriver = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-  LAPIC_ASSERT(pLAPICDriver != NULL,
-               "LAPIC Timer needs the LAPIC driver to function.",
-               ERR_NOT_SUPPORTED);
-
-  /* Get the base timer pHandle */
-  kpUintProp = FDTGetProp(kpFdtNode,
-                          LAPICT_TIMER_FDT_BASE_TIMER_PROP,
-                          &propLen);
-  LAPIC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-               "Invalid Timer FDT configuration.",
-               ERR_INVALID_VALUE);
-
-  /* Get the base timer driver */
-  pDrvCtrl->kpBaseTimer = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-  LAPIC_ASSERT(pDrvCtrl->kpBaseTimer != NULL,
-               "LAPIC Timer needs the timer driver to function.",
-               ERR_NOT_SUPPORTED);
-  LAPIC_ASSERT(pDrvCtrl->kpBaseTimer->pGetTimeNs != NULL,
-               "LAPIC Timer needs the timer nanosecond support to function.",
-               ERR_NOT_SUPPORTED);
+  /* Get the settings */
+  pDrvCtrl->selectedFrequency = LAPIC_TIMER_FREQUENCY_HZ;
+  pDrvCtrl->divider           = LAPICT_DIVIDER_16;
 
   /* Set the base address */
-  pDrvCtrl->lapicBaseAddress = pLAPICDriver->pGetBaseAddress();
+  pDrvCtrl->lapicBaseAddress = LAPICGetBaseAddress();
 
   /* Init system times */
   pDrvCtrl->pDisabledNesting[0] = 1;
@@ -1104,19 +784,17 @@ static E_Return _TimerAttach(const S_FDTNode* kpFdtNode)
   /* Set interrupt EOI */
   _TimerAckInterrupt(pDrvCtrl);
 
-  /* Register the driver in the CPU manager */
-  CPURegisterLAPICTimerDriver(&sLAPICTimerAPIDriver);
-
-  /* Set the API driver */
-  retCode = DriverManagerSetDeviceData(kpFdtNode, pTimerDrv);
+  retCode = TimeManagerAddTimer(pTimerDrv, MAIN_TIMER);
   LAPIC_ASSERT(retCode == NO_ERROR,
-               "Failed to register LAPIC Timer data.",
+               "Failed to add LAPIC Timer to the Time Manager",
                retCode);
 
   retCode = _CreateProcFSTimerEntry();
   LAPIC_ASSERT(retCode == NO_ERROR,
                "Failed to create ProcFS timer entry",
                retCode);
+
+  _TimerEnable(spDrvCtrl);
 
   return retCode;
 }
@@ -1128,10 +806,8 @@ static void _TimerCalibrate(const uint8_t kCpuId)
   uint64_t             period;
   uint32_t             lapicTimerCount;
   uintptr_t            kLAPICBaseAddress;
-  const S_KernelTimer* kpBaseTimer;
 
   kLAPICBaseAddress = spDrvCtrl->lapicBaseAddress;
-  kpBaseTimer = spDrvCtrl->kpBaseTimer;
 
   /* Set the LAPIC Timer frequency divider */
   _Write(kLAPICBaseAddress, LAPIC_TDCR, spDrvCtrl->divider);
@@ -1140,12 +816,12 @@ static void _TimerCalibrate(const uint8_t kCpuId)
   _Write(kLAPICBaseAddress, LAPIC_TICR, 0xFFFFFFFFULL);
 
   /* Get start time */
-  startTime = kpBaseTimer->pGetTimeNs(kpBaseTimer->pDriverCtrl);
+  startTime = TSCGetTimeNs();
 
   /* Wait for calibration */
   do
   {
-    endTime = kpBaseTimer->pGetTimeNs(kpBaseTimer->pDriverCtrl);
+    endTime = TSCGetTimeNs();
   } while (endTime < startTime + LAPICT_CALIBRATION_DELAY);
 
   /* Now that we waited LAPICT_CALIBRATION_DELAY ns calculate the frequency */
@@ -1314,29 +990,6 @@ static void _TimerAckInterrupt(void* pDrvCtrl)
 
   /* Set EOI */
   InterruptSetEOI(pLAPICTimerCtrl->interruptNumber);
-}
-
-static void _TimerInitApCPU(const uint8_t kCpuId)
-{
-  /* We are in a secondary CPU (AP CPU), just setup the counter as all
-   * LAPIC timers should have the same frequency
-   */
-  spDrvCtrl->pDisabledNesting[kCpuId] = 1;
-
-  /* Calibrate the timer */
-  _TimerCalibrate(kCpuId);
-
-  /* Set LAPIC Timer frequency */
-  _TimerSetFrequency(spDrvCtrl->selectedFrequency, kCpuId);
-
-  /* Enable the timer is needed based on the main cpu */
-  if (spDrvCtrl->pDisabledNesting[0] == 0)
-  {
-    _TimerEnable(spDrvCtrl);
-  }
-
-  /* Set interrupt EOI */
-  _TimerAckInterrupt(spDrvCtrl);
 }
 
 static inline uint32_t _Read(const uintptr_t kBaseAddr,
@@ -1816,8 +1469,140 @@ static E_Return _CreateProcFSTimerEntry(void)
   return retCode;
 }
 
+void LAPICSetIRQEOI(void)
+{
+  _Write(sDrvCtrl.baseAddr, LAPIC_EOI, 0);
+}
+
+uintptr_t LAPICGetBaseAddress(void)
+{
+  return sDrvCtrl.baseAddr;
+}
+
+uint8_t LAPICGetLAPICId(void)
+{
+  return (uint8_t)(_Read(sDrvCtrl.baseAddr, LAPIC_ID) >> 24);
+}
+
+void LAPICStartCpu(const uint8_t kLAPICId)
+{
+  uint32_t tryCount;
+  uint32_t oldBootedCpuCount;
+
+  /* Send the INIT IPI */
+  _Write(sDrvCtrl.baseAddr, LAPIC_ICRHI, kLAPICId << ICR_DESTINATION_SHIFT);
+  _Write(sDrvCtrl.baseAddr, LAPIC_ICRLO,
+              ICR_ASSERT | ICR_INIT | ICR_PHYSICAL | ICR_EDGE |
+              ICR_NO_SHORTHAND);
+
+  /* Wait for pending sends */
+  while ((_Read(sDrvCtrl.baseAddr, LAPIC_ICRLO) & ICR_SEND_PENDING) != 0){}
+
+  /* Wait 10ms */
+  TimeWaitNoScheduler(LAPIC_CPU_INIT_DELAY_NS);
+
+  tryCount = 0;
+  oldBootedCpuCount = _bootedCPUCount;
+
+  do
+  {
+    /* Send the STARTUP IPI */
+    _Write(sDrvCtrl.baseAddr,
+           LAPIC_ICRHI,
+           ((uint32_t)kLAPICId) << ICR_DESTINATION_SHIFT);
+    _Write(sDrvCtrl.baseAddr, LAPIC_ICRLO,
+            LAPIC_STARTUP_ADDR(&_START_LOW_AP_STARTUP_ADDR) |
+            ICR_ASSERT | ICR_STARTUP | ICR_PHYSICAL | ICR_EDGE |
+            ICR_NO_SHORTHAND);
+
+    /* Wait for pending sends */
+    while ((_Read(sDrvCtrl.baseAddr, LAPIC_ICRLO) & ICR_SEND_PENDING) != 0){}
+
+    /* Wait 100ms and check if the number of CPUs was updated */
+    TimeWaitNoScheduler(LAPIC_CPU_STARTUP_DELAY_NS);
+    if (oldBootedCpuCount != _bootedCPUCount)
+    {
+      /* Our CPU increased the booted CPU count, stop */
+      break;
+    }
+    ++tryCount;
+  } while (tryCount < 5);
+
+  TimeWaitNoScheduler(LAPIC_CPU_STARTUP_WAIT_DELAY_NS);
+
+  LAPIC_ASSERT(oldBootedCpuCount != _bootedCPUCount,
+               "Failed to start CPU",
+               ERR_UNAUTHORIZED_ACTION);
+}
+
+void LAPICSendIPI(const uint8_t kLAPICId, const uint8_t kVector)
+{
+  uint32_t intState;
+
+  /* Check if init */
+  if (sDrvCtrl.baseAddr == 0)
+  {
+    return;
+  }
+
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+
+  /* Wait for pending sends */
+  while ((_Read(sDrvCtrl.baseAddr, LAPIC_ICRLO) & ICR_SEND_PENDING) != 0){}
+
+  /* Send IPI */
+  _Write(sDrvCtrl.baseAddr, LAPIC_ICRHI, kLAPICId << ICR_DESTINATION_SHIFT);
+  _Write(sDrvCtrl.baseAddr, LAPIC_ICRLO,
+         (kVector & 0xFF) |
+         ICR_PHYSICAL | ICR_ASSERT | ICR_EDGE | ICR_NO_SHORTHAND);
+
+  /* Wait for pending sends */
+  while ((_Read(sDrvCtrl.baseAddr, LAPIC_ICRLO) & ICR_SEND_PENDING) != 0){}
+
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
+}
+
+void LAPICInitApCPU(void)
+{
+  /* We are in a secondary CPU (AP CPU), just setup interrupts */
+  _Write(sDrvCtrl.baseAddr, LAPIC_TPR, 0);
+
+  /* Set logical destination mode */
+  _Write(sDrvCtrl.baseAddr, LAPIC_DFR, 0xffffffff);
+  _Write(sDrvCtrl.baseAddr, LAPIC_LDR, 0x01000000);
+
+  /* Set spurious interrupt vector */
+  _Write(sDrvCtrl.baseAddr, LAPIC_SVR, 0x100 | sDrvCtrl.spuriousIntLine);
+
+  /* Set EOI */
+  _Write(sDrvCtrl.baseAddr, LAPIC_EOI, 0);
+}
+
+void LAPICTimerInitApCPU(const uint8_t kCpuId)
+{
+  /* We are in a secondary CPU (AP CPU), just setup the counter as all
+   * LAPIC timers should have the same frequency
+   */
+  spDrvCtrl->pDisabledNesting[kCpuId] = 1;
+
+  /* Calibrate the timer */
+  _TimerCalibrate(kCpuId);
+
+  /* Set LAPIC Timer frequency */
+  _TimerSetFrequency(spDrvCtrl->selectedFrequency, kCpuId);
+
+  /* Enable the timer is needed based on the main cpu */
+  if (spDrvCtrl->pDisabledNesting[0] == 0)
+  {
+    _TimerEnable(spDrvCtrl);
+  }
+
+  /* Set interrupt EOI */
+  _TimerAckInterrupt(spDrvCtrl);
+}
+
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86LAPICDriver);
-DRIVERMGR_REG_FDT(sX86LAPICTimerDriver);
+DRIVERMGR_REG_LAYER(sX86LAPICDriver);
+DRIVERMGR_REG_LAYER(sX86LAPICTimerDriver);
 
 /************************************ EOF *************************************/

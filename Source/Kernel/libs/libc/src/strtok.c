@@ -70,9 +70,9 @@
  * FUNCTIONS
  ******************************************************************************/
 
-char *strtok(char *s, const char *delim)
+char* strtok(char* s, const char* delim)
 {
-    static char *holder;
+    static char* holder;
 
     if (s)
         holder = s;

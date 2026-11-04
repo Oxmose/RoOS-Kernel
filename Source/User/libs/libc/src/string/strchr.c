@@ -70,7 +70,7 @@
  * FUNCTIONS
  ******************************************************************************/
 
-char *strchr(const char *s, int c)
+char* strchr(const char* s, int c)
 {
     while (*s != (char)c) {
         if (!*s)

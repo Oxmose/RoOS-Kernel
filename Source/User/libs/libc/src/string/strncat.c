@@ -70,10 +70,10 @@
  * FUNCTIONS
  ******************************************************************************/
 
-char *strncat(char *dst, const char *src, size_t n)
+char* strncat(char* dst, const char* src, size_t n)
 {
-    char *q = strchr(dst, '\0');
-    const char *p = src;
+    char* q = strchr(dst, '\0');
+    const char* p = src;
 
     while (n--) {
         char ch;

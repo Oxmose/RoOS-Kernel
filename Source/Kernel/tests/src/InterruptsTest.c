@@ -87,32 +87,16 @@ void InterruptsTest(void)
   const S_CPUInterruptConfiguration* pConfig;
   pConfig = CPUGetInterruptConfig();
 
-  /* TEST REGISTER < MIN */
-  err = InterruptRegister(pConfig->minInterruptLine - 1, _HandlerTest);
-  TEST_POINT_ASSERT_RCODE(TEST_INTERRUPT(0),
-                          err == ERR_INVALID_PARAMETER,
-                          ERR_INVALID_PARAMETER,
-                          err,
-                          TEST_INTERRUPT_ENABLED);
-
   /* TEST REGISTER > MAX */
-  err = InterruptRegister(pConfig->maxInterruptLine + 1, _HandlerTest);
+  err = InterruptRegister(pConfig->maxFreeInterruptLine + 1, _HandlerTest);
   TEST_POINT_ASSERT_RCODE(TEST_INTERRUPT(1),
                           err == ERR_INVALID_PARAMETER,
                           ERR_INVALID_PARAMETER,
                           err,
                           TEST_INTERRUPT_ENABLED);
 
-  /* TEST REMOVE < MIN */
-  err = InterruptRemove(pConfig->minInterruptLine - 1);
-  TEST_POINT_ASSERT_RCODE(TEST_INTERRUPT(2),
-                          err == ERR_INVALID_PARAMETER,
-                          ERR_INVALID_PARAMETER,
-                          err,
-                          TEST_INTERRUPT_ENABLED);
-
   /* TEST REMOVE > MAX */
-  err = InterruptRemove(pConfig->maxInterruptLine + 1);
+  err = InterruptRemove(pConfig->maxFreeInterruptLine + 1);
   TEST_POINT_ASSERT_RCODE(TEST_INTERRUPT(3),
                           err == ERR_INVALID_PARAMETER,
                           ERR_INVALID_PARAMETER,
@@ -120,7 +104,7 @@ void InterruptsTest(void)
                           TEST_INTERRUPT_ENABLED);
 
   /* TEST NULL HANDLER */
-  err = InterruptRegister(pConfig->minInterruptLine, NULL);
+  err = InterruptRegister(pConfig->minFreeInterruptLine, NULL);
   TEST_POINT_ASSERT_RCODE(TEST_INTERRUPT(4),
                           err == ERR_INVALID_PARAMETER,
                           ERR_INVALID_PARAMETER,
@@ -128,7 +112,7 @@ void InterruptsTest(void)
                           TEST_INTERRUPT_ENABLED);
 
   /* TEST REGISTER WHEN ALREADY REGISTERED */
-  err = InterruptRegister(pConfig->minInterruptLine, _HandlerTest);
+  err = InterruptRegister(pConfig->minFreeInterruptLine, _HandlerTest);
   TEST_POINT_ASSERT_RCODE(TEST_INTERRUPT(5),
                           err == ERR_UNAUTHORIZED_ACTION,
                           ERR_UNAUTHORIZED_ACTION,

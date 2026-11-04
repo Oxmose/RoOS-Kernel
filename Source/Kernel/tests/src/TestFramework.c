@@ -179,7 +179,7 @@ S_TestItem sNULLTestItem =
 };
 
 /** @brief Test spinlock */
-static S_KernelSpinlock sLock;
+static T_Spinlock sLock;
 
 /*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
@@ -249,7 +249,7 @@ static void _InitTestItem(const uint32_t kTestId,
                           const uint64_t kValue,
                           S_TestItem**   ppitem)
 {
-  KERNEL_LOCK(sLock);
+  SpinlockAcquire(&sLock);
 
   /* Create test item and allocate memory */
   *ppitem = _GetTestMemory(sizeof(S_TestItem));
@@ -293,7 +293,7 @@ static void _InitTestItem(const uint32_t kTestId,
     *ppitem = &sNULLTestItem;
   }
 
-  KERNEL_UNLOCK(sLock);
+  SpinlockRelease(&sLock);
 }
 
 void _KillQEMU(void)
@@ -307,7 +307,7 @@ void _KillQEMU(void)
 
 void TestFrameworkInit(void)
 {
-  KERNEL_SPINLOCK_INIT(sLock);
+  SPINLOCK_INIT(sLock);
   spMemoryPoolHead = &_KERNEL_TEST_BUFFER_BASE;
 }
 

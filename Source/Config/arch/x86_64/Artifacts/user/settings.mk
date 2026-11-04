@@ -29,7 +29,7 @@ DEBUG_FLAGS = -O0 -g
 EXTRA_FLAGS = -O3 -fno-asynchronous-unwind-tables -g
 ARCH_FLAGS = -DARCH_64_BITS
 
-CFLAGS = -std=c11 -nostdinc -fno-builtin -nostdlib  \
+CFLAGS = -std=gnu23 -nostdinc -fno-builtin -nostdlib  \
          -nostartfiles -nodefaultlibs -Wall -Wextra -Werror -c -fno-pie \
 		 -no-pie -MD -ffreestanding -Wno-address-of-packed-member \
 		 -fno-omit-frame-pointer -Wmissing-prototypes \

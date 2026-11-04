@@ -69,11 +69,11 @@ typedef struct
    /** @brief Mutex lock state */
   volatile int32_t lockState;
   /** @brief Mutex lock. */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
   /** @brief Acquired thread pointer */
   S_KernelThread* pAcquiredThread;
   /** @brief Mutex locked threads queue */
-  S_KernelQueue *pWaitingList;
+  S_KernelQueue* pWaitingList;
 } S_KernelMutex;
 
 /*******************************************************************************

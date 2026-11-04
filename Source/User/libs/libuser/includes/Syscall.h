@@ -119,10 +119,13 @@ typedef struct
 typedef struct
 {
   /** @brief Thread priority */
-  unsigned char   priority;
-  char      name[THREAD_NAME_MAX_LENGTH];
+  unsigned char      priority;
+  /** @brief Thread name */
+  char               name[THREAD_NAME_MAX_LENGTH];
+  /** @brief Thread stack size */
   unsigned long long stackSize;
-  S_CPUMask mappedCPUs;
+  /** @brief Thread mapped CPUs */
+  S_CPUMask          mappedCPUs;
 } S_ThreadAttr;
 
 /*******************************************************************************

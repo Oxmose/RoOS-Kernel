@@ -70,7 +70,7 @@
  * FUNCTIONS
  ******************************************************************************/
 
-char *strstr(const char *haystack, const char *needle)
+char* strstr(const char* haystack, const char* needle)
 {
     return (char *)memmem(haystack, strlen(haystack), needle,
                   strlen(needle));

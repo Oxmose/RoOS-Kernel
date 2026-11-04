@@ -74,7 +74,7 @@ int GetStdout(void);
  * @return int The number of characters printed, or a negative value if an error
  * occurred.
  */
-int printf(const char *format, ...);
+int printf(const char* format, ...);
 
 #endif /* #ifndef __LIB_STDIO_H_ */
 

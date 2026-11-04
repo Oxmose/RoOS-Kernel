@@ -70,10 +70,10 @@
  * FUNCTIONS
  ******************************************************************************/
 
-char *strncpy(char *dst, const char *src, size_t n)
+char* strncpy(char* dst, const char* src, size_t n)
 {
-    char *q = dst;
-    const char *p = src;
+    char* q = dst;
+    const char* p = src;
 
     while (n) {
         char ch;

@@ -109,7 +109,15 @@ typedef struct
  *
  * @details Initializes the CPU registers and relevant structures.
  */
+
 void CPUInit(void);
+/**
+ * @brief Initializes the CPU LAPIC ids.
+ *
+ * @details Initializes the CPU LAPIC ids. This function is called by the
+ * ACPI during its initialization.
+ */
+void CPUSetupLAPICIds(void);
 
 /**
  * @brief Initializes the CPU manager.
@@ -135,6 +143,14 @@ void CPUStartSMP(void);
 void CPUAPInit(const uint8_t kCpuId);
 
 /**
+ * @brief Initializes the CPU local storage.
+ *
+ * @details Initializes the CPU local storage. This function is called by the
+ * scheduler during its initialization.
+ */
+void CPUSetupLocalStorage(const uint32_t kCPUId);
+
+/**
  * @brief Returns the CPU's interrupt configuration.
  *
  * @details Returns the CPU's interrupt configuration. The configuration is
@@ -151,10 +167,10 @@ const S_CPUInterruptConfiguration* CPUGetInterruptConfig(void);
  * on the architecture, this might entails MMU/MPU configuration changes for
  * instance.
  *
- * @param[in, out] kpThread The current thread to update the memory
+ * @param[in, out] pThread The current thread to update the memory
  * configuration for.
  */
-void CPUUpdateMemoryConfig(const S_KernelThread* kpThread);
+void CPUUpdateMemoryConfig(S_KernelThread* pThread);
 
 /**
  * @brief Returns the number of CPUs used in the current system.
@@ -464,6 +480,33 @@ void CPUThreadSignalReturn(void* pUserContext);
  * otherwise.
  */
 bool CPUIsReturningToUser(const S_KernelThread* kpThread);
+
+/**
+ * @brief Returns the CPU local storage.
+ *
+ * @details Returns the CPU local storage. This function is used to access the
+ * CPU local storage from the kernel.
+ *
+ * @return The CPU local storage is returned.
+ */
+S_CPULocalData* CPUGetLocalStorage(void);
+
+/**
+ * @brief Returns the CPU identifier of the calling code.
+ *
+ * @details Returns the CPU identifier of the calling code.
+ *
+ * @return The CPU identifier of the calling CPU is returned.
+ */
+uint32_t CPUGetId(void);
+
+/**
+ * @brief Pauses the CPU for a short duration.
+ *
+ * @details Pauses the CPU for a short duration. This function is typically used
+ * in spin-wait loops to reduce power consumption and improve performance.
+ */
+void CPUPause(void);
 
 #endif /* #ifndef __CPU_CPU_H_ */
 

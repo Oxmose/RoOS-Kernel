@@ -218,6 +218,18 @@ int32_t AllocateInterruptLine(void);
  */
 void FreeInterruptLine(const int32_t kInterruptId);
 
+/**
+ * @brief This function returns the next core identifier to balance the
+ * interrupts between the cores.
+ *
+ * @details This function returns the next core identifier to balance the
+ * interrupts between the cores. The function will return the next core
+ * identifier to be used for the next interrupt to be handled.
+ *
+ * @return The number of interrupts handled.
+ */
+uint32_t GetBalancedInterruptHandlerCore(void);
+
 #endif /* #ifndef __CORE_INTERRUPTS_H_ */
 
 /************************************ EOF *************************************/

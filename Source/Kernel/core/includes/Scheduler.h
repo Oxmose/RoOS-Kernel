@@ -96,6 +96,20 @@ typedef struct
 void SchedulerInit(void);
 
 /**
+ * @brief Initializes the scheduler for the current CPU.
+ *
+ * @details Initializes the scheduler for the current CPU. This function is
+ * called by the secondary CPUs after initializing their state in the secondary
+ * CPU startup function.
+ *
+ * @param[in] kCPUId The booted CPU identifier that call the function.
+ *
+ * @warning This function should never be called by the user, only the assembly
+ * startup should call it.
+ */
+void SchedulerAPInit(const uint32_t kCPUId);
+
+/**
  * @brief Calls the scheduler dispatch function.
  *
  * @details Calls the scheduler. This function will select the next thread to
@@ -112,16 +126,6 @@ void SchedulerInit(void);
 bool SchedulerSchedule(void);
 
 /**
- * @brief Returns the handle to the current running thread.
- *
- * @details Returns the handle to the current running thread. This value should
- * never be NULL as a thread should always be elected for running.
- *
- * @return A handle to the current running thread is returned.
- */
-S_KernelThread* GetCurrentThread(void);
-
-/**
  * @brief Returns the handle to the current running process.
  *
  * @details Returns the handle to the current running process. This value should
@@ -130,6 +134,16 @@ S_KernelThread* GetCurrentThread(void);
  * @return A handle to the current running process is returned.
  */
 S_KernelProcess* GetCurrentProcess(void);
+
+/**
+ * @brief Returns the handle to the current running thread.
+ *
+ * @details Returns the handle to the current running thread. This value should
+ * never be NULL as a thread should always be elected for running.
+ *
+ * @return A handle to the current running thread is returned.
+ */
+S_KernelThread* GetCurrentThread(void);
 
 /**
  * @brief Sets the current thread to waiting state.

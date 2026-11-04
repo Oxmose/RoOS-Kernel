@@ -63,7 +63,7 @@
 /* None */
 
 /************************** Static global variables ***************************/
-static S_KernelThread *spTestThread;
+static S_KernelThread* spTestThread;
 static volatile uint64_t sMutualExcValue = 0;
 static volatile int32_t sLastTid = 0;
 static volatile int32_t sOrderedTid = 0;
@@ -94,7 +94,7 @@ static void* _TestMutualExclusionRoutine(void* args)
   uint32_t        i;
   uint32_t        j;
   E_Return        error;
-  S_KernelThread *pThread;
+  S_KernelThread* pThread;
 
   pMutex = (S_KernelMutex*)args;
   pThread = GetCurrentThread();
@@ -670,6 +670,8 @@ static void _TestPrioMutex(void)
                             NO_ERROR,
                             error,
                             TEST_OS_KMUTEX_ENABLED);
+
+    SleepNs(5000000, NULL);
   }
   sLastTid = pThreads[i - 1]->tid + 1;
 
@@ -737,6 +739,8 @@ static void _TestFIFOMutex(void)
                             NO_ERROR,
                             error,
                             TEST_OS_KMUTEX_ENABLED);
+
+    SleepNs(5000000, NULL);
   }
   sLastTid = pThreads[i - 1]->tid + 1;
   sOrderedTid = 0;

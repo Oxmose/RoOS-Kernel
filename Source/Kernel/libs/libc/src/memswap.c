@@ -70,10 +70,10 @@
  * FUNCTIONS
  ******************************************************************************/
 
-void memswap(void *m1, void *m2, size_t n)
+void memswap(void* m1, void* m2, size_t n)
 {
-    char *p = m1;
-    char *q = m2;
+    char* p = m1;
+    char* q = m2;
 
     while (n--) {
         char tmp = *p;

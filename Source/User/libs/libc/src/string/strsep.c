@@ -70,10 +70,10 @@
  * FUNCTIONS
  ******************************************************************************/
 
-char *strsep(char **stringp, const char *delim)
+char* strsep(char **stringp, const char* delim)
 {
-    char *s = *stringp;
-    char *e;
+    char* s = *stringp;
+    char* e;
 
     if (!s)
         return NULL;

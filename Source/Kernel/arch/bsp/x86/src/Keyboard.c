@@ -29,7 +29,6 @@
 #include <stddef.h>
 #include <IOAPIC.h>
 #include <VirtualFS.h>
-#include <DeviceTree.h>
 #include <Interrupts.h>
 #include <KernelHeap.h>
 #include <KernelError.h>
@@ -52,11 +51,6 @@
 /** @brief Current module name */
 #define MODULE_NAME "X86 Keyboard"
 
-/** @brief FDT property for comm ports */
-#define KBD_FDT_COMM_PROP "comm"
-/** @brief FDT property for device path */
-#define KBD_FDT_DEVICE_PROP "device"
-
 /** @brief Defines the maximal size of the keyboard input buffer */
 #define KBD_INPUT_BUFFER_SIZE 128
 
@@ -76,6 +70,13 @@
 
 /** @brief The IRQ number for the keyboard. */
 #define KEYBOARD_IRQ_NUMBER 1
+/** @brief The keyboard command port. */
+#define KEYBOARD_COMMAND_PORT 0x64
+/** @brief The keyboard data port. */
+#define KEYBOARD_DATA_PORT 0x60
+
+/** @brief The VFS path for the keyboard. */
+#define KEYBOARD_VFS_PATH "/dev/kbd"
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -94,11 +95,7 @@ typedef struct
 /** @brief x86 Keyboard driver controller. */
 typedef struct
 {
-  /** @brief CPU command port. */
-  uint16_t cpuCommPort;
-  /** @brief CPU data port. */
-  uint16_t cpuDataPort;
-  /** @brief The keyboard IRQ number */
+  /** @brief The IRQ number of the keyboard interrupt. */
   uint32_t irqNumber;
   /** @brief Current start keyboard input buffer cursor */
   size_t inputBufferStartCursor;
@@ -113,7 +110,7 @@ typedef struct
   /** @brief Stores the VFS driver */
   T_VFSDriver vfsDriver;
   /** @brief Buffer lock */
-  S_KernelSpinlock bufferLock;
+  T_Spinlock bufferLock;
 } S_KeyboardControler;
 
 /*******************************************************************************
@@ -145,15 +142,13 @@ typedef struct
 /**
  * @brief Attaches the keyboard driver to the system.
  *
- * @details Attaches the keyboard driver to the system. This function will use
- * the FDT to initialize the keyboard hardware and retreive the keyboard
- * parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared by the driver.
+ * @details Attaches the keyboard driver to the system. This function will
+ * the keyboard command and data ports to initialize the keyboard hardware and
+ * retreive the keyboard parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
+static E_Return _Attach(void);
 
 /**
  * @brief Handles a keyboard interrupt.
@@ -259,12 +254,12 @@ static ssize_t _KeyboardVFSRead(void*  pDrvCtrl,
 
 /************************** Static global variables ***************************/
 /** @brief Keyboard driver instance. */
-static S_Driver sX86KeyboardDriver =
+static S_LayerDriver  sX86KeyboardDriver =
 {
   .pName         = "X86 Keyboard Driver",
   .pDescription  = "X86 Keyboard Driver for roOs",
-  .pCompatible   = "x86,x86-generic-keyboard",
   .pVersion      = "2.0",
+  .layer         = 2,
   .pDriverAttach = _Attach
 };
 
@@ -455,126 +450,101 @@ static const S_KeyMapper ksQwertyMap =
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _Attach(const S_FDTNode* kpFdtNode)
+static E_Return _Attach(void)
 {
-  const uint32_t* kpUintProp;
-  const char*     kpStrProp;
-  size_t          propLen;
-  E_Return        retCode;
-  E_Return        error;
-  int32_t         interruptLine;
+  E_Return retCode;
+  E_Return error;
+  int32_t  interruptLine;
 
   if (sKeyboardInitialized == false)
   {
     /* Init structures */
     memset(&sInputCtrl, 0, sizeof(S_KeyboardControler));
-    retCode = NO_ERROR;
 
-    /* Get the keyboard CPU communication ports */
-    kpUintProp = FDTGetProp(kpFdtNode, KBD_FDT_COMM_PROP, &propLen);
-    if (kpUintProp != NULL && propLen == sizeof(uint32_t) * 2)
-    {
-      sInputCtrl.cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
-      sInputCtrl.cpuDataPort = (uint16_t)FDTTOCPU32(*(kpUintProp + 1));
-    }
-    else
-    {
-      retCode = ERR_INVALID_VALUE;
-    }
-
-    kpStrProp = FDTGetProp(kpFdtNode, KBD_FDT_DEVICE_PROP, &propLen);
-    if (kpStrProp == NULL || propLen  == 0)
-    {
-      retCode = ERR_INVALID_VALUE;
-    }
-
+    /* Init semaphore */
+    retCode = KernelSemaphoreInit(&sInputCtrl.inputBufferSem,
+                                  KSEMAPHORE_FLAG_QUEUING_PRIO |
+                                  KSEMAPHORE_FLAG_BINARY,
+                                  0);
     if (retCode == NO_ERROR)
     {
-      /* Init semaphore */
-      retCode = KernelSemaphoreInit(&sInputCtrl.inputBufferSem,
-                                    KSEMAPHORE_FLAG_QUEUING_PRIO |
-                                    KSEMAPHORE_FLAG_BINARY,
-                                    0);
-      if (retCode == NO_ERROR)
+      interruptLine = AllocateInterruptLine();
+      if (interruptLine >= 0)
       {
-        interruptLine = AllocateInterruptLine();
-        if (interruptLine >= 0)
+        IOAPICSetupIRQ(KEYBOARD_IRQ_NUMBER,
+                       interruptLine,
+                       0,
+                       IOAPIC_TRIGGER_MODE_EDGE,
+                       IOAPIC_POLARITY_HIGH);
+        sInputCtrl.irqNumber = interruptLine;
+        /* Register the interrupt */
+        retCode = InterruptRegister(interruptLine, _KeyboardInterruptHandler);
+
+        /* If we are already registered, error */
+        if (retCode == NO_ERROR)
         {
-          IOAPICSetupIRQ(KEYBOARD_IRQ_NUMBER,
-                         interruptLine,
-                         CPUGetLAPICId(),
-                         IOAPIC_TRIGGER_MODE_EDGE,
-                         IOAPIC_POLARITY_HIGH);
-          sInputCtrl.irqNumber = interruptLine;
-          /* Register the interrupt */
-          retCode = InterruptRegister(interruptLine, _KeyboardInterruptHandler);
-
-          /* If we are already registered, error */
-          if (retCode == NO_ERROR)
+          /* Register the driver */
+          sInputCtrl.vfsDriver = RegisterVFSDriver(KEYBOARD_VFS_PATH,
+                                                    &sInputCtrl,
+                                                    _KeyboardVFSOpen,
+                                                    _KeyboardVFSClose,
+                                                    _KeyboardVFSRead,
+                                                    NULL,
+                                                    NULL,
+                                                    NULL);
+          if (sInputCtrl.vfsDriver != VFS_DRIVER_INVALID)
           {
-            /* Register the driver */
-            sInputCtrl.vfsDriver = RegisterVFSDriver(kpStrProp,
-                                                     &sInputCtrl,
-                                                     _KeyboardVFSOpen,
-                                                     _KeyboardVFSClose,
-                                                     _KeyboardVFSRead,
-                                                     NULL,
-                                                     NULL,
-                                                     NULL);
-            if (sInputCtrl.vfsDriver != VFS_DRIVER_INVALID)
-            {
-              /* Set typematic settings */
-              while ((CPUPortReadByte(sInputCtrl.cpuCommPort) & 2) != 0){}
-              CPUPortWriteByte(0xF3, sInputCtrl.cpuDataPort);
-              while ((CPUPortReadByte(sInputCtrl.cpuCommPort) & 2) != 0){}
-              CPUPortWriteByte(0x20, sInputCtrl.cpuDataPort);
-              while ((CPUPortReadByte(sInputCtrl.cpuCommPort) & 2) != 0){}
-              CPUPortReadByte(sInputCtrl.cpuDataPort);
+            /* Set typematic settings */
+            while ((CPUPortReadByte(KEYBOARD_COMMAND_PORT) & 2) != 0){}
+            CPUPortWriteByte(0xF3, KEYBOARD_DATA_PORT);
+            while ((CPUPortReadByte(KEYBOARD_COMMAND_PORT) & 2) != 0){}
+            CPUPortWriteByte(0x20, KEYBOARD_DATA_PORT);
+            while ((CPUPortReadByte(KEYBOARD_COMMAND_PORT) & 2) != 0){}
+            CPUPortReadByte(KEYBOARD_DATA_PORT);
 
-              /* Set the interrupt mask */
-              InterruptSetEOI(sInputCtrl.irqNumber);
+            /* Set the interrupt mask */
+            InterruptSetEOI(interruptLine);
 
-              /* Initialize the lock */
-              KERNEL_SPINLOCK_INIT(sInputCtrl.bufferLock);
+            /* Initialize the lock */
+            SPINLOCK_INIT(sInputCtrl.bufferLock);
 
-              /* Init buffer */
-              sInputCtrl.inputBufferStartCursor = 0;
-              sInputCtrl.inputBufferEndCursor   = 0;
-            }
-            else
-            {
-              IOAPICDisableIRQ(KEYBOARD_IRQ_NUMBER);
-              FreeInterruptLine(interruptLine);
-
-              error = InterruptRemove(sInputCtrl.irqNumber);
-              KBD_ASSERT(error == NO_ERROR,
-                          "Failed to unregister keyboard interrupt",
-                          error);
-              error = KernelSemaphoreDestroy(&sInputCtrl.inputBufferSem);
-              KBD_ASSERT(error == NO_ERROR,
-                        "Failed to destroy keyboard semaphore",
-                        error);
-
-              retCode = ERR_UNAUTHORIZED_ACTION;
-            }
+            /* Init buffer */
+            sInputCtrl.inputBufferStartCursor = 0;
+            sInputCtrl.inputBufferEndCursor   = 0;
           }
           else
           {
             IOAPICDisableIRQ(KEYBOARD_IRQ_NUMBER);
             FreeInterruptLine(interruptLine);
+
+            error = InterruptRemove(interruptLine);
+            KBD_ASSERT(error == NO_ERROR,
+                        "Failed to unregister keyboard interrupt",
+                        error);
             error = KernelSemaphoreDestroy(&sInputCtrl.inputBufferSem);
             KBD_ASSERT(error == NO_ERROR,
                       "Failed to destroy keyboard semaphore",
                       error);
+
+            retCode = ERR_UNAUTHORIZED_ACTION;
           }
         }
         else
         {
+          IOAPICDisableIRQ(KEYBOARD_IRQ_NUMBER);
+          FreeInterruptLine(interruptLine);
           error = KernelSemaphoreDestroy(&sInputCtrl.inputBufferSem);
           KBD_ASSERT(error == NO_ERROR,
                     "Failed to destroy keyboard semaphore",
                     error);
         }
+      }
+      else
+      {
+        error = KernelSemaphoreDestroy(&sInputCtrl.inputBufferSem);
+        KBD_ASSERT(error == NO_ERROR,
+                  "Failed to destroy keyboard semaphore",
+                  error);
       }
     }
   }
@@ -603,13 +573,13 @@ static bool _KeyboardInterruptHandler(void)
     InterruptSetEOI(sInputCtrl.irqNumber);
 
     /* Check is we received a data */
-    data = CPUPortReadByte(sInputCtrl.cpuDataPort);
+    data = CPUPortReadByte(KEYBOARD_DATA_PORT);
     data = _ManageKeycode(data);
 
     if (data != 0)
     {
       /* Try to add the new data to the buffer */
-      KERNEL_LOCK(sInputCtrl.bufferLock);
+      SpinlockAcquire(&sInputCtrl.bufferLock);
 
       if (sInputCtrl.inputBufferEndCursor >=
           sInputCtrl.inputBufferStartCursor)
@@ -634,7 +604,7 @@ static bool _KeyboardInterruptHandler(void)
             KBD_INPUT_BUFFER_SIZE;
       }
 
-      KERNEL_UNLOCK(sInputCtrl.bufferLock);
+      SpinlockRelease(&sInputCtrl.bufferLock);
 
       if (availableSpace > 1)
       {
@@ -669,6 +639,7 @@ static ssize_t _KeyboardRead(void*        pDrvCtrl,
   size_t   bytesToRead;
   size_t   usedSpace;
   size_t   i;
+  uint32_t intState;
   ssize_t  readBytes;
 
   (void)pDrvCtrl;
@@ -685,7 +656,8 @@ static ssize_t _KeyboardRead(void*        pDrvCtrl,
                   "Failed to wait keyboard semaphore",
                   error);
 
-      KERNEL_LOCK(sInputCtrl.bufferLock);
+      KERNEL_ENTER_CRITICAL_LOCAL(intState);
+      SpinlockAcquire(&sInputCtrl.bufferLock);
 
       if (sInputCtrl.inputBufferEndCursor >=
           sInputCtrl.inputBufferStartCursor)
@@ -717,7 +689,8 @@ static ssize_t _KeyboardRead(void*        pDrvCtrl,
       toRead -= bytesToRead;
       usedSpace -= bytesToRead;
 
-      KERNEL_UNLOCK(sInputCtrl.bufferLock);
+      SpinlockRelease(&sInputCtrl.bufferLock);
+      KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
       /* If we can still read data, post the semaphore, we read what we had to
        * since we used
@@ -863,6 +836,6 @@ static ssize_t _KeyboardVFSRead(void*  pDrvCtrl,
 }
 
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86KeyboardDriver);
+DRIVERMGR_REG_LAYER(sX86KeyboardDriver);
 
 /************************************ EOF *************************************/

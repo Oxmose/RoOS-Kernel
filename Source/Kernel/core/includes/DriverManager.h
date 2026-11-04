@@ -35,7 +35,7 @@
 /*******************************************************************************
  * STRUCTURES AND TYPES
  ******************************************************************************/
-/** @brief Defines the generic definition for a driver used in the kernel */
+/** @brief Defines the generic definition for a FDT driver used in the kernel */
 typedef struct
 {
   /** @brief Driver's name. */
@@ -72,7 +72,44 @@ typedef struct
    * @return The functon should return the error state of the driver.
    */
   E_Return (*pDriverDettach)(const S_FDTNode* kpFdtNode);
-} S_Driver;
+} S_FDTDriver;
+
+/**
+ * @brief Defines the generic definition for a layer driver used in the kernel
+ */
+typedef struct
+{
+  /** @brief Driver's name. */
+  const char* pName;
+  /** @brief Driver's description. */
+  const char* pDescription;
+  /** @brief Driver's version. */
+  const char* pVersion;
+  /** @brief Driver's layer. */
+  uint32_t layer;
+
+  /**
+   * @brief Driver's attatch function.
+   *
+   * @details Driver's attatch function. This function is called when a device
+   * is detected and is compatible with the driver's compatible string.
+   * It should initialize the driver and / or device.
+   *
+   * @return The functon should return the error state of the driver.
+   */
+  E_Return (*pDriverAttach)(void);
+
+  /**
+   * @brief Driver's dettach function.
+   *
+   * @details Driver's dettach function. This function is called when a device
+   * is detached or shutdown after being attached.
+   * It should deinitialize the driver and / or device.
+   *
+   * @return The functon should return the error state of the driver.
+   */
+  E_Return (*pDriverDettach)(void);
+} S_LayerDriver;
 
 /*******************************************************************************
  * MACROS
@@ -84,9 +121,20 @@ typedef struct
  *
  * @param[in] DRIVER The driver to add to the FDT driver table.
  */
-#define DRIVERMGR_REG_FDT(DRIVER)                                              \
-    S_Driver* DRVENT_##DRIVER __attribute__ ((section (".roos_driver_tbl"))) = \
-        &DRIVER
+#define DRIVERMGR_REG_FDT(DRIVER)                                \
+    S_FDTDriver* DRVENT_##DRIVER                                 \
+    __attribute__ ((section (".roos_fdtdriver_tbl"))) = &DRIVER
+
+/**
+ * @brief Registers a new layer driver.
+ *
+ * @details Registers a new driver in the kernel's layer driver table.
+ *
+ * @param[in] DRIVER The driver to add to the layer driver table.
+ */
+#define DRIVERMGR_REG_LAYER(DRIVER)                             \
+    S_LayerDriver* DRVENT_##DRIVER                              \
+    __attribute__ ((section (".roos_lyrdriver_tbl"))) = &DRIVER
 
 /*******************************************************************************
  * GLOBAL VARIABLES

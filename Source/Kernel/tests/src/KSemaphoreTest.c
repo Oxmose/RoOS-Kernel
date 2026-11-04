@@ -63,7 +63,7 @@
 /* None */
 
 /************************** Static global variables ***************************/
-static S_KernelThread *spTestThread;
+static S_KernelThread* spTestThread;
 static volatile uint64_t sMutualExcValue = 0;
 static volatile int32_t sLastTid = 0;
 static volatile int32_t sOrderedTid = 0;
@@ -88,11 +88,11 @@ static void _TestMultiplePostSemaphore(void);
  ******************************************************************************/
 static void* _TestMutualExclusionRoutine(void* args)
 {
-  S_KernelSemaphore *pSemaphore;
+  S_KernelSemaphore* pSemaphore;
   uint32_t        i;
   uint32_t        j;
   E_Return        error;
-  S_KernelThread *pThread;
+  S_KernelThread* pThread;
 
   pSemaphore = (S_KernelSemaphore *)args;
   pThread = GetCurrentThread();

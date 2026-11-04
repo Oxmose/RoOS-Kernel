@@ -70,9 +70,9 @@
  * FUNCTIONS
  ******************************************************************************/
 
-size_t strnlen(const char *s, size_t maxlen)
+size_t strnlen(const char* s, size_t maxlen)
 {
-    const char *ss = s;
+    const char* ss = s;
 
     /* Important: the maxlen test must precede the reference through ss;
        since the byte beyond the maximum may segfault */

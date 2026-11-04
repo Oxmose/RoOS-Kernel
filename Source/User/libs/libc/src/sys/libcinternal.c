@@ -108,7 +108,7 @@ int usleep(useconds_t usec)
   return retVal;
 }
 
-int nanosleep(const struct timespec *duration, struct timespec *rem)
+int nanosleep(const struct timespec* duration, struct timespec* rem)
 {
   long long int sleepTimeNs;
   long long int remainingTimeNs;

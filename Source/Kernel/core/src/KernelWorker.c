@@ -119,7 +119,7 @@ static S_FastQueue* spTaskQueue;
 /** @brief Task semaphore for the kernel worker. */
 static S_KernelSemaphore sTaskSemaphore;
 /** @brief Task queue lock */
-static S_KernelSpinlock sTaskQueueLock = KERNEL_SPINLOCK_INIT_VALUE;
+static T_Spinlock sTaskQueueLock = SPINLOCK_INIT_VALUE;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -142,9 +142,9 @@ static void* _KernelWorkerThreadRoutine(void* pArgs)
                    false);
 
     /* Get the task */
-    KERNEL_LOCK(sTaskQueueLock);
+    SpinlockAcquire(&sTaskQueueLock);
     taskAvailable = FQueuePop(spTaskQueue, &task);
-    KERNEL_UNLOCK(sTaskQueueLock);
+    SpinlockRelease(&sTaskQueueLock);
     KWORKER_ASSERT(taskAvailable == true,
                    "Failed to dequeue task from the task queue.",
                    ERR_INVALID_VALUE,
@@ -233,9 +233,9 @@ void KWorkerSubmitTask(T_KernelWorkerTask task,
   newTask.pCompletionSemaphore = pCompletionSemaphore;
 
   /* Enqueue the task */
-  KERNEL_LOCK(sTaskQueueLock);
+  SpinlockAcquire(&sTaskQueueLock);
   FQueuePush(spTaskQueue, &newTask);
-  KERNEL_UNLOCK(sTaskQueueLock);
+  SpinlockRelease(&sTaskQueueLock);
 
   /* Signal the task semaphore */
   retCode = KernelSemaphorePost(&sTaskSemaphore);

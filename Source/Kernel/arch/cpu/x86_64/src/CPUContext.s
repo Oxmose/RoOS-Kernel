@@ -28,6 +28,10 @@
 %define VCPU_OFF_CTX 0x0
 %define VCPU_OFF_FXD 0x8
 %define VCPU_OFF_KERNEL_STACK 0x10
+%define VCPU_OFF_THREAD_HANDLE 0x20
+
+%define CPU_LOCAL_STORAGE_OFF_VCPU 0x08
+
 
 %define USER_DS_64 0x18
 %define USER_CS_64 0x20
@@ -66,7 +70,6 @@
 %define SIG_INTERRUPT_CTX_OFF_RCX 0x80
 %define SIG_INTERRUPT_CTX_OFF_RBX 0x88
 %define SIG_INTERRUPT_CTX_OFF_RAX 0x90
-%define SIG_INTERRUPT_CTX_OFF_FXDATA 0x98
 
 ;-------------------------------------------------------------------------------
 ; MACRO DEFINE
@@ -86,13 +89,14 @@ extern SchedulerSchedule
 ;-------------------------------------------------------------------------------
 ; EXPORTED FUNCTIONS
 ;-------------------------------------------------------------------------------
-global CPUGetId
 global CPUSaveContext
 global CPURestoreContext
 global CPUSaveContextAndSchedule
 global CPUEnterUserSpace
 global CPURestoreContextFromInterruptSignal
 global CPURestoreContextFromSyscallSignal
+global CPUGetLocalStorage
+global CPUPause
 
 ;-------------------------------------------------------------------------------
 ; EXPORTED DATA
@@ -106,23 +110,13 @@ section .text
 align 4
 
 ;-------------------------------------------------------------------------------
-; Get the CPU Id
-;
-; Param:
-;     None
-
-CPUGetId:
-  ; Get the core id
-  mov rcx, 0xC0000103
-  rdmsr
-  ret
-
-;-------------------------------------------------------------------------------
 ; Save the CPU context of a thread
 ;
 ; Param:
 ;     None
 CPUSaveContext:
+  cli
+
   ; Save return address
   push rax
   push rbx
@@ -162,7 +156,8 @@ CPUSaveContext:
   push rsp
 
   ; Load the thread vcpu
-  mov rax, gs:0
+  mov rax, [gs:0]
+  mov rax, [rax + CPU_LOCAL_STORAGE_OFF_VCPU]
 
   ; Save the old context and update the new one
   mov  rdi, [rax + VCPU_OFF_CTX]
@@ -171,6 +166,8 @@ CPUSaveContext:
 
   ; Save the FxData
   mov rdi, [rax + VCPU_OFF_FXD]
+  cmp rdi, 0
+  je __saveContextEnd
   mov rax, 0xFFFFFFFFFFFFFFFF
   mov rdx, 0xFFFFFFFFFFFFFFFF
   mov rbx, [_xSaveoptSupported]
@@ -192,6 +189,8 @@ __saveContextEnd:
 ; Param:
 ;     RDI - The VCPU of the current thread
 CPUSaveContextAndSchedule:
+  cli
+
   ; Save the current stack pointer, RAX, RDI, RSI are scratch registers
   mov rax, rsp
   mov rdx, ss
@@ -240,10 +239,12 @@ CPUSaveContextAndSchedule:
   ; Save the new context
   mov [rdi + VCPU_OFF_CTX], rsp
 
-  ; Save the FxData
+  ; Save the FxData if required
+  mov rdi, [rdi + VCPU_OFF_FXD]
+  cmp rdi, 0
+  je __saveContextEnd1
   mov rax, 0xFFFFFFFFFFFFFFFF
   mov rdx, 0xFFFFFFFFFFFFFFFF
-  mov rdi, [rdi + VCPU_OFF_FXD]
   mov rbx, [_xSaveoptSupported]
   cmp rbx, 0
   je __noXSaveopt1
@@ -264,15 +265,20 @@ __saveContextReturn:
 ; Param:
 ;     RDI - The pointer to the thread to restore
 CPURestoreContext:
+  cli
+
   ; The current thread is sent as parameter, load the VCPU
   mov rcx, [rdi]
 
   ; Restore the FxData
+  mov rsi, [rcx + VCPU_OFF_FXD]
+  cmp rsi, 0
+  je __noFxDataRestore
   mov rax, 0xFFFFFFFFFFFFFFFF
   mov rdx, 0xFFFFFFFFFFFFFFFF
-  mov rsi, [rcx + VCPU_OFF_FXD]
   xrstor64 [rsi]
 
+__noFxDataRestore:
   ; Restore the stack pointer
   mov rsp, [rcx + VCPU_OFF_CTX]
 
@@ -330,6 +336,8 @@ __noUserSwapGS:
 ;     RSI - The entry point of the thread
 ;     RDX - The arguments of the thread
 CPUEnterUserSpace:
+  cli
+
   ; Open the stack
   sub rdi, 8
   mov rsp, rdi
@@ -369,14 +377,7 @@ CPUEnterUserSpace:
 ; Param:
 ;     RDI - The user context to return to.
 CPURestoreContextFromInterruptSignal:
-  ; Restore the FxData
-  mov rsi, rdi
-  add rsi, SIG_INTERRUPT_CTX_OFF_FXDATA
-  add rsi, 0x3F
-  and rsi, 0xFFFFFFFFFFFFFFC0
-  mov rax, 0xFFFFFFFFFFFFFFFF
-  mov rdx, 0xFFFFFFFFFFFFFFFF
-  xrstor64 [rsi]
+  cli
 
   ; Restore user GS that is swapped to kernel now
   mov rax, [rdi + SIG_INTERRUPT_CTX_OFF_GSBASE]
@@ -434,6 +435,8 @@ CPURestoreContextFromInterruptSignal:
 ; Param:
 ;     RDI - The user context to return to.
 CPURestoreContextFromSyscallSignal:
+  cli
+
   ; Restore the user context
   mov rsp, [rdi + SIG_SYSCALL_CTX_OFF_RSP]
   mov rbp, [rdi + SIG_SYSCALL_CTX_OFF_RBP]
@@ -451,6 +454,26 @@ CPURestoreContextFromSyscallSignal:
 
   ; Return to user space
   o64 sysret
+
+;-------------------------------------------------------------------------------
+; Get the current CPU's local storage
+;
+; Param:
+;     None
+; Return:
+;     RAX - The handle to the current CPU's local storage.
+CPUGetLocalStorage:
+  mov rax, gs:0
+  ret
+
+;-------------------------------------------------------------------------------
+; Pause the CPU for a short duration
+;
+; Param:
+;     None
+CPUPause:
+  pause
+  ret
 
 ;-------------------------------------------------------------------------------
 ; DATA

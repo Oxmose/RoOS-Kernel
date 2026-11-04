@@ -1,0 +1,151 @@
+[INFO] Starting kernel...
+[OK] Kernel heap initialized.
+[OK] Device tree initialized.
+[OK] Interrupts initialized.
+[OK] CPU initialized.
+[OK] Memory manager initialized.
+[OK] VFS initialized.
+[OK] ProcFS initialized.
+[OK] Drivers Pre Init initialized.
+[OK] Scheduler initialized.
+[OK] Kernel worker initialized.
+[OK] Disk manager initialized.
+[OK] Time manager initialized.
+[OK] Network manager initialized.
+[ERROR] E1000 MDIO read timeout for address 0
+[INFO] X86 E1000 Driver attached to device \8086\100e
+[INFO] Detected TSC Frequency: 4295064709Hz
+[INFO] RamDisk Driver attached to node ramdisk@4A5000
+[OK] Drivers initialized.
+[INFO] Console output device: /dev/vesa
+[INFO] Console input device: /dev/kbd
+[OK] Console initialized.
+[INFO] Secondary CPU 1 Started
+[INFO] Secondary CPU 2 Started
+[INFO] Secondary CPU 3 Started
+[OK] All processors initialized.
+[INFO] Kernel started successfully.
+[INFO] Starting user space...
+[OK] User space initialized.
+
+==== ROOS Kernel Shell ==== Version 0.1
+> test
+[ERROR] E1000 device 0000:0003:0000 ioctl requested on uninitialized device
+Failed to get link status for /dev/net/enp0s3
+Link status for /dev/net/enp0s4: down
+MAC Address: 08:00:27:0C:D4:17
+[ERROR] E1000 device 0000:0003:0000 ioctl set MAC address called with invalid MAC address
+Set MAC Address to: 00:00:00:00:00:00, Result: -22
+MAC Address: 08:00:27:0C:D4:17
+[ERROR] E1000 device 0000:0003:0000 ioctl set MAC address called with invalid multicast MAC address
+Set MAC Address to: FF:FF:FF:FF:FF:FF, Result: -22
+MAC Address: 08:00:27:0C:D4:17
+[ERROR] E1000 device 0000:0003:0000 ioctl set MAC address called with invalid multicast MAC address
+Set MAC Address to: BF:9A:78:56:34:12, Result: -22
+MAC Address: 08:00:27:0C:D4:17
+Set MAC Address to: B8:9A:78:56:34:12, Result: 0
+MAC Address: B8:9A:78:56:34:12
+Wrote 15 bytes to /dev/net/enp0s4
+Wrote 15 bytes to /dev/net/enp0s4
+[DEBUG 1 | 11.299.147.946] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 122648 ns, min: 17990 ns, max: 1046379 ns)
+[DEBUG 1 | 11.821.290.560] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 69702 ns, min: 5171 ns, max: 1046379 ns)
+Network Statistics:
+  RX Packets: 28
+  TX Packets: 0
+  RX Bytes: 6104
+  TX Bytes: 0
+  Multicast: 0
+  Collisions: 0
+  RX Errors: 0
+  TX Errors: 0
+  RX Dropped: 0
+  TX Dropped: 0
+  RX Length Errors: 0
+  RX Over Errors: 0
+  RX CRC Errors: 0
+  RX Frame Errors: 0
+  RX FIFO Errors: 0
+  RX Missed Errors: 0
+  TX Aborted Errors: 0
+  TX Carrier Errors: 0
+  TX FIFO Errors: 0
+  TX Heartbeat Errors: 0
+  TX Window Errors: 0
+  RX Compressed: 0
+  TX Compressed: 0
+  RX No Handler: 0
+Network Statistics:
+  RX Packets: 0
+  TX Packets: 0
+  RX Bytes: 0
+  TX Bytes: 0
+  Multicast: 0
+  Collisions: 0
+  RX Errors: 0
+  TX Errors: 0
+  RX Dropped: 0
+  TX Dropped: 0
+  RX Length Errors: 0
+  RX Over Errors: 0
+  RX CRC Errors: 0
+  RX Frame Errors: 0
+  RX FIFO Errors: 0
+  RX Missed Errors: 0
+  TX Aborted Errors: 0
+  TX Carrier Errors: 0
+  TX FIFO Errors: 0
+  TX Heartbeat Errors: 0
+  TX Window Errors: 0
+  RX Compressed: 0
+  TX Compressed: 0
+  RX No Handler: 0
+Kernel Shell Test Command Executed
+> [DEBUG 1 | 12.371.108.528] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 51546 ns, min: 8 ns, max: 1046379 ns)
+[DEBUG 1 | 12.996.966.053] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 99028 ns, min: 8 ns, max: 1095673 ns)
+[DEBUG 1 | 13.634.690.768] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 82385 ns, min: 8 ns, max: 1095673 ns)
+[DEBUG 1 | 14.164.859.669] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 73852 ns, min: 8 ns, max: 1095673 ns)
+[DEBUG 1 | 14.690.924.778] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 70038 ns, min: 8 ns, max: 1095673 ns)
+[DEBUG 1 | 15.236.955.140] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 63138 ns, min: 8 ns, max: 1095673 ns)
+[DEBUG 1 | 15.743.166.929] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 57658 ns, min: 8 ns, max: 1095673 ns)
+[DEBUG 1 | 16.241.207.583] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 74049 ns, min: 8 ns, max: 2081174 ns)
+[DEBUG 1 | 16.763.692.970] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 87904 ns, min: 8 ns, max: 2081174 ns)
+[DEBUG 1 | 17.313.813.914] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 82469 ns, min: 8 ns, max: 2081174 ns)
+[DEBUG 1 | 17.776.168.242] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 94708 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 18.282.115.073] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 90243 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 18.804.348.508] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 86263 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 19.338.564.369] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 82809 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 19.844.591.364] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 78690 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 20.330.244.706] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 77562 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 20.832.742.603] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 83472 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 21.371.117.985] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 88217 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 21.920.959.393] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 86274 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 22.495.096.451] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 89125 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 22.989.445.339] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 85799 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 23.507.282.740] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 84603 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 24.057.480.450] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 93331 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 24.603.553.801] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 90453 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 25.116.893.791] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 105684 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 25.627.800.135] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 102521 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 26.138.087.638] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 100215 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 26.620.200.111] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 97450 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 27.182.093.596] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 99947 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 27.676.534.389] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 97212 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 28.162.837.119] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 101607 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 28.640.776.566] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 98982 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 29.147.346.979] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 97178 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 29.633.495.191] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 96194 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 30.143.727.792] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 95119 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 30.673.598.095] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 96532 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 31.144.064.125] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 94481 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 31.654.329.468] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 94139 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 32.287.999.344] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 94137 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 32.790.299.164] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 104339 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 33.439.796.677] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 102765 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 34.065.370.836] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 102308 ns, min: 8 ns, max: 2302259 ns)
+[DEBUG 1 | 34.767.697.224] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 105233 ns, min: 7 ns, max: 2302259 ns)
+[DEBUG 1 | 35.432.691.205] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 103856 ns, min: 7 ns, max: 2302259 ns)
+[DEBUG 1 | 36.154.168.228] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 104243 ns, min: 7 ns, max: 2302259 ns)
+[DEBUG 1 | 36.684.199.196] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 102442 ns, min: 7 ns, max: 2302259 ns)
+[DEBUG 1 | 37.329.817.923] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 102831 ns, min: 7 ns, max: 2302259 ns)
+[DEBUG 1 | 38.135.250.318] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 101149 ns, min: 7 ns, max: 2302259 ns)
+[DEBUG 1 | 38.780.901.385] X86 E1000 | src/E1000.c:4020 - _HandleInterruptWorker | E1000 device 0000:0003:0000 interrupt handled in: (avg: 100566 ns, min: 7 ns, max: 2302259 ns)

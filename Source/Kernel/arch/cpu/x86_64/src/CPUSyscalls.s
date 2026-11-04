@@ -29,6 +29,8 @@
 %define VCPU_OFF_HANDLE       0x20
 %define SYSCALL_RFLAGS_MASK   0x600
 
+%define CPU_LOCAL_STORAGE_OFF_VCPU 0x08
+
 ;-------------------------------------------------------------------------------
 ; MACRO DEFINE
 ;-------------------------------------------------------------------------------
@@ -43,7 +45,6 @@
 ; EXTERN FUNCTIONS
 ;-------------------------------------------------------------------------------
 extern SystemCallDispatcher
-extern CPUGetId
 extern SignalManage
 
 ;-------------------------------------------------------------------------------
@@ -113,7 +114,8 @@ CPUSystemCallInit:
 CPUSyscallHandler:
   ; Switch from user to kernel stack
   swapgs
-  mov rax, gs:0
+  mov rax, [gs:0]
+  mov rax, [rax + CPU_LOCAL_STORAGE_OFF_VCPU]
   mov [rax + VCPU_OFF_USER_STACK], rsp
   mov rsp, [rax + VCPU_OFF_KERNEL_STACK]
 
@@ -146,7 +148,8 @@ CPUSyscallHandler:
   mov [rsp], rax
 
   ; Manage signals
-  mov rdi, gs:0
+  mov rdi, [gs:0]
+  mov rdi, [rdi + CPU_LOCAL_STORAGE_OFF_VCPU]
   mov rdi, [rdi + VCPU_OFF_HANDLE]
   mov rsi, 1
   call SignalManage
@@ -165,7 +168,8 @@ CPUSyscallHandler:
   pop rbx
 
   ; Switch back to user stack
-  mov rdx, gs:0
+  mov rdx, [gs:0]
+  mov rdx, [rdx + CPU_LOCAL_STORAGE_OFF_VCPU]
   mov rsp, [rdx + VCPU_OFF_USER_STACK]
   swapgs
 

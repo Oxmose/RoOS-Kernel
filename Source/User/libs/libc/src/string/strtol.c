@@ -70,7 +70,7 @@
  * FUNCTIONS
  ******************************************************************************/
 
-long strtol(const char *pStr, char **ppEnd, int base)
+long strtol(const char* pStr, char **ppEnd, int base)
 {
     long value;
     long sign;

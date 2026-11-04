@@ -122,9 +122,11 @@ __kInitInitLM:
   mov eax, (_gdtTmp.data_32 - _gdtTmp)
   mov ds, ax
   mov es, ax
+  mov ss, ax
+
+  mov ax, 0
   mov fs, ax
   mov gs, ax
-  mov ss, ax
 
   ; Init FPU
   fninit

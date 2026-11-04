@@ -31,7 +31,6 @@
 #include <IOAPIC.h>
 #include <Critical.h>
 #include <KernelHeap.h>
-#include <DeviceTree.h>
 #include <Interrupts.h>
 #include <TimerManager.h>
 #include <DriverManager.h>
@@ -48,22 +47,12 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/** @brief FDT property for interrupt  */
-#define RTC_FDT_INT_PROP "interrupts"
-/** @brief FDT property for comm ports */
-#define RTC_FDT_COMM_PROP "comm"
-/** @brief FDT property for comm ports */
-#define RTC_FDT_QUARTZ_PROP "qartz-freq"
-/** @brief FDT property for frequency */
-#define RTC_FDT_SELFREQ_PROP "freq"
-/** @brief FDT property for frequency range */
-#define RTC_FDT_FREQRANGE_PROP "freq-range"
 
 /** @brief PROCFS directory path */
 #define PROCFS_DIR_PATH "rtc"
 
 /** @brief Initial RTC rate */
-#define RTC_INIT_RATE 10
+#define RTC_INIT_RATE_HZ 2
 
 /* CMOS registers  */
 /** @brief CMOS seconds register id. */
@@ -98,6 +87,18 @@
 /** @brief RTC IRQ number */
 #define RTC_IRQ_NUMBER 8
 
+/** @brief RTC CPU communication port */
+#define RTC_CPU_COMM_PORT 0x70
+/** @brief RTC CPU data port */
+#define RTC_CPU_DATA_PORT 0x71
+
+/** @brief RTC quartz frequency */
+#define RTC_QUART_FREQUENCY 32768
+/** @brief RTC frequency low boundary */
+#define RTC_FREQUENCY_LOW 2
+/** @brief RTC frequency high boundary */
+#define RTC_FREQUENCY_HIGH 8192
+
 /** @brief Current module name */
 #define MODULE_NAME "X86 RTC"
 
@@ -107,24 +108,14 @@
 /** @brief x86 RTC driver controller. */
 typedef struct
 {
-  /** @brief CPU command port. */
-  uint16_t cpuCommPort;
-  /** @brief CPU data port. */
-  uint16_t cpuDataPort;
   /** @brief RTC IRQ number. */
   uint8_t irqNumber;
-  /** @brief Main quarts frequency. */
-  uint64_t quartzFrequency;
   /** @brief Selected interrupt frequency. */
   uint64_t selectedFrequency;
-  /** @brief Frequency range low. */
-  uint64_t frequencyLow;
-  /** @brief Frequency range low. */
-  uint64_t frequencyHigh;
   /** @brief Keeps track on the RTC enabled state. */
   uint32_t disabledNesting;
   /** @brief Driver's lock */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
 } S_RTCControler;
 
 /*******************************************************************************
@@ -157,15 +148,12 @@ typedef struct
 /**
  * @brief Attaches the RTC driver to the system.
  *
- * @details Attaches the RTC driver to the system. This function will use the
- * FDT to initialize the RTC hardware and retreive the RTC parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ * @details Attaches the RTC driver to the system. This function will initialize
+ * the RTC hardware and retreive the RTC parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _Attach(const S_FDTNode* kpFdtNode);
+static E_Return _Attach(void);
 
 /**
  * @brief Initial RTC interrupt handler.
@@ -378,12 +366,12 @@ static E_Return _CreateProcFSEntry(void);
 
 /************************** Static global variables ***************************/
 /** @brief RTC driver instance. */
-static S_Driver sX86RTCDriver =
+static S_LayerDriver  sX86RTCDriver =
 {
   .pName         = "X86 RTC Driver",
   .pDescription  = "X86 Real Time Clock Driver for roOs",
-  .pCompatible   = "x86,x86-rtc",
   .pVersion      = "2.0",
+  .layer         = 2,
   .pDriverAttach = _Attach
 };
 
@@ -407,23 +395,20 @@ static S_RTCControler* spDrvCtrl = NULL;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-
-static E_Return _Attach(const S_FDTNode* kpFdtNode)
+static E_Return _Attach(void)
 {
-  const uint32_t* kpUintProp;
-  size_t          propLen;
-  E_Return        retCode;
-  int8_t          prevOred;
-  int8_t          prevRate;
-  S_KernelTimer*  pTimerDrv;
-  E_Return        error;
+  E_Return       retCode;
+  int8_t         prevOred;
+  int8_t         prevRate;
+  S_KernelTimer* pTimerDrv;
+  E_Return       error;
 
   if (spDrvCtrl == NULL)
   {
     /* Init structures */
     spDrvCtrl = KMalloc(sizeof(S_RTCControler), KMALLOC_NO_FREE_POOL);
     memset(spDrvCtrl, 0, sizeof(S_RTCControler));
-    KERNEL_SPINLOCK_INIT(spDrvCtrl->lock);
+    SPINLOCK_INIT(spDrvCtrl->lock);
 
     pTimerDrv = KMalloc(sizeof(S_KernelTimer), KMALLOC_NO_FREE_POOL);
     memset(pTimerDrv, 0, sizeof(S_KernelTimer));
@@ -438,75 +423,30 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
     pTimerDrv->pTickManager   = _AckowledgeInt;
     pTimerDrv->pDriverCtrl    = spDrvCtrl;
 
-    /* Get IRQ lines */
-    kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_INT_PROP, &propLen);
-    RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
-                "Invalid RTC property.",
-                ERR_INVALID_VALUE);
-
     spDrvCtrl->irqNumber = AllocateInterruptLine();
     RTC_ASSERT(spDrvCtrl->irqNumber >= 0,
                "Failed to allocate interrupt line.",
                ERR_EXCEEDED_LIMIT);
-
-    /* Get communication ports */
-    kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_COMM_PROP, &propLen);
-    RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
-                "Invalid RTC property.",
-                ERR_INVALID_VALUE);
-    spDrvCtrl->cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
-    spDrvCtrl->cpuDataPort = (uint16_t)FDTTOCPU32(*(kpUintProp + 1));
-
-    /* Get quartz frequency */
-    kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_QUARTZ_PROP, &propLen);
-    RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-                "Invalid RTC property.",
-                ERR_INVALID_VALUE);
-    spDrvCtrl->quartzFrequency = FDTTOCPU32(*kpUintProp);
-
-
-    /* Get selected frequency */
-    kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_SELFREQ_PROP, &propLen);
-    RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-                "Invalid RTC property.",
-                ERR_INVALID_VALUE);
-    spDrvCtrl->selectedFrequency = FDTTOCPU32(*kpUintProp);
-
-    /* Get the frequency range */
-    kpUintProp = FDTGetProp(kpFdtNode, RTC_FDT_FREQRANGE_PROP, &propLen);
-    RTC_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t) * 2,
-                "Invalid RTC property.",
-                ERR_INVALID_VALUE);
-    spDrvCtrl->frequencyLow  = (uint32_t)FDTTOCPU32(*kpUintProp);
-    spDrvCtrl->frequencyHigh = (uint32_t)FDTTOCPU32(*(kpUintProp + 1));
-
-
-    /* Check if frequency is within bounds */
-    RTC_ASSERT(spDrvCtrl->frequencyLow <= spDrvCtrl->selectedFrequency,
-                "RTC frequency too low.",
-                ERR_INVALID_VALUE);
-    RTC_ASSERT(spDrvCtrl->frequencyHigh >= spDrvCtrl->selectedFrequency,
-                "RTC frequency too high.",
-                ERR_INVALID_VALUE);
+    spDrvCtrl->selectedFrequency = RTC_INIT_RATE_HZ;
 
     /* Init system times */
     spDrvCtrl->disabledNesting = 1;
 
     /* Init CMOS IRQ8 */
     CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_B,
-                    spDrvCtrl->cpuCommPort);
-    prevOred = CPUPortReadByte(spDrvCtrl->cpuDataPort);
+                    RTC_CPU_COMM_PORT);
+    prevOred = CPUPortReadByte(RTC_CPU_DATA_PORT);
     CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_B,
-                    spDrvCtrl->cpuCommPort);
-    CPUPortWriteByte(prevOred | CMOS_ENABLE_RTC, spDrvCtrl->cpuDataPort);
+                    RTC_CPU_COMM_PORT);
+    CPUPortWriteByte(prevOred | CMOS_ENABLE_RTC, RTC_CPU_DATA_PORT);
 
     /* Init CMOS IRQ8 rate */
     CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_A,
-                    spDrvCtrl->cpuCommPort);
-    prevRate = CPUPortReadByte(spDrvCtrl->cpuDataPort);
+                    RTC_CPU_COMM_PORT);
+    prevRate = CPUPortReadByte(RTC_CPU_DATA_PORT);
     CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_A,
-                    spDrvCtrl->cpuCommPort);
-    CPUPortWriteByte((prevRate & 0xF0) | RTC_INIT_RATE, spDrvCtrl->cpuDataPort);
+                    RTC_CPU_COMM_PORT);
+    CPUPortWriteByte((prevRate & 0xF0) | RTC_INIT_RATE_HZ, RTC_CPU_DATA_PORT);
 
     /* Set RTC frequency */
     _SetFrequency(spDrvCtrl, spDrvCtrl->selectedFrequency);
@@ -514,21 +454,18 @@ static E_Return _Attach(const S_FDTNode* kpFdtNode)
     /* Just dummy read register C to unlock interrupt */
     _AckowledgeInt(spDrvCtrl);
 
+    error = TimeManagerAddTimer(pTimerDrv, RTC_TIMER);
+    RTC_ASSERT(error == NO_ERROR,
+               "Failed to register the RTC driver in the timer manager",
+               error);
+
     /* Register the ProcFS driver */
     retCode = _CreateProcFSEntry();
-    if (retCode == NO_ERROR)
-    {
-      /* Set the API driver */
-      retCode = DriverManagerSetDeviceData(kpFdtNode, pTimerDrv);
+    RTC_ASSERT(retCode == NO_ERROR,
+               "Failed to create ProcFS entry",
+               retCode);
 
-      if (retCode != NO_ERROR)
-      {
-        error = ProcFSRemoveEntry(PROCFS_DIR_PATH, spProcFSEntry);
-        RTC_ASSERT(error == NO_ERROR,
-                  "Failed to remove ProcFS entry.",
-                  ERR_UNAUTHORIZED_ACTION);
-      }
-    }
+    _Enable(spDrvCtrl);
   }
   else
   {
@@ -551,7 +488,7 @@ static void _Enable(void* pDrvCtrl)
 
   pRtcCtrl = GET_CONTROLER(pDrvCtrl);
 
-  KERNEL_LOCK(pRtcCtrl->lock);
+  SpinlockAcquire(&pRtcCtrl->lock);
 
   if (pRtcCtrl->disabledNesting > 0)
   {
@@ -560,14 +497,14 @@ static void _Enable(void* pDrvCtrl)
 
   if (pRtcCtrl->disabledNesting == 0 && pRtcCtrl->selectedFrequency != 0)
   {
-        IOAPICSetupIRQ(RTC_IRQ_NUMBER,
-                       spDrvCtrl->irqNumber,
-                       CPUGetLAPICId(),
-                       IOAPIC_TRIGGER_MODE_EDGE,
-                       IOAPIC_POLARITY_HIGH);
+    IOAPICSetupIRQ(RTC_IRQ_NUMBER,
+                   spDrvCtrl->irqNumber,
+                   0,
+                   IOAPIC_TRIGGER_MODE_EDGE,
+                   IOAPIC_POLARITY_HIGH);
   }
 
-  KERNEL_UNLOCK(pRtcCtrl->lock);
+  SpinlockRelease(&pRtcCtrl->lock);
 }
 
 static void _Disable(void* pDrvCtrl)
@@ -576,7 +513,7 @@ static void _Disable(void* pDrvCtrl)
 
   pRtcCtrl = GET_CONTROLER(pDrvCtrl);
 
-  KERNEL_LOCK(pRtcCtrl->lock);
+  SpinlockAcquire(&pRtcCtrl->lock);
 
   if (pRtcCtrl->disabledNesting < UINT32_MAX)
   {
@@ -585,7 +522,7 @@ static void _Disable(void* pDrvCtrl)
 
   IOAPICDisableIRQ(RTC_IRQ_NUMBER);
 
-  KERNEL_UNLOCK(pRtcCtrl->lock);
+  SpinlockRelease(&pRtcCtrl->lock);
 }
 
 static void _SetFrequency(void* pDrvCtrl, const uint64_t kFrequency)
@@ -596,8 +533,7 @@ static void _SetFrequency(void* pDrvCtrl, const uint64_t kFrequency)
 
   pRtcCtrl = GET_CONTROLER(pDrvCtrl);
 
-  if (kFrequency >= pRtcCtrl->frequencyLow &&
-     kFrequency <= pRtcCtrl->frequencyHigh)
+  if (kFrequency >= RTC_FREQUENCY_LOW && kFrequency <= RTC_FREQUENCY_HIGH)
   {
     /* Choose the closest rate to the frequency */
     if (kFrequency < 4)
@@ -653,20 +589,20 @@ static void _SetFrequency(void* pDrvCtrl, const uint64_t kFrequency)
       rate = 3;
     }
 
-    KERNEL_LOCK(pRtcCtrl->lock);
+    SpinlockAcquire(&pRtcCtrl->lock);
 
     /* Set clock frequency */
     /* Init CMOS IRQ8 rate */
     CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_A,
-                     pRtcCtrl->cpuCommPort);
-    prevRate = CPUPortReadByte(pRtcCtrl->cpuDataPort);
+                     RTC_CPU_COMM_PORT);
+    prevRate = CPUPortReadByte(RTC_CPU_DATA_PORT);
     CPUPortWriteByte((CMOS_NMI_DISABLE_BIT << 7) | CMOS_REG_A,
-                     pRtcCtrl->cpuCommPort);
-    CPUPortWriteByte((prevRate & 0xF0) | rate, pRtcCtrl->cpuDataPort);
+                     RTC_CPU_COMM_PORT);
+    CPUPortWriteByte((prevRate & 0xF0) | rate, RTC_CPU_DATA_PORT);
 
-    pRtcCtrl->selectedFrequency = (pRtcCtrl->quartzFrequency >> (rate - 1));
+    pRtcCtrl->selectedFrequency = (RTC_QUART_FREQUENCY >> (rate - 1));
 
-    KERNEL_UNLOCK(pRtcCtrl->lock);
+    SpinlockRelease(&pRtcCtrl->lock);
   }
 }
 
@@ -689,9 +625,9 @@ static E_Return _SetHandler(void* pDrvCtrl, T_InterruptHandler handler)
   {
     pRtcCtrl = GET_CONTROLER(pDrvCtrl);
 
-    KERNEL_LOCK(pRtcCtrl->lock);
+    SpinlockAcquire(&pRtcCtrl->lock);
     err = InterruptRegister(pRtcCtrl->irqNumber, handler);
-    KERNEL_UNLOCK(pRtcCtrl->lock);
+    SpinlockRelease(&pRtcCtrl->lock);
   }
   else
   {
@@ -726,49 +662,45 @@ static S_Date _GetDate(void* pDrvCtrl)
 
 static void _UpdateTime(void* pDrvCtrl, S_Date* pDate, S_DayTime* pTime)
 {
-  uint8_t          century;
-  uint8_t          regB;
-  uint16_t         commPort;
-  uint16_t         dataPort;
+  uint8_t         century;
+  uint8_t         regB;
   S_RTCControler* pRtcCtrl;
 
   pRtcCtrl = GET_CONTROLER(pDrvCtrl);
-  commPort = pRtcCtrl->cpuCommPort;
-  dataPort = pRtcCtrl->cpuDataPort;
 
-  KERNEL_LOCK(pRtcCtrl->lock);
+  SpinlockAcquire(&pRtcCtrl->lock);
 
   /* Select CMOS seconds register and read */
-  CPUPortWriteByte(CMOS_SECONDS_REGISTER, commPort);
-  pTime->seconds = CPUPortReadByte(dataPort);
+  CPUPortWriteByte(CMOS_SECONDS_REGISTER, RTC_CPU_COMM_PORT);
+  pTime->seconds = CPUPortReadByte(RTC_CPU_DATA_PORT);
 
   /* Select CMOS minutes register and read */
-  CPUPortWriteByte(CMOS_MINUTES_REGISTER, commPort);
-  pTime->minutes = CPUPortReadByte(dataPort);
+  CPUPortWriteByte(CMOS_MINUTES_REGISTER, RTC_CPU_COMM_PORT);
+  pTime->minutes = CPUPortReadByte(RTC_CPU_DATA_PORT);
 
   /* Select CMOS hours register and read */
-  CPUPortWriteByte(CMOS_HOURS_REGISTER, commPort);
-  pTime->hours = CPUPortReadByte(dataPort);
+  CPUPortWriteByte(CMOS_HOURS_REGISTER, RTC_CPU_COMM_PORT);
+  pTime->hours = CPUPortReadByte(RTC_CPU_DATA_PORT);
 
   /* Select CMOS day register and read */
-  CPUPortWriteByte(CMOS_DAY_REGISTER, commPort);
-  pDate->day = CPUPortReadByte(dataPort);
+  CPUPortWriteByte(CMOS_DAY_REGISTER, RTC_CPU_COMM_PORT);
+  pDate->day = CPUPortReadByte(RTC_CPU_DATA_PORT);
 
   /* Select CMOS month register and read */
-  CPUPortWriteByte(CMOS_MONTH_REGISTER, commPort);
-  pDate->month = CPUPortReadByte(dataPort);
+  CPUPortWriteByte(CMOS_MONTH_REGISTER, RTC_CPU_COMM_PORT);
+  pDate->month = CPUPortReadByte(RTC_CPU_DATA_PORT);
 
   /* Select CMOS years register and read */
-  CPUPortWriteByte(CMOS_YEAR_REGISTER, commPort);
-  pDate->year = CPUPortReadByte(dataPort);
+  CPUPortWriteByte(CMOS_YEAR_REGISTER, RTC_CPU_COMM_PORT);
+  pDate->year = CPUPortReadByte(RTC_CPU_DATA_PORT);
 
   /* Select CMOS century register and read */
-  CPUPortWriteByte(CMOS_CENTURY_REGISTER, commPort);
-  century = CPUPortReadByte(dataPort);
+  CPUPortWriteByte(CMOS_CENTURY_REGISTER, RTC_CPU_COMM_PORT);
+  century = CPUPortReadByte(RTC_CPU_DATA_PORT);
 
   /* Convert BCD to binary if necessary */
-  CPUPortWriteByte(CMOS_REG_B, commPort);
-  regB = CPUPortReadByte(dataPort);
+  CPUPortWriteByte(CMOS_REG_B, RTC_CPU_COMM_PORT);
+  regB = CPUPortReadByte(RTC_CPU_DATA_PORT);
 
   if ((regB & 0x04) == 0)
   {
@@ -807,7 +739,7 @@ static void _UpdateTime(void* pDrvCtrl, S_Date* pDate, S_DayTime* pTime)
   pDate->weekday = ((pDate->day + pDate->month + pDate->year + pDate->year / 4)
                      + 1) % 7 + 1;
 
-  KERNEL_UNLOCK(pRtcCtrl->lock);
+  SpinlockRelease(&pRtcCtrl->lock);
 }
 
 static void _AckowledgeInt(void* pDrvCtrl)
@@ -817,8 +749,8 @@ static void _AckowledgeInt(void* pDrvCtrl)
   pRtcCtrl = GET_CONTROLER(pDrvCtrl);
 
   /* Clear C Register */
-  CPUPortWriteByte(CMOS_REG_C, pRtcCtrl->cpuCommPort);
-  CPUPortReadByte(pRtcCtrl->cpuDataPort);
+  CPUPortWriteByte(CMOS_REG_C, RTC_CPU_COMM_PORT);
+  CPUPortReadByte(RTC_CPU_DATA_PORT);
 
   /* Set EOI */
   InterruptSetEOI(pRtcCtrl->irqNumber);
@@ -902,10 +834,10 @@ static ssize_t _ProcFSRead(void*  pDriverData,
                     "Ports 0x%x (Comm) 0x%x (Data)\n"
                     "IRQ Identifier: %d\n"
                     "Qartz Frequency: %llu Hz\n",
-                    spDrvCtrl->cpuCommPort,
-                    spDrvCtrl->cpuDataPort,
+                    RTC_CPU_COMM_PORT,
+                    RTC_CPU_DATA_PORT,
                     spDrvCtrl->irqNumber,
-                    spDrvCtrl->quartzFrequency
+                    RTC_QUART_FREQUENCY
                   );
     written = size - bufferOffset;
 
@@ -933,8 +865,8 @@ static ssize_t _ProcFSRead(void*  pDriverData,
                       "Frequency Range: [%d; %d]\n"
                       "Nesting: %d\n",
                       spDrvCtrl->selectedFrequency,
-                      spDrvCtrl->frequencyLow,
-                      spDrvCtrl->frequencyHigh,
+                      RTC_FREQUENCY_LOW,
+                      RTC_FREQUENCY_HIGH,
                       spDrvCtrl->disabledNesting);
       written = size - bufferOffset;
 
@@ -1012,6 +944,6 @@ static E_Return _CreateProcFSEntry(void)
 
 
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86RTCDriver);
+DRIVERMGR_REG_LAYER(sX86RTCDriver);
 
 /************************************ EOF *************************************/

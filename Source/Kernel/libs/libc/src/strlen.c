@@ -70,9 +70,9 @@
  * FUNCTIONS
  ******************************************************************************/
 
-size_t strlen(const char *s)
+size_t strlen(const char* s)
 {
-    const char *ss = s;
+    const char* ss = s;
     while (*ss)
         ss++;
     return ss - s;

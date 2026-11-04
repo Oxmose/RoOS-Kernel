@@ -121,7 +121,7 @@ typedef struct S_KernelProcess
    * Resources management
    *************************************/
   /** @brief The process' structure lock */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
   /** @brie Stores the file descriptors used by the process. */
   void* pFileDescriptorTable;
   /** @brief Stores the memory management data for the process */
@@ -135,7 +135,7 @@ typedef struct S_KernelProcess
   /** @brief The set of signal handlers for the thread */
   void* signalHandlers[THREAD_MAX_SIGNALS];
   /** @brief Signal lock */
-  S_KernelSpinlock signalLock;
+  T_Spinlock signalLock;
 
   /**************************************
    * Thread Local Storage management
@@ -167,7 +167,7 @@ typedef struct S_KernelProcess
   /** @brief Stores the ProcFS entry for the process file descriptors */
   void* pProcFSFileDescriptorsEntry;
   /** @brief The lock for the ProcFS management */
-  S_KernelSpinlock procFSLock;
+  T_Spinlock procFSLock;
 } S_Process;
 
 /**
@@ -273,19 +273,23 @@ typedef struct S_KernelThread
   /** @brief The set of blocked signals for the thread */
   uint64_t blockedSignals;
   /** @brief Signal lock */
-  S_KernelSpinlock signalLock;
+  T_Spinlock signalLock;
 
   /**************************************
    * Resources management
    *************************************/
   /** @brief The thread's structure lock */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
   /** @brief Flags that tells if the thread can safelly be scheduled */
   volatile uint32_t isScheduled;
   /** @brief Thread's error table */
   S_ErrorTable errorTable;
   /** @brief The thread local storage region pointer. */
   S_UserThread* pUserThreadData;
+  /** @brief Stores the preemption count for the thread. */
+  uint32_t preemptionCount;
+  /** @brief Stores if the thread needs to be rescheduled. */
+  bool needReschedule;
 
   /**************************************
    * ProcFS management
@@ -297,6 +301,23 @@ typedef struct S_KernelThread
   /** @brief Stores the ProcFS entry for the process scheduler statistics */
   void* pProcFSSchedulerStatsEntry;
 } S_KernelThread;
+
+/** @brief Structure that holds the local data for each CPU. */
+typedef struct S_CPULocalData
+{
+  /** @brief Pointer to itself, used for fast access to the local data. */
+  struct S_CPULocalData* pSelf;
+  /** @brief Reserved data for the CPU. */
+  void* cpuReservedData;
+  /** @brief Pointer to the current thread running on the CPU. */
+  S_KernelThread* pCurrentThread;
+  /** @brief Pointer to the current process running on the CPU. */
+  S_KernelProcess* pCurrentProcess;
+  /** @brief CPU identifier. */
+  uint32_t cpuId;
+  /** @brief Padding, must be kept for 64 bytes alignement */
+  uint8_t padding[28];
+} S_CPULocalData;
 
 /*******************************************************************************
  * MACROS

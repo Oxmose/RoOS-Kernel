@@ -56,7 +56,14 @@
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-/* None */
+/**
+ * @brief Returns the TSC count frequency in NS.
+ *
+ * @details Returns the TSC count frequency in NS.
+ *
+ * @return The TSC count frequency in NS is returned.
+ */
+uint64_t TSCGetTimeNs(void);
 
 #endif /* #ifndef __X86_TSC_H_ */
 

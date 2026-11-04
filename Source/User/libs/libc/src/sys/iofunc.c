@@ -71,7 +71,7 @@ static int sSTDout = -1;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-ssize_t write(int fd, const void *buf, size_t count)
+ssize_t write(int fd, const void* buf, size_t count)
 {
   ssize_t retVal;
 
@@ -98,7 +98,7 @@ ssize_t write(int fd, const void *buf, size_t count)
   return retVal;
 }
 
-ssize_t read(int fd, void *buf, size_t count)
+ssize_t read(int fd, void* buf, size_t count)
 {
   ssize_t retVal;
 
@@ -126,7 +126,7 @@ ssize_t read(int fd, void *buf, size_t count)
 }
 
 int readdir(int fd,
-            struct dirent *pDirent,
+            struct dirent* pDirent,
             unsigned int count)
 {
   int retVal;
@@ -208,7 +208,7 @@ int close(int fd)
   return retVal;
 }
 
-int open(const char *pathname, int flags, mode_t mode)
+int open(const char* pathname, int flags, mode_t mode)
 {
   int retVal;
 
@@ -235,7 +235,7 @@ int open(const char *pathname, int flags, mode_t mode)
   return retVal;
 }
 
-int printf(const char *format, ...)
+int printf(const char* format, ...)
 {
   int               retVal;
   int               bufferSize;

@@ -91,17 +91,28 @@
  * attach function is called.
  *
  * @param[in] kpNode The node to start the walk from.
+ */
+static void _WalkFdtNodes(const S_FDTNode* kpNode);
+
+/**
+ * @brief Initializes the layer drivers.
+ *
+ * @details Initializes the layer drivers. This function will walk the list of
+ * registered layer drivers and call their attach function.
+ *
  * @param[in] kPreInit Tells if the pre-init attach nodes should be attached.
  */
-static void _WalkFdtNodes(const S_FDTNode* kpNode, const bool kPreInit);
+static void _InitLayerDrivers(const bool kPreInit);
 
 /*******************************************************************************
  * GLOBAL VARIABLES
  ******************************************************************************/
 
 /************************* Imported global variables **************************/
-/** @brief Start address of the registered kernel drivers table */
-extern uintptr_t _START_DRV_TABLE_ADDR;
+/** @brief Start address of the registered layer kernel drivers table */
+extern uintptr_t _START_LYR_DRV_TABLE_ADDR;
+/** @brief Start address of the registered FDT kernel drivers table */
+extern uintptr_t _START_FDT_DRV_TABLE_ADDR;
 
 /************************* Exported global variables **************************/
 /* None */
@@ -112,12 +123,11 @@ extern uintptr_t _START_DRV_TABLE_ADDR;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static void _WalkFdtNodes(const S_FDTNode* kpNode, const bool kPreInit)
+static void _WalkFdtNodes(const S_FDTNode* kpNode)
 {
   const char*     kpCompatible;
   const char*     kpStatus;
-  const uint32_t* kpPreInit;
-  S_Driver*       pDriver;
+  S_FDTDriver*    pDriver;
   uintptr_t       driverTableCursor;
   size_t          propLen;
   E_Return        retCode;
@@ -127,80 +137,119 @@ static void _WalkFdtNodes(const S_FDTNode* kpNode, const bool kPreInit)
     kpStatus = FDTGetProp(kpNode, STATUS_PROP_NAME, &propLen);
     if (kpStatus == NULL || (propLen == 5 && strcmp(kpStatus, "okay") == 0))
     {
-      /* Check pre-init state */
-      kpPreInit = FDTGetProp(kpNode, PRE_INIT_PROP_NAME, &propLen);
-      if ((kpPreInit != NULL && kPreInit == true) ||
-          (kpPreInit == NULL && kPreInit == false))
+      /* Get the node compatible */
+      kpCompatible = FDTGetProp(kpNode, COMPATIBLE_PROP_NAME, &propLen);
+      if (kpCompatible != NULL && propLen > 0)
       {
-        /* Get the node compatible */
-        kpCompatible = FDTGetProp(kpNode, COMPATIBLE_PROP_NAME, &propLen);
-        if (kpCompatible != NULL && propLen > 0)
-        {
-          /* Get the head of the registered drivers section */
-          driverTableCursor = (uintptr_t)&_START_DRV_TABLE_ADDR;
-          pDriver = *(S_Driver**)driverTableCursor;
+        /* Get the head of the registered drivers section */
+        driverTableCursor = (uintptr_t)&_START_FDT_DRV_TABLE_ADDR;
+        pDriver = *(S_FDTDriver**)driverTableCursor;
 
-          /* Compare with the list of registered drivers */
-          while (pDriver != NULL)
+        /* Compare with the list of registered drivers */
+        while (pDriver != NULL)
+        {
+          if (strcmp(pDriver->pCompatible, kpCompatible) == 0)
           {
-            if (strcmp(pDriver->pCompatible, kpCompatible) == 0)
+            retCode =pDriver->pDriverAttach(kpNode);
+            if (retCode != NO_ERROR)
             {
-              retCode =pDriver->pDriverAttach(kpNode);
-              if (retCode != NO_ERROR)
-              {
-                KERNEL_ERROR("%s failed to attach to node %s with error %d\n",
-                             pDriver->pName,
-                             kpNode->pName,
-                             retCode);
-              }
-              else
-              {
-                KERNEL_INFO("%s attached to node %s\n",
+              KERNEL_ERROR("%s failed to attach to node %s with error %d\n",
                             pDriver->pName,
-                            kpNode->pName);
-              }
+                            kpNode->pName,
+                            retCode);
             }
-            driverTableCursor += sizeof(uintptr_t);
-            pDriver = *(S_Driver**)driverTableCursor;
+            else
+            {
+              KERNEL_INFO("%s attached to node %s\n",
+                          pDriver->pName,
+                          kpNode->pName);
+            }
           }
+          driverTableCursor += sizeof(uintptr_t);
+          pDriver = *(S_FDTDriver**)driverTableCursor;
         }
       }
     }
 
     /* Got to next nodes */
-    _WalkFdtNodes(FDTGetChild(kpNode), kPreInit);
-    _WalkFdtNodes(FDTGetNextNode(kpNode), kPreInit);
+    _WalkFdtNodes(FDTGetChild(kpNode));
+    _WalkFdtNodes(FDTGetNextNode(kpNode));
+  }
+}
+
+static void _InitLayerDrivers(const bool kPreInit)
+{
+  uint32_t       currentLayer;
+  uint32_t       maxLayer;
+  S_LayerDriver* pLayerDriver;
+  uintptr_t      driverTableCursor;
+
+  /* Initialize the layer drivers */
+  if (kPreInit == true)
+  {
+    maxLayer     = 0;
+    currentLayer = 0;
+  }
+  else
+  {
+    maxLayer     = 1;
+    currentLayer = 1;
+  }
+  while (currentLayer <= maxLayer)
+  {
+    if (kPreInit == true && currentLayer > 0)
+    {
+      break;
+    }
+    KERNEL_DEBUG(DRIVER_MGR_DEBUG_ENABLED,
+                  MODULE_NAME,
+                  "Attaching layer drivers for layer %d",
+                  currentLayer);
+    driverTableCursor = (uintptr_t)&_START_LYR_DRV_TABLE_ADDR;
+    pLayerDriver = *(S_LayerDriver**) driverTableCursor;
+    while (pLayerDriver != NULL)
+    {
+      if (pLayerDriver->layer > maxLayer)
+      {
+        maxLayer = pLayerDriver->layer;
+      }
+      if (pLayerDriver->layer == currentLayer)
+      {
+        KERNEL_DEBUG(DRIVER_MGR_DEBUG_ENABLED,
+                      MODULE_NAME,
+                      "Attaching layer driver %s",
+                      pLayerDriver->pName);
+        pLayerDriver->pDriverAttach();
+      }
+      driverTableCursor += sizeof(uintptr_t);
+      pLayerDriver = *(S_LayerDriver**)driverTableCursor;
+    }
+
+    KERNEL_DEBUG(DRIVER_MGR_DEBUG_ENABLED,
+                  MODULE_NAME,
+                  "Finished attaching layer drivers for layer %d",
+                  currentLayer);
+
+    ++currentLayer;
   }
 }
 
 void DriverManagerInit(const bool kPreInit)
 {
   const S_FDTNode* kpFdtRootNode;
-  S_Driver*        pDriver;
-  uintptr_t        driverTableCursor;
 
-  /* Display list of registered drivers */
-  driverTableCursor = (uintptr_t)&_START_DRV_TABLE_ADDR;
-  pDriver           = *(S_Driver**)driverTableCursor;
-
-  while (pDriver != NULL)
-  {
-    KERNEL_DEBUG(DRIVER_MGR_DEBUG_ENABLED,
-                 MODULE_NAME,
-                 "%s -> %s - %s",
-                 kPreInit ? "Pre Init:" : "Init:",
-                 pDriver->pName,
-                 pDriver->pDescription);
-    driverTableCursor += sizeof(uintptr_t);
-    pDriver           = *(S_Driver**)driverTableCursor;
-  }
+  /* Initialize the layer drivers */
+  _InitLayerDrivers(kPreInit);
 
   /* Get the FDT root node and walk it to register drivers */
-  kpFdtRootNode = FDTGetRoot();
-  if (kpFdtRootNode != NULL)
+  if (kPreInit == false)
   {
-    /* Perform the registration */
-    _WalkFdtNodes(kpFdtRootNode, kPreInit);
+    kpFdtRootNode = FDTGetRoot();
+    if (kpFdtRootNode != NULL)
+    {
+      /* Perform the registration */
+      _WalkFdtNodes(kpFdtRootNode);
+    }
   }
 }
 

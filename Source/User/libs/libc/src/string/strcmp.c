@@ -70,10 +70,10 @@
  * FUNCTIONS
  ******************************************************************************/
 
-int strcmp(const char *s1, const char *s2)
+int strcmp(const char* s1, const char* s2)
 {
-    const unsigned char *c1 = (const unsigned char *)s1;
-    const unsigned char *c2 = (const unsigned char *)s2;
+    const unsigned char* c1 = (const unsigned char *)s1;
+    const unsigned char* c2 = (const unsigned char *)s2;
     int d = 0;
 
     while (1) {

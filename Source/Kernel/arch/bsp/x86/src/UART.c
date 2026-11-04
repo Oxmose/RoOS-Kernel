@@ -32,7 +32,6 @@
 #include <X64Cpu.h>
 #include <Critical.h>
 #include <VirtualFS.h>
-#include <DeviceTree.h>
 #include <KernelHeap.h>
 #include <KernelError.h>
 #include <DebugOutput.h>
@@ -50,18 +49,8 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-
 /** @brief Current module name */
 #define MODULE_NAME "X86 UART"
-
-/** @brief FDT property for baudrate */
-#define UART_FDT_RATE_PROP   "baudrate"
-/** @brief FDT property for comm ports */
-#define UART_FDT_COMM_PROP   "comm"
-/** @brief FDT property for interrupt  */
-#define UART_FDT_INT_PROP "interrupts"
-/** @brief FDT property for device path */
-#define UART_FDT_DEVICE_PROP "device"
 
 /** @brief Serial data length flag: 5 bits. */
 #define SERIAL_DATA_LENGTH_5 0x00
@@ -111,6 +100,12 @@
 #define SERIAL_FIFO_DEPTH_14     0x00
 /** @brief Serial fifo depth flag: 64 bits. */
 #define SERIAL_FIFO_DEPTH_64     0x10
+
+/** @brief Defines the port that is used for the first communication port. */
+#define COMM0_PORT 0x3F8
+
+/** @brief Comm 0 device path */
+#define COMM0_DEVICE_PATH "/dev/uart/0"
 
 /**
  * @brief Computes the data port for the serial port which base port ID is
@@ -218,7 +213,7 @@ typedef struct
   /** @brief Baudrate */
   E_UARTBaudrate baudrate;
   /** @brief Driver's lock */
-  S_KernelSpinlock lock;
+  T_Spinlock lock;
   /** @brief Device path */
   const char* kpDevicePath;
   /** @brief VFS driver */
@@ -253,15 +248,12 @@ typedef struct
 /**
  * @brief Attaches the UART driver to the system.
  *
- * @details Attaches the UART driver to the system. This function will use the
- * FDT to initialize the UART hardware and retreive the UART parameters.
- *
- * @param[in] kpFdtNode The FDT node with the compatible declared
- * by the driver.
+ * @details Attaches the UART driver to the system. This function will
+ * initialize the UART hardware and retreive the UART parameters.
  *
  * @return The success state or the error code.
  */
-static E_Return _UartAttach(const S_FDTNode* kpFdtNode);
+static E_Return _UartAttach(void);
 
 /**
  * @brief Sets line parameters for the desired port.
@@ -403,23 +395,20 @@ static ssize_t _VFSWrite(void*       pDrvCtrl,
 
 /************************** Static global variables ***************************/
 /** @brief UART driver instance. */
-static S_Driver sX86UARTDriver =
+static S_LayerDriver  sX86UARTDriver =
 {
   .pName          = "X86 UART Driver",
   .pDescription   = "X86 UART Driver for roOs",
-  .pCompatible    = "x86,x86-generic-serial",
   .pVersion       = "2.1",
+  .layer          = 2,
   .pDriverAttach  = _UartAttach,
 };
 
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static E_Return _UartAttach(const S_FDTNode* kpFdtNode)
+static E_Return _UartAttach(void)
 {
-  const uint32_t*  kpUintProp;
-  const char*      kpStrProp;
-  size_t           propLen;
   E_Return         retCode;
   S_UARTControler* pDrvCtrl;
   E_UARTBaudrate   baudRate;
@@ -427,33 +416,13 @@ static E_Return _UartAttach(const S_FDTNode* kpFdtNode)
   /* Init structures */
   pDrvCtrl = KMalloc(sizeof(S_UARTControler), KMALLOC_NO_FREE_POOL);
 
-  KERNEL_SPINLOCK_INIT(pDrvCtrl->lock);
+  SPINLOCK_INIT(pDrvCtrl->lock);
 
   retCode = ERR_INVALID_PARAMETER;
 
-  /* Get the UART CPU communication ports */
-  kpUintProp = FDTGetProp(kpFdtNode, UART_FDT_COMM_PROP, &propLen);
-  UART_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-              "Failed to get the UART comm port",
-              retCode);
-
-  pDrvCtrl->cpuCommPort = (uint16_t)FDTTOCPU32(*kpUintProp);
-
-  /* Get the UART CPU baudrate */
-  kpUintProp = FDTGetProp(kpFdtNode, UART_FDT_RATE_PROP, &propLen);
-  UART_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-              "Failed to get the UART baudrate",
-              retCode);
-
-  pDrvCtrl->baudrate = FDTTOCPU32(*kpUintProp);
-
-  /* Get the device path */
-  kpStrProp = FDTGetProp(kpFdtNode, UART_FDT_DEVICE_PROP, &propLen);
-  UART_ASSERT(kpStrProp != NULL && propLen > 0,
-              "Failed to get the UART device path",
-              retCode);
-
-  pDrvCtrl->kpDevicePath = kpStrProp;
+  pDrvCtrl->cpuCommPort = COMM0_PORT;
+  pDrvCtrl->baudrate = CONFIG_COMM0_BAUDRATE;
+  pDrvCtrl->kpDevicePath = COMM0_DEVICE_PATH;
 
   baudRate = _UartGetCanonicalRate(pDrvCtrl->baudrate);
 
@@ -479,12 +448,6 @@ static E_Return _UartAttach(const S_FDTNode* kpFdtNode)
                                            NULL);
   UART_ASSERT(pDrvCtrl->pVFSDriver != VFS_DRIVER_INVALID,
               "Failed to register the UART driver in the VFS",
-              retCode);
-
-  /* Register driver */
-  retCode = DriverManagerSetDeviceData(kpFdtNode, pDrvCtrl);
-  UART_ASSERT(retCode == NO_ERROR,
-              "Failed to register the UART driver in the driver manager",
               retCode);
 
   return retCode;
@@ -638,6 +601,6 @@ void DebugOutputPutChar(const char kCharacter)
 #endif
 
 /***************************** DRIVER REGISTRATION ****************************/
-DRIVERMGR_REG_FDT(sX86UARTDriver);
+DRIVERMGR_REG_LAYER(sX86UARTDriver);
 
 /************************************ EOF *************************************/

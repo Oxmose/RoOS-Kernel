@@ -292,6 +292,7 @@ E_PCIBARType PCIGetBARType(const uint32_t kBarValue);
  *
  * @param[in, out] pDevice The PCI device to set up interrupts for.
  * @param[in] kInterruptLine The interrupt line to set up for the device.
+ * @param[in] kCoreId The core ID to set up for the device.
  * @param[in] kIsEnabled Whether the interrupt is enabled.
  *
  * @return The function returns an E_Return value indicating the success or
@@ -299,6 +300,7 @@ E_PCIBARType PCIGetBARType(const uint32_t kBarValue);
  */
 E_Return PCISetupInterruptMSI(S_PCIDevice*   pDevice,
                               const uint32_t kInterruptLine,
+                              const uint32_t kCoreId,
                               const bool     kIsEnabled);
 
 /**
@@ -311,6 +313,7 @@ E_Return PCISetupInterruptMSI(S_PCIDevice*   pDevice,
  * @param[in, out] pDevice The PCI device to set up interrupts for.
  * @param[in] kInterruptLine The interrupt line to set up for the device.
  * @param[in] kVector The interrupt vector to set up for the device.
+ * @param[in] kCoreId The core ID to set up for the device.
  * @param[in] kIsEnabled Whether the interrupt is enabled.
  *
  * @return The function returns an E_Return value indicating the success or
@@ -319,6 +322,7 @@ E_Return PCISetupInterruptMSI(S_PCIDevice*   pDevice,
 E_Return PCISetupInterruptMSIX(S_PCIDevice*   pDevice,
                                const uint32_t kInterruptLine,
                                const uint8_t  kVector,
+                               const uint32_t kCoreId,
                                const bool     kIsEnabled);
 
 /**

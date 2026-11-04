@@ -29,7 +29,6 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <Critical.h>
-#include <DeviceTree.h>
 #include <KernelHeap.h>
 #include <KernelQueue.h>
 #include <KernelError.h>
@@ -47,20 +46,8 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-
 /** @brief Current module name */
 #define MODULE_NAME "TIME MGT"
-
-/** @brief FDT Time node, time configuration node name */
-#define FDT_TIMECONFIG_NODE_NAME "timeconfig"
-/** @brief FDT Time node, main timer pHandle */
-#define FDT_TIMECONFIG_MAIN_PROP "main"
-/** @brief FDT Time node, RTC timer pHandle */
-#define FDT_TIMECONFIG_RTC_PROP "rtc"
-/** @brief FDT Time node, lifetime timer pHandle */
-#define FDT_TIMECONFIG_LIFETIME_PROP "lifetime"
-/** @brief FDT Time node, aux timer pHandles */
-#define FDT_TIMECONFIG_AUX_PROP "aux"
 
 /** @brief Defines the year of the Epoch */
 #define TIMESPAMP_START_YEAR 1970ULL
@@ -88,6 +75,8 @@ typedef struct S_TimerPeriodicNode
   S_TimerPeriodicTask* pInfo;
   /** @brief Next release time of the task in nanoseconds. */
   uint64_t nextReleaseTime;
+  /** @brief CPU ID where the task is running. */
+  uint32_t cpuId;
 
   /** @brief Pointer to the next node in the periodic task table. */
   struct S_TimerPeriodicNode* pNext;
@@ -162,7 +151,6 @@ static void _AddAuxTimer(const S_KernelTimer* kpTimer);
 /* None */
 
 /************************** Static global variables ***************************/
-
 /** @brief Stores the number of CPUs in the system */
 static uint32_t sCpuCount;
 
@@ -236,10 +224,10 @@ static S_KernelQueue* spAuxTimersQueue = NULL;
 static volatile uint64_t* spActiveWait;
 
 /** @brief The table of periodic tasks */
-static S_TimerPeriodicNode* spPeriodicTaskTable = NULL;
+static S_TimerPeriodicNode** spPeriodicTaskTable = NULL;
 
 /** @brief The lock for the periodic task table */
-static S_KernelSpinlock sPeriodicTaskTableLock;
+static T_Spinlock* spPeriodicTaskTableLock;
 
 /*******************************************************************************
  * FUNCTIONS
@@ -258,8 +246,8 @@ static bool _MainTimerHandler(void)
 
   /* Execute periodic tasks */
   currentTimeNs = TimeGetUptime();
-  KERNEL_LOCK(sPeriodicTaskTableLock);
-  pNode = spPeriodicTaskTable;
+  SpinlockAcquire(&spPeriodicTaskTableLock[cpuId]);
+  pNode = spPeriodicTaskTable[cpuId];
   while (pNode != NULL)
   {
     if (currentTimeNs >= pNode->nextReleaseTime)
@@ -273,7 +261,7 @@ static bool _MainTimerHandler(void)
     }
     pNode = pNode->pNext;
   }
-  KERNEL_UNLOCK(sPeriodicTaskTableLock);
+  SpinlockRelease(&spPeriodicTaskTableLock[cpuId]);
 
   /* Call the main timer's tick manager */
   if (sSysMainTimer.pTickManager != NULL)
@@ -324,12 +312,7 @@ static void _AddAuxTimer(const S_KernelTimer* kpTimer)
 
 void TimeManagerInit(void)
 {
-  E_Return              retCode;
-  const S_FDTNode*      kpTimerNode;
-  const uint32_t*       kpUintProp;
-  size_t                propLen;
-  size_t                i;
-  const S_KernelTimer*  kpTimer;
+  uint32_t i;
 
   /* Get the number of CPUs */
   sCpuCount = CPUGetCount();
@@ -338,98 +321,17 @@ void TimeManagerInit(void)
   spSysTickCount = KMalloc(sizeof(uint64_t) * sCpuCount, KMALLOC_NO_FREE_POOL);
   spActiveWait = KMalloc(sizeof(uint64_t) * sCpuCount, KMALLOC_NO_FREE_POOL);
 
-  /* Get the FDT timers node */
-  kpTimerNode = FDTGetNodeByName(FDT_TIMECONFIG_NODE_NAME);
-  TIME_ASSERT(kpTimerNode != NULL,
-              "The FDT must contain a timer configuration.",
-              ERR_INVALID_VALUE);
-
-  /* Get the main timer driver */
-  kpUintProp = FDTGetProp(kpTimerNode, FDT_TIMECONFIG_MAIN_PROP, &propLen);
-  TIME_ASSERT(kpUintProp != NULL && propLen == sizeof(uint32_t),
-              "The FDT time configuration must contain only one main.",
-              ERR_INVALID_VALUE);
-
-  kpTimer = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-  TIME_ASSERT(kpTimer != NULL &&
-              kpTimer->pGetFrequency != NULL &&
-              kpTimer->pEnable != NULL &&
-              kpTimer->pDisable != NULL &&
-              kpTimer->pSetHandler != NULL &&
-              kpTimer->pRemoveHandler != NULL &&
-              kpTimer->pDriverCtrl != NULL,
-              "Invalid main timer driver",
-              ERR_INVALID_VALUE);
-  sSysMainTimer = *kpTimer;
-  retCode = sSysMainTimer.pSetHandler(sSysMainTimer.pDriverCtrl,
-                                      _MainTimerHandler);
-  TIME_ASSERT(retCode == NO_ERROR, "Failed to setup the main timer", retCode);
-  sSysMainTimer.pEnable(sSysMainTimer.pDriverCtrl);
-
-  /* Get the RTC driver */
-  kpUintProp = FDTGetProp(kpTimerNode, FDT_TIMECONFIG_RTC_PROP, &propLen);
-  if (kpUintProp != NULL)
-  {
-    TIME_ASSERT(propLen == sizeof(uint32_t),
-                "The FDT time configuration must contain at most one RTC.",
-                ERR_INVALID_VALUE);
-
-    kpTimer = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-    TIME_ASSERT(kpTimer != NULL &&
-                kpTimer->pEnable != NULL &&
-                kpTimer->pDisable != NULL &&
-                kpTimer->pGetDaytime != NULL &&
-                kpTimer->pGetDate != NULL &&
-                kpTimer->pDriverCtrl != NULL,
-                "Invalid RTC timer driver",
-                ERR_INVALID_VALUE);
-    sSysRtcTimer = *kpTimer;
-    retCode = sSysRtcTimer.pSetHandler(sSysRtcTimer.pDriverCtrl,
-                                       _RTCTimerHandler);
-    TIME_ASSERT(retCode == NO_ERROR, "Failed to setup the RTC timer", retCode);
-    sSysRtcTimer.pEnable(sSysRtcTimer.pDriverCtrl);
-  }
-
-  /* Get the lifetime driver */
-  kpUintProp = FDTGetProp(kpTimerNode, FDT_TIMECONFIG_LIFETIME_PROP, &propLen);
-  if (kpUintProp != NULL)
-  {
-    TIME_ASSERT(propLen == sizeof(uint32_t),
-                "The FDT time configuration must contain at most one "
-                "lifetime.",
-                ERR_INVALID_VALUE);
-
-    kpTimer = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-    TIME_ASSERT(kpTimer != NULL &&
-                kpTimer->pGetTimeNs != NULL &&
-                kpTimer->pEnable != NULL &&
-                kpTimer->pDisable != NULL &&
-                kpTimer->pDriverCtrl != NULL,
-                "Invalid lifetime timer driver",
-                ERR_INVALID_VALUE);
-    sSysLifetimeTimer = *kpTimer;
-    sSysLifetimeTimer.pEnable(sSysLifetimeTimer.pDriverCtrl);
-  }
-
-  /* Get other auxiliary timers */
-  kpUintProp = FDTGetProp(kpTimerNode, FDT_TIMECONFIG_AUX_PROP, &propLen);
-  if (kpUintProp != NULL)
-  {
-    for (i = 0; i < propLen / sizeof(uint32_t); ++i)
-    {
-      kpTimer = DriverManagerGetDeviceData(FDTTOCPU32(*kpUintProp));
-      TIME_ASSERT(kpTimer != NULL &&
-                  kpTimer->pEnable != NULL &&
-                  kpTimer->pDisable != NULL &&
-                  kpTimer->pDriverCtrl != NULL,
-                  "Invalid aux timer driver",
-                  ERR_INVALID_VALUE);
-      _AddAuxTimer(kpTimer);
-    }
-  }
+  spPeriodicTaskTable = KMalloc(sizeof(S_TimerPeriodicNode*) * sCpuCount,
+                                KMALLOC_NO_FREE_POOL);
+  spPeriodicTaskTableLock = KMalloc(sizeof(T_Spinlock) * sCpuCount,
+                                    KMALLOC_NO_FREE_POOL);
 
   /* Create the threads table */
-  KERNEL_SPINLOCK_INIT(sPeriodicTaskTableLock);
+  for (i = 0; i < sCpuCount; ++i)
+  {
+    spPeriodicTaskTable[i] = NULL;
+    SPINLOCK_INIT(spPeriodicTaskTableLock[i]);
+  }
 }
 
 uint64_t TimeGetUptime(void)
@@ -553,20 +455,22 @@ void TimeWaitNoScheduler(const uint64_t kNS)
 }
 
 T_TimerHandle TimeManagerAddTask(S_TimerPeriodicTask* pTask,
-                                 const uint32_t       kPeriodNs)
+                                 const uint32_t       kPeriodNs,
+                                 const uint32_t       kCpuId)
 {
   S_TimerPeriodicNode* pNode;
 
   pNode = KMalloc(sizeof(S_TimerPeriodicNode), KMALLOC_FREE_POOL);
 
-  pTask->periodNs = kPeriodNs;
-  pNode->pInfo = pTask;
+  pTask->periodNs        = kPeriodNs;
+  pNode->pInfo           = pTask;
   pNode->nextReleaseTime = TimeGetUptime() + kPeriodNs;
+  pNode->cpuId           = kCpuId;
 
-  KERNEL_LOCK(sPeriodicTaskTableLock);
-  pNode->pNext = spPeriodicTaskTable;
-  spPeriodicTaskTable = pNode;
-  KERNEL_UNLOCK(sPeriodicTaskTableLock);
+  SpinlockAcquire(&spPeriodicTaskTableLock[kCpuId]);
+  pNode->pNext = spPeriodicTaskTable[kCpuId];
+  spPeriodicTaskTable[kCpuId] = pNode;
+  SpinlockRelease(&spPeriodicTaskTableLock[kCpuId]);
 
   return pNode;
 }
@@ -575,17 +479,19 @@ void TimeManagerRemoveTask(T_TimerHandle taskHandle)
 {
   S_TimerPeriodicNode* pNode;
   S_TimerPeriodicNode* pPrevious;
+  uint32_t             cpuId;
 
   pNode = (S_TimerPeriodicNode*)taskHandle;
+  cpuId = pNode->cpuId;
 
-  KERNEL_LOCK(sPeriodicTaskTableLock);
-  if (pNode == spPeriodicTaskTable)
+  SpinlockAcquire(&spPeriodicTaskTableLock[cpuId]);
+  if (pNode == spPeriodicTaskTable[cpuId])
   {
-    spPeriodicTaskTable = pNode->pNext;
+    spPeriodicTaskTable[cpuId] = pNode->pNext;
   }
   else
   {
-    pPrevious = spPeriodicTaskTable;
+    pPrevious = spPeriodicTaskTable[cpuId];
     while (pPrevious != NULL && pPrevious->pNext != pNode)
     {
       pPrevious = pPrevious->pNext;
@@ -596,9 +502,84 @@ void TimeManagerRemoveTask(T_TimerHandle taskHandle)
       pPrevious->pNext = pNode->pNext;
     }
   }
-  KERNEL_UNLOCK(sPeriodicTaskTableLock);
+  SpinlockRelease(&spPeriodicTaskTableLock[cpuId]);
 
   KFree(pNode);
 }
 
+E_Return TimeManagerAddTimer(S_KernelTimer*    pTimer,
+                             const E_TimerType kTimerType)
+{
+  E_Return retCode;
+
+  if (kTimerType == MAIN_TIMER)
+  {
+    if (pTimer->pSetHandler != NULL)
+    {
+      sSysMainTimer = *pTimer;
+      sSysMainTimer.pSetHandler(sSysMainTimer.pDriverCtrl, _MainTimerHandler);
+      retCode = NO_ERROR;
+    }
+    else
+    {
+      retCode = ERR_INVALID_PARAMETER;
+    }
+  }
+  else if (kTimerType == RTC_TIMER)
+  {
+    sSysRtcTimer = *pTimer;
+    if (sSysRtcTimer.pSetHandler != NULL)
+    {
+      sSysRtcTimer = *pTimer;
+      sSysRtcTimer.pSetHandler(sSysRtcTimer.pDriverCtrl, _RTCTimerHandler);
+    }
+    retCode = NO_ERROR;
+  }
+  else if (kTimerType == LIFETIME_TIMER)
+  {
+    sSysLifetimeTimer = *pTimer;
+    retCode = NO_ERROR;
+  }
+  else if (kTimerType == AUX_TIMER)
+  {
+    _AddAuxTimer(pTimer);
+    retCode = NO_ERROR;
+  }
+  else
+  {
+    retCode = ERR_INVALID_PARAMETER;
+  }
+
+  return retCode;
+}
+
+uint64_t TimeGetAuxTimeNs(const uint8_t kAuxTimerId)
+{
+  S_KernelQueueNode* pNode;
+  S_KernelTimer*     pTimer;
+  uint8_t            auxTimerCount;
+  uint64_t           time;
+
+  time = 0;
+  if (spAuxTimersQueue->pHead != NULL)
+  {
+    pNode = spAuxTimersQueue->pHead;
+    auxTimerCount = 0;
+    while (pNode != NULL && kAuxTimerId > auxTimerCount)
+    {
+      pNode = pNode->pNext;
+      ++auxTimerCount;
+    }
+
+    if (pNode != NULL)
+    {
+      pTimer = (S_KernelTimer*)pNode->pData;
+      if (pTimer->pGetTimeNs != NULL)
+      {
+        time = pTimer->pGetTimeNs(pTimer->pDriverCtrl);
+      }
+    }
+  }
+  return time;
+}
 /************************************ EOF *************************************/

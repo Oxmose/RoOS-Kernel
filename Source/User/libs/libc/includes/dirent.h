@@ -80,7 +80,7 @@ struct dirent
  * On error, -1 is returned, and errno is set appropriately.
  */
 int readdir(int fd,
-            struct dirent *pDirent,
+            struct dirent* pDirent,
             unsigned int count);
 
 #endif /* #ifndef __LIB_DIRENT_H_ */
