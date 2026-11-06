@@ -280,14 +280,14 @@ typedef struct S_KernelThread
    *************************************/
   /** @brief The thread's structure lock */
   T_Spinlock lock;
-  /** @brief Flags that tells if the thread can safelly be scheduled */
+  /** @brief Flags that tells if the thread can safely be scheduled */
   volatile uint32_t isScheduled;
   /** @brief Thread's error table */
   S_ErrorTable errorTable;
   /** @brief The thread local storage region pointer. */
   S_UserThread* pUserThreadData;
   /** @brief Stores the preemption count for the thread. */
-  uint32_t preemptionCount;
+  volatile uint32_t preemptionCount;
   /** @brief Stores if the thread needs to be rescheduled. */
   bool needReschedule;
 

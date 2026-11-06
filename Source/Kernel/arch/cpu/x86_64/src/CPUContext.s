@@ -115,8 +115,6 @@ align 4
 ; Param:
 ;     None
 CPUSaveContext:
-  cli
-
   ; Save return address
   push rax
   push rbx
@@ -189,8 +187,6 @@ __saveContextEnd:
 ; Param:
 ;     RDI - The VCPU of the current thread
 CPUSaveContextAndSchedule:
-  cli
-
   ; Save the current stack pointer, RAX, RDI, RSI are scratch registers
   mov rax, rsp
   mov rdx, ss
@@ -204,6 +200,8 @@ CPUSaveContextAndSchedule:
   push __saveContextReturn
   push 0
   push 0
+
+  cli
 
   ; Context
   push rax

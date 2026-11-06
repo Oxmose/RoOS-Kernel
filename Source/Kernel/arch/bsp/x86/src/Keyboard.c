@@ -514,13 +514,15 @@ static E_Return _Attach(void)
           }
           else
           {
-            IOAPICDisableIRQ(KEYBOARD_IRQ_NUMBER);
-            FreeInterruptLine(interruptLine);
 
             error = InterruptRemove(interruptLine);
             KBD_ASSERT(error == NO_ERROR,
-                        "Failed to unregister keyboard interrupt",
-                        error);
+                       "Failed to unregister keyboard interrupt",
+                       error);
+
+            IOAPICDisableIRQ(KEYBOARD_IRQ_NUMBER);
+            FreeInterruptLine(interruptLine);
+
             error = KernelSemaphoreDestroy(&sInputCtrl.inputBufferSem);
             KBD_ASSERT(error == NO_ERROR,
                       "Failed to destroy keyboard semaphore",
@@ -579,7 +581,7 @@ static bool _KeyboardInterruptHandler(void)
     if (data != 0)
     {
       /* Try to add the new data to the buffer */
-      SpinlockAcquire(&sInputCtrl.bufferLock);
+      SpinlockAcquireISR(&sInputCtrl.bufferLock);
 
       if (sInputCtrl.inputBufferEndCursor >=
           sInputCtrl.inputBufferStartCursor)
@@ -604,7 +606,7 @@ static bool _KeyboardInterruptHandler(void)
             KBD_INPUT_BUFFER_SIZE;
       }
 
-      SpinlockRelease(&sInputCtrl.bufferLock);
+      SpinlockReleaseISR(&sInputCtrl.bufferLock);
 
       if (availableSpace > 1)
       {

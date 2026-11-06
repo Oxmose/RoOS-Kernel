@@ -3898,7 +3898,7 @@ static bool _E1000InterruptHandler(void)
   intId = CPUGetContextInterruptNumber(pCurrentThread);
 
   /* Find the E1000 driver associated with this interrupt */
-  SpinlockAcquire(&sDriverListLock);
+  SpinlockAcquireISR(&sDriverListLock);
   pDriver = spDriverList;
   while (pDriver != NULL)
   {
@@ -3908,7 +3908,7 @@ static bool _E1000InterruptHandler(void)
     }
     pDriver = pDriver->pNext;
   }
-  SpinlockRelease(&sDriverListLock);
+  SpinlockReleaseISR(&sDriverListLock);
 
 
   if (pDriver != NULL)

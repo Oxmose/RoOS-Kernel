@@ -134,6 +134,7 @@ E_Return SetSignalMask(S_KernelThread*       pThread,
                        const bool            kBlock)
 {
   E_Return error;
+  uint32_t intState;
 
   if (pThread->type == THREAD_TYPE_USER)
   {
@@ -142,7 +143,8 @@ E_Return SetSignalMask(S_KernelThread*       pThread,
         kSignal != THREAD_SIGKILL &&
         kSignal != THREAD_SIGSTOP)
     {
-      SpinlockAcquire(&pThread->signalLock);
+      KERNEL_ENTER_CRITICAL_LOCAL(intState);
+      SpinlockAcquireISR(&pThread->signalLock);
       if (kBlock == true)
       {
         pThread->blockedSignals |= (1 << kSignal);
@@ -151,7 +153,8 @@ E_Return SetSignalMask(S_KernelThread*       pThread,
       {
         pThread->blockedSignals &= ~(1 << kSignal);
       }
-      SpinlockRelease(&pThread->signalLock);
+      SpinlockReleaseISR(&pThread->signalLock);
+      KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
       error = NO_ERROR;
     }
@@ -171,12 +174,14 @@ E_Return SetSignalMask(S_KernelThread*       pThread,
 E_Return SignalThread(S_KernelThread* pThread, const THREAD_SIGNAL_E kSignal)
 {
   E_Return error;
+  uint32_t intState;
 
   if (kSignal >= 0 && kSignal < THREAD_SIG_MAX_VALUE)
   {
     if (pThread->type == THREAD_TYPE_USER)
     {
-      SpinlockAcquire(&pThread->signalLock);
+      KERNEL_ENTER_CRITICAL_LOCAL(intState);
+      SpinlockAcquireISR(&pThread->signalLock);
       pThread->pendingSignals |= (1 << kSignal);
       if ((pThread->blockedSignals & (1 << kSignal)) == 0 ||
           kSignal == THREAD_SIGKILL ||
@@ -186,7 +191,8 @@ E_Return SignalThread(S_KernelThread* pThread, const THREAD_SIGNAL_E kSignal)
         /* The signal is not blocked, set the thread to ready */
         SetThreadSignaled(pThread);
       }
-      SpinlockRelease(&pThread->signalLock);
+      SpinlockReleaseISR(&pThread->signalLock);
+      KERNEL_EXIT_CRITICAL_LOCAL(intState);
       error = NO_ERROR;
     }
     else
@@ -209,14 +215,17 @@ void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
   bool             isReturningToUser;
   S_KernelProcess* pProcess;
   uint64_t         pendingSignals;
+  uint32_t         intState;
 
   isReturningToUser = kIsSyscall || CPUIsReturningToUser(pThread);
 
   if (isReturningToUser == true)
   {
-    SpinlockAcquire(&pThread->signalLock);
+    KERNEL_ENTER_CRITICAL_LOCAL(intState);
+    SpinlockAcquireISR(&pThread->signalLock);
     pendingSignals = pThread->pendingSignals;
-    SpinlockRelease(&pThread->signalLock);
+    SpinlockReleaseISR(&pThread->signalLock);
+    KERNEL_EXIT_CRITICAL_LOCAL(intState);
     if (pendingSignals != 0)
     {
       /* Get the next signal */
@@ -245,15 +254,19 @@ void SignalManage(S_KernelThread* pThread, const bool kIsSyscall)
           else if ((pThread->blockedSignals & (1 << i)) == 0)
           {
             /* Clear the pending signal */
-            SpinlockAcquire(&pThread->signalLock);
+            KERNEL_ENTER_CRITICAL_LOCAL(intState);
+
+            SpinlockAcquireISR(&pThread->signalLock);
             pThread->pendingSignals &= ~(1 << i);
-            SpinlockRelease(&pThread->signalLock);
+            SpinlockReleaseISR(&pThread->signalLock);
 
             pProcess = pThread->pProcess;
 
-            SpinlockAcquire(&pProcess->signalLock);
+            SpinlockAcquireISR(&pProcess->signalLock);
             handler = pProcess->signalHandlers[i];
-            SpinlockRelease(&pProcess->signalLock);
+            SpinlockReleaseISR(&pProcess->signalLock);
+
+            KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
             if (handler != NULL)
             {

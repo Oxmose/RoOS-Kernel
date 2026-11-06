@@ -36,7 +36,7 @@
 #define TEST_OS_KSEMAPHORE_ENABLED                0
 #define TEST_KHEAP_ENABLED                        0
 #define TEST_DEVTREE_ENABLED                      0
-#define TEST_CRITICAL_ENABLED                     1
+#define TEST_CRITICAL_ENABLED                     0
 #define TEST_INTERRUPT_ENABLED                    0
 #define TEST_OS_UHASHTABLE_ENABLED                0
 #define TEST_SCHEDULER_ENABLED                    0
@@ -45,7 +45,7 @@
 #define TEST_OS_VECTOR_ENABLED                    0
 #define TEST_RAMDISK_ENABLED                      0
 #define TEST_USTARFS_ENABLED                      0
-#define TEST_STORAGE_ENABLED                      0
+#define TEST_STORAGE_ENABLED                      1
 #define TEST_KWORKER_ENABLED                      0
 #define TEST_OS_KQUEUE_ENABLED                    0
 #define TEST_OS_FAST_QUEUES_ENABLED               0
@@ -159,6 +159,11 @@
 #define TEST_STORAGE_BOUNDARY_END(X)   (350 + X)
 #define TEST_STORAGE_BOUNDARY_CLOSE(X) (360 + X)
 #define STORAGE_CREATE_TEST_THREAD_ID(X) (400 + X)
+#define TEST_STORAGE_THREAD_JOIN_SMP(X)  (500 + X)
+#define TEST_STORAGE_THREAD_OPEN_SMP(X)  (550 + X)
+#define TEST_STORAGE_THREAD_READ_SMP(X)  (600 + X)
+#define TEST_STORAGE_THREAD_DATA_SMP(X)  (650 + X)
+#define TEST_STORAGE_THREAD_CREATE_SMP(X) (700 + X)
 
 /** @brief Kernel worker tests */
 #define TEST_KWORKER_INIT_ID(X)                  (0 + X)

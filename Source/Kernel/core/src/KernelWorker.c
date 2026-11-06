@@ -226,6 +226,7 @@ void KWorkerSubmitTask(T_KernelWorkerTask task,
 {
   S_KernelWorkerTask newTask;
   E_Return           retCode;
+  uint32_t           intState;
 
   /* Create the task structure */
   newTask.pTask = task;
@@ -233,9 +234,13 @@ void KWorkerSubmitTask(T_KernelWorkerTask task,
   newTask.pCompletionSemaphore = pCompletionSemaphore;
 
   /* Enqueue the task */
-  SpinlockAcquire(&sTaskQueueLock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&sTaskQueueLock);
+
   FQueuePush(spTaskQueue, &newTask);
-  SpinlockRelease(&sTaskQueueLock);
+
+  SpinlockReleaseISR(&sTaskQueueLock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
   /* Signal the task semaphore */
   retCode = KernelSemaphorePost(&sTaskSemaphore);

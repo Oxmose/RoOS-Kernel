@@ -132,8 +132,10 @@ E_Return KernelMutexInit(S_KernelMutex* pMutex, const uint32_t kFlags)
 E_Return KernelMutexDestroy(S_KernelMutex* pMutex)
 {
   E_Return error;
+  uint32_t intState;
 
-  SpinlockAcquire(&pMutex->lock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&pMutex->lock);
   if (pMutex->lockState != 0)
   {
     /* Destroy the waiting queue */
@@ -144,7 +146,8 @@ E_Return KernelMutexDestroy(S_KernelMutex* pMutex)
   {
     error = ERR_UNAUTHORIZED_ACTION;
   }
-  SpinlockRelease(&pMutex->lock);
+  SpinlockReleaseISR(&pMutex->lock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
   return error;
 }
@@ -155,7 +158,8 @@ E_Return KernelMutexLock(S_KernelMutex* pMutex)
   S_KernelThread* pCurThread;
   uint32_t        intState;
 
-  SpinlockAcquire(&pMutex->lock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&pMutex->lock);
 
   pCurThread = GetCurrentThread();
 
@@ -164,10 +168,8 @@ E_Return KernelMutexLock(S_KernelMutex* pMutex)
     if ((pMutex->flags & KMUTEX_FLAG_RECURSIVE) != KMUTEX_FLAG_RECURSIVE ||
        pCurThread != pMutex->pAcquiredThread)
     {
-      KERNEL_ENTER_CRITICAL_LOCAL(intState);
       do
       {
-
         /* Add to list */
         if ((pMutex->flags & KMUTEX_FLAG_QUEUING_FIFO) ==
             KMUTEX_FLAG_QUEUING_FIFO)
@@ -181,19 +183,16 @@ E_Return KernelMutexLock(S_KernelMutex* pMutex)
                                                 false);
         }
 
-
-
         /* Unlock mutex and schedule */
-        SpinlockRelease(&pMutex->lock);
+        SpinlockReleaseISR(&pMutex->lock);
 
         CPUSaveContextAndSchedule(pCurThread->pVCpu);
 
         /* Check that we got the mutex */
-        SpinlockAcquire(&pMutex->lock);
+        SpinlockAcquireISR(&pMutex->lock);
 
       } while (pCurThread != pMutex->pAcquiredThread);
 
-      KERNEL_EXIT_CRITICAL_LOCAL(intState);
       error = NO_ERROR;
     }
     else
@@ -229,7 +228,8 @@ E_Return KernelMutexLock(S_KernelMutex* pMutex)
     error = NO_ERROR;
   }
 
-  SpinlockRelease(&pMutex->lock);
+  SpinlockReleaseISR(&pMutex->lock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
   return error;
 }
@@ -240,10 +240,12 @@ E_Return KernelMutexUnlock(S_KernelMutex* pMutex)
   S_KernelThread*    pReleasedThread;
   S_KernelQueueNode* pNode;
   E_Return           error;
+  uint32_t           intState;
 
   pCurThread = GetCurrentThread();
 
-  SpinlockAcquire(&pMutex->lock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&pMutex->lock);
 
   /* Only the owner can unlock the mutex */
   if (pCurThread == pMutex->pAcquiredThread)
@@ -297,7 +299,8 @@ E_Return KernelMutexUnlock(S_KernelMutex* pMutex)
     error = ERR_UNAUTHORIZED_ACTION;
   }
 
-  SpinlockRelease(&pMutex->lock);
+  SpinlockReleaseISR(&pMutex->lock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
   return error;
 }
@@ -306,8 +309,10 @@ E_Return KernelMutexTryLock(S_KernelMutex* pMutex, int32_t* pLockState)
 {
   E_Return        error;
   S_KernelThread* pCurThread;
+  uint32_t        intState;
 
-  SpinlockAcquire(&pMutex->lock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&pMutex->lock);
 
   pCurThread = GetCurrentThread();
 
@@ -351,7 +356,8 @@ E_Return KernelMutexTryLock(S_KernelMutex* pMutex, int32_t* pLockState)
     error = NO_ERROR;
   }
 
-  SpinlockRelease(&pMutex->lock);
+  SpinlockReleaseISR(&pMutex->lock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
   return error;
 }

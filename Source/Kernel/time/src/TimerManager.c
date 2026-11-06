@@ -246,7 +246,7 @@ static bool _MainTimerHandler(void)
 
   /* Execute periodic tasks */
   currentTimeNs = TimeGetUptime();
-  SpinlockAcquire(&spPeriodicTaskTableLock[cpuId]);
+  SpinlockAcquireISR(&spPeriodicTaskTableLock[cpuId]);
   pNode = spPeriodicTaskTable[cpuId];
   while (pNode != NULL)
   {
@@ -261,7 +261,7 @@ static bool _MainTimerHandler(void)
     }
     pNode = pNode->pNext;
   }
-  SpinlockRelease(&spPeriodicTaskTableLock[cpuId]);
+  SpinlockReleaseISR(&spPeriodicTaskTableLock[cpuId]);
 
   /* Call the main timer's tick manager */
   if (sSysMainTimer.pTickManager != NULL)
