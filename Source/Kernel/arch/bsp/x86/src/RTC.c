@@ -289,7 +289,7 @@ static void _UpdateTime(void* pDrvCtrl, S_Date* pDate, S_DayTime* pTime);
  * @param[in, out] pDrvCtrl The driver controller used by the registered
  * driver.
  */
-static void _AckowledgeInt(void* pDrvCtrl);
+static void _AcknowledgeInt(void* pDrvCtrl);
 
 /**
  * @brief Opens the ProcFS main entry.
@@ -420,7 +420,7 @@ static E_Return _Attach(void)
     pTimerDrv->pDisable       = _Disable;
     pTimerDrv->pSetHandler    = _SetHandler;
     pTimerDrv->pRemoveHandler = _RemoveHandler;
-    pTimerDrv->pTickManager   = _AckowledgeInt;
+    pTimerDrv->pTickManager   = _AcknowledgeInt;
     pTimerDrv->pDriverCtrl    = spDrvCtrl;
 
     spDrvCtrl->irqNumber = AllocateInterruptLine();
@@ -452,7 +452,7 @@ static E_Return _Attach(void)
     _SetFrequency(spDrvCtrl, spDrvCtrl->selectedFrequency);
 
     /* Just dummy read register C to unlock interrupt */
-    _AckowledgeInt(spDrvCtrl);
+    _AcknowledgeInt(spDrvCtrl);
 
     error = TimeManagerAddTimer(pTimerDrv, RTC_TIMER);
     RTC_ASSERT(error == NO_ERROR,
@@ -742,7 +742,7 @@ static void _UpdateTime(void* pDrvCtrl, S_Date* pDate, S_DayTime* pTime)
   SpinlockRelease(&pRtcCtrl->lock);
 }
 
-static void _AckowledgeInt(void* pDrvCtrl)
+static void _AcknowledgeInt(void* pDrvCtrl)
 {
   S_RTCControler* pRtcCtrl;
 

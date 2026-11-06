@@ -506,7 +506,7 @@ void KernelPanic(const uint32_t kErrorCode,
     InterruptDisable();
 
     /* Lock the panic */
-    SpinlockAcquire(&sLock);
+    SpinlockAcquireISR(&sLock);
 
     /* Send the CPUs IPI */
     ipiParams.function = IPI_FUNC_PANIC;

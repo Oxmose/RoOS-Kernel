@@ -183,6 +183,7 @@ static void _InitLayerDrivers(const bool kPreInit)
   uint32_t       maxLayer;
   S_LayerDriver* pLayerDriver;
   uintptr_t      driverTableCursor;
+  E_Return       retCode;
 
   /* Initialize the layer drivers */
   if (kPreInit == true)
@@ -219,7 +220,13 @@ static void _InitLayerDrivers(const bool kPreInit)
                       MODULE_NAME,
                       "Attaching layer driver %s",
                       pLayerDriver->pName);
-        pLayerDriver->pDriverAttach();
+        retCode = pLayerDriver->pDriverAttach();
+        if (retCode != NO_ERROR)
+        {
+          KERNEL_ERROR("Failed to attach layer driver %s with error %d\n",
+                        pLayerDriver->pName,
+                        retCode);
+        }
       }
       driverTableCursor += sizeof(uintptr_t);
       pLayerDriver = *(S_LayerDriver**)driverTableCursor;

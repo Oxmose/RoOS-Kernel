@@ -34,6 +34,7 @@
 #include <KernelHeap.h>
 #include <KernelError.h>
 #include <KernelOutput.h>
+#include <TimerManager.h>
 #include <DriverManager.h>
 
 /* Configuration files */
@@ -1339,7 +1340,6 @@ static E_Return _Attach(void)
   return retVal;
 }
 
-#include <TimerManager.h>
 static void* _DisplayRoutine(void* pArg)
 {
   E_Return retCode;

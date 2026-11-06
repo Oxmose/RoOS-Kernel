@@ -583,6 +583,9 @@ static uint32_t spCPUIds[SOC_MAX_CPU_COUNT];
 /** @brief Stores the booted CPU state. */
 static volatile bool sAllCPUBooted;
 
+/** @brief Stores the scheduler initialization state. */
+static volatile bool sSchedulerInit = false;
+
 /** @brief Stores the CPU interrupt handlers entry point */
 static uintptr_t sIntHandlerTable[IDT_ENTRY_COUNT] =
 {
@@ -1312,6 +1315,8 @@ void CPUStartSMP(void)
   CPU_ASSERT(_bootedCPUCount == 1,
              "Multiple CPUs already started.",
              ERR_UNAUTHORIZED_ACTION);
+
+  sSchedulerInit = true;
 
   /* Init the current CPU information */
   spCPUIds[0] = LAPICGetLAPICId();
@@ -2572,21 +2577,26 @@ void SpinlockAcquire(T_Spinlock* pSpinlock)
 {
   S_KernelThread* pThread;
 
-  if (SchedulerIsInitialized() == true)
+  if (sSchedulerInit == true)
   {
     pThread = GetCurrentThread();
     ++pThread->preemptionCount;
+    CPUMemoryFenceAcquire();
+    SpinLock(pSpinlock);
   }
-
-  SpinLock(pSpinlock);
+  else
+  {
+    SpinLock(pSpinlock);
+  }
 }
 
 void SpinlockRelease(T_Spinlock* pSpinlock)
 {
   S_KernelThread* pThread;
 
-  if (SchedulerIsInitialized() == true)
+  if (sSchedulerInit == true)
   {
+
     pThread = GetCurrentThread();
     CPU_ASSERT(pThread->preemptionCount > 0,
                 "Preemption count is already zero",
@@ -2604,6 +2614,17 @@ void SpinlockRelease(T_Spinlock* pSpinlock)
     SpinUnlock(pSpinlock);
   }
 }
+
+void SpinlockAcquireISR(T_Spinlock* pSpinlock)
+{
+  SpinLock(pSpinlock);
+}
+
+void SpinlockReleaseISR(T_Spinlock* pSpinlock)
+{
+  SpinUnlock(pSpinlock);
+}
+
 
 /* Stack protection support */
 #ifdef _STACK_PROT

@@ -136,6 +136,24 @@ void SpinlockAcquire(T_Spinlock* pLock);
 void SpinlockRelease(T_Spinlock* pLock);
 
 /**
+ * @brief Locks a spinlock.
+ *
+ * @details Locks a spinlock. This function is safe in kernel mode.
+ *
+ * @param[in, out] pLock The pointer to the lock to lock.
+*/
+void SpinlockAcquireISR(T_Spinlock* pLock);
+
+/**
+ * @brief Unlocks a spinlock.
+ *
+ * @details Unlocks a spinlock. This function is safe in kernel mode.
+ *
+ * @param[out] pLock The pointer to the lock to unlock.
+*/
+void SpinlockReleaseISR(T_Spinlock* pLock);
+
+/**
  * @brief Atomically increments a value in memory.
  *
  * @details Atomically increments a value in memory. Thus function is safe in

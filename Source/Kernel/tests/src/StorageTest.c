@@ -249,6 +249,7 @@ static void* _StorageConcurrentRead(void* pArgs)
                                sStorageThreadBuffers[pContext->index],
                                STORAGE_TEST_TRANSFER_SIZE);
   VFSClose(fd);
+  (void)GetCurrentThread();
   return NULL;
 }
 
@@ -265,11 +266,13 @@ static void _TestStorageConcurrency(void)
 
   sStorageThreadsReady = 0;
   sStorageThreadsTarget = STORAGE_TEST_THREAD_COUNT;
-  CPU_MASK_RESET(cpuMask);
-  CPU_MASK_SET(cpuMask, 0);
+
 
   for (i = 0; i < STORAGE_TEST_THREAD_COUNT; ++i)
   {
+    CPU_MASK_RESET(cpuMask);
+    CPU_MASK_SET(cpuMask, 0);
+
     contexts[i].index = i;
     contexts[i].readSize = -1;
     contexts[i].openResult = -1;
@@ -319,6 +322,76 @@ static void _TestStorageConcurrency(void)
   }
 }
 
+static void _TestStorageConcurrencySMP(void)
+{
+  S_KernelThread* threads[STORAGE_TEST_THREAD_COUNT];
+  S_StorageThreadContext contexts[STORAGE_TEST_THREAD_COUNT];
+  S_CPUMask cpuMask;
+  void* returnValue;
+  E_Return error;
+  uint32_t i;
+  uint32_t createdCount;
+  char name[THREAD_NAME_MAX_LENGTH] = "SATA_READ";
+
+  sStorageThreadsReady = 0;
+  sStorageThreadsTarget = STORAGE_TEST_THREAD_COUNT;
+
+
+  for (i = 0; i < STORAGE_TEST_THREAD_COUNT; ++i)
+  {
+    CPU_MASK_RESET(cpuMask);
+    CPU_MASK_SET(cpuMask, i % STORAGE_TEST_THREAD_COUNT);
+
+    contexts[i].index = i;
+    contexts[i].readSize = -1;
+    contexts[i].openResult = -1;
+    error = CreateThread(&threads[i], true, 1, name,
+                         0x1000, cpuMask, _StorageConcurrentRead,
+                         &contexts[i], NULL);
+    TEST_POINT_ASSERT_RCODE(TEST_STORAGE_THREAD_CREATE_SMP(i),
+                            error == NO_ERROR, NO_ERROR, error,
+                            TEST_STORAGE_ENABLED);
+    if (error != NO_ERROR)
+    {
+      sStorageThreadsTarget = sStorageThreadsReady;
+      break;
+    }
+  }
+  createdCount = i;
+
+  for (uint32_t joinIndex = 0; joinIndex < createdCount; ++joinIndex)
+  {
+    error = JoinThread(threads[joinIndex], &returnValue);
+    TEST_POINT_ASSERT_RCODE(TEST_STORAGE_THREAD_JOIN_SMP(joinIndex),
+                            error == NO_ERROR, NO_ERROR, error,
+                            TEST_STORAGE_ENABLED);
+    TEST_POINT_ASSERT_INT(TEST_STORAGE_THREAD_OPEN_SMP(joinIndex),
+                          contexts[joinIndex].openResult >= 0, 1,
+                          contexts[joinIndex].openResult,
+                          TEST_STORAGE_ENABLED);
+    TEST_POINT_ASSERT_INT(TEST_STORAGE_THREAD_READ_SMP(joinIndex),
+                          contexts[joinIndex].readSize ==
+                          STORAGE_TEST_TRANSFER_SIZE,
+                          STORAGE_TEST_TRANSFER_SIZE,
+                          contexts[joinIndex].readSize,
+                          TEST_STORAGE_ENABLED);
+  }
+
+  for (i = 1; i < createdCount; ++i)
+  {
+    TEST_POINT_ASSERT_INT(TEST_STORAGE_THREAD_DATA_SMP(i),
+                          memcmp(sStorageThreadBuffers[0],
+                                 sStorageThreadBuffers[i],
+                                 STORAGE_TEST_TRANSFER_SIZE) == 0,
+                          0,
+                          memcmp(sStorageThreadBuffers[0],
+                                 sStorageThreadBuffers[i],
+                                 STORAGE_TEST_TRANSFER_SIZE),
+                          TEST_STORAGE_ENABLED);
+  }
+}
+
+
 static void* StorageTestEntry(void* args)
 {
   (void)args;
@@ -326,16 +399,12 @@ static void* StorageTestEntry(void* args)
   /* Wait for the storage devices to be initialized */
   SleepNs(1000000000, NULL);
 
-
   _TestStorageDevices();
   _TestStoragePartitions();
   _TestStoragePartitionContent();
-  _TestStorageConcurrency();
-  (void)_TestStorageDevices;
-  (void)_TestStoragePartitions;
-  (void)_TestStoragePartitionContent;
-  (void)_TestStorageConcurrency;
   _TestStoragePartitionBoundary();
+  _TestStorageConcurrency();
+  _TestStorageConcurrencySMP();
   TEST_FRAMEWORK_END();
 
   return NULL;

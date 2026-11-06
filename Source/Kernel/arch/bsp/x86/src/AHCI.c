@@ -3723,6 +3723,9 @@ static bool _AHCIInterruptHandler(void)
       {
         if (status & (1 << portIndex))
         {
+          /* Clear the interrupt status */
+          _MMIOWrite32(&pHostControl->interruptStatus, (1 << portIndex));
+
           KERNEL_DEBUG(AHCI_DRIVER_DEBUG_ENABLED,
                        MODULE_NAME,
                        "Port %d: Interrupt received.",
@@ -3731,14 +3734,12 @@ static bool _AHCIInterruptHandler(void)
           {
             _AHCIHandlePortInterrupt(pDrvCtrl, portIndex);
           }
-          /* Clear the interrupt status */
-          _MMIOWrite32(&pHostControl->interruptStatus, (1 << portIndex));
         }
       }
     }
   }
 
-  return false;
+  return true;
 }
 
 static void _AHCIHandlePortInterrupt(S_AHCIControler* pDrvCtrl,
@@ -3756,14 +3757,14 @@ static void _AHCIHandlePortInterrupt(S_AHCIControler* pDrvCtrl,
   else
   {
     /* Lock the port control structure */
-    SpinlockAcquire(&pPortCtrl->lock);
+    SpinlockAcquireISR(&pPortCtrl->lock);
 
     /* Clear the interrupt status for the port */
     status = _MMIORead32(&pPortCtrl->pPort->interruptStatus);
     _MMIOWrite32(&pPortCtrl->pPort->interruptStatus, status);
 
     /* Unlock the port control structure */
-    SpinlockRelease(&pPortCtrl->lock);
+    SpinlockReleaseISR(&pPortCtrl->lock);
   }
 }
 
@@ -3778,10 +3779,12 @@ static void _AHCIHandleSATAPortInterrupt(S_AHCIPortControler* pPortCtrl)
   E_AHCIOpResult  result;
 
   /* Lock the port control structure */
-  SpinlockAcquire(&pPortCtrl->lock);
+  SpinlockAcquireISR(&pPortCtrl->lock);
 
   pPort = pPortCtrl->pPort;
   interruptStatus = _MMIORead32(&pPort->interruptStatus);
+  /* Clear the interrupt status */
+  _MMIOWrite32(&pPort->interruptStatus, interruptStatus);
 
   /* Check the interrupt type */
   result = AHCI_OP_ERROR;
@@ -3932,10 +3935,7 @@ static void _AHCIHandleSATAPortInterrupt(S_AHCIPortControler* pPortCtrl)
     }
   }
   /* Unlock the port control structure */
-  SpinlockRelease(&pPortCtrl->lock);
-
-  /* Clear the interrupt status */
-  _MMIOWrite32(&pPort->interruptStatus, interruptStatus);
+  SpinlockReleaseISR(&pPortCtrl->lock);
 }
 
 static void _WaitForAHCIRetry(S_AHCIPortControler* pPortCtrl,
@@ -4052,7 +4052,7 @@ static E_AHCIOpResult _ReadSATAPort(S_AHCIPortControler* pPortCtrl,
 
     /* Add the port to the waiting table queue */
     KERNEL_ENTER_CRITICAL_LOCAL(intState);
-    SpinlockAcquire(&pPortCtrl->lock);
+    SpinlockAcquireISR(&pPortCtrl->lock);
 
     pPortCtrl->issuedCommandTable |= (1 << slotPort);
     pPortCtrl->commandWaitingTable[slotPort].pResult = pAsyncResult;
@@ -4060,10 +4060,9 @@ static E_AHCIOpResult _ReadSATAPort(S_AHCIPortControler* pPortCtrl,
     pPortCtrl->commandWaitingTable[slotPort].type = AHCI_CMD_READ;
 
     /* Issue the command */
-    _ClearAHCIPortError(pPort);
     _MMIOWrite32(&pPort->commandIssue, 1 << slotPort);
 
-    SpinlockRelease(&pPortCtrl->lock);
+    SpinlockReleaseISR(&pPortCtrl->lock);
     KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
     retCode = AHCI_OP_WAIT;
@@ -4258,11 +4257,14 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
   S_KernelThread* pCurThread;
   E_AHCIOpResult  asyncResult;
   E_Return        error;
+  uint32_t        intState;
 
   /* Get the physical address of the buffer */
   pCurThread = GetCurrentThread();
   do
   {
+    asyncResult = AHCI_OP_WAIT;
+
     /* Lock the port */
     error = KernelMutexLock(&pPortCtrl->operationLock);
     AHCI_ASSERT(error == NO_ERROR,
@@ -4293,23 +4295,38 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
     /* Check the result */
     if (result == AHCI_OP_WAIT)
     {
-      /* Set the current thread to waiting */
-      SetCurrentThreadToWaiting(NULL, false);
-
       /* Unlock the port */
       error = KernelMutexUnlock(&pPortCtrl->operationLock);
       AHCI_ASSERT(error == NO_ERROR,
                   "Failed to unlock the port mutex.",
                   error);
 
-      /* Schedule */
-      CPUSaveContextAndSchedule(pCurThread->pVCpu);
+      KERNEL_ENTER_CRITICAL_LOCAL(intState);
+      SpinlockAcquireISR(&pPortCtrl->lock);
+
+      if (asyncResult == AHCI_OP_WAIT)
+      {
+         /* Set the current thread to waiting */
+        SetCurrentThreadToWaiting(NULL, false);
+
+        SpinlockReleaseISR(&pPortCtrl->lock);
+
+        /* Schedule */
+        CPUSaveContextAndSchedule(pCurThread->pVCpu);
+      }
+      else
+      {
+        SpinlockReleaseISR(&pPortCtrl->lock);
+      }
+      KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
       /* Get the aync result on return */
       result = asyncResult;
     }
     else if (result == AHCI_OP_RETRY)
     {
+      KERNEL_ENTER_CRITICAL_LOCAL(intState);
+
       /* Set the current thread to waiting */
       _WaitForAHCIRetry(pPortCtrl, pCurThread);
 
@@ -4321,6 +4338,8 @@ static ssize_t _AHCIPerformOperation(S_AHCIPortControler*  pPortCtrl,
 
       /* Schedule */
       CPUSaveContextAndSchedule(pCurThread->pVCpu);
+
+    KERNEL_EXIT_CRITICAL_LOCAL(intState);
     }
     else
     {

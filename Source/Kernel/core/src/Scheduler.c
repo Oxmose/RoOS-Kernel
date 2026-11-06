@@ -437,9 +437,7 @@ static void _SchedulerThreadEntry(void)
     pThread->returnValue = pThread->pRoutine(pThread->pArgs);
 
     /* Call the exit function */
-    SpinlockAcquire(&pThread->lock);
     _SchedulerThreadExit(pThread);
-    SpinlockRelease(&pThread->lock);
   }
   else
   {
@@ -461,6 +459,8 @@ static void _SchedulerThreadExit(S_KernelThread* pThread)
 
   KERNEL_ENTER_CRITICAL_LOCAL(intState);
 
+  SpinlockAcquireISR(&pThread->lock);
+
   /* Set thread as zombie */
   _SetThreadToZombie(pThread);
 
@@ -476,7 +476,10 @@ static void _SchedulerThreadExit(S_KernelThread* pThread)
   /* Set end time */
   pThread->endTime = TimeGetUptime();
 
-  SpinlockRelease(&pThread->lock);
+  SpinlockReleaseISR(&pThread->lock);
+
+  /* Ensure the preempt is handled correctly */
+  pThread->preemptionCount = 0;
 
   /* Schedule, we should never come back */
   SchedulerSchedule();
@@ -806,6 +809,7 @@ static void _CleanThread(S_KernelThread* pThread)
 {
   S_KernelQueueNode* pNode;
   E_Return           error;
+  uint32_t           intState;
 
   /* Free the memory used by the structures */
   CPUDestroyTLS(pThread);
@@ -825,7 +829,8 @@ static void _CleanThread(S_KernelThread* pThread)
   CoreProcessFSDeleteThreadEntry(pThread);
 
   /* Unlink from process */
-  SpinlockAcquire(&pThread->pProcess->lock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&pThread->pProcess->lock);
   pNode = pThread->pProcess->pThreads->pHead;
   while (pNode != NULL)
   {
@@ -838,7 +843,8 @@ static void _CleanThread(S_KernelThread* pThread)
     pNode = pNode->pNext;
   }
   KQueueDestroyNode(&pNode);
-  SpinlockRelease(&pThread->pProcess->lock);
+  SpinlockReleaseISR(&pThread->pProcess->lock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
   error = UHashtableRemove(spThreadsTable, pThread->tid, NULL);
   SCHED_ASSERT(error == NO_ERROR,
@@ -1184,11 +1190,14 @@ S_KernelProcess* GetCurrentProcess(void)
 {
   S_KernelProcess* pProcess;
   S_CPULocalData*  pCPUContext;
+  uint32_t         intState;
 
   if (sIsInit == true)
   {
+    KERNEL_ENTER_CRITICAL_LOCAL(intState);
     pCPUContext = CPUGetLocalStorage();
     pProcess = pCPUContext->pCurrentProcess;
+    KERNEL_EXIT_CRITICAL_LOCAL(intState);
   }
   else
   {
@@ -1201,20 +1210,29 @@ S_KernelProcess* GetCurrentProcess(void)
 S_KernelThread* GetCurrentThread(void)
 {
   S_CPULocalData* pCPUContext;
+  S_KernelThread* pThread;
+  uint32_t        intState;
+
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
 
   pCPUContext = CPUGetLocalStorage();
+  pThread = pCPUContext->pCurrentThread;
 
-  return pCPUContext->pCurrentThread;
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
+
+  return pThread;
 }
 
 void SetCurrentThreadToWaiting(S_KernelQueue* pWaitingList,
                                const bool     kIsInterruptible)
 {
   S_KernelThread* pThread;
+  uint32_t        intState;
 
   pThread = GetCurrentThread();
 
-  SpinlockAcquire(&pThread->lock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&pThread->lock);
 
   if (kIsInterruptible == true)
   {
@@ -1230,7 +1248,8 @@ void SetCurrentThreadToWaiting(S_KernelQueue* pWaitingList,
     KQueuePush(pThread->pThreadNode, pWaitingList);
   }
 
-  SpinlockRelease(&pThread->lock);
+  SpinlockReleaseISR(&pThread->lock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 }
 
 void SetCurrentThreadToWaitingWithPriority(S_KernelQueue* pWaitingList,
@@ -1238,10 +1257,12 @@ void SetCurrentThreadToWaitingWithPriority(S_KernelQueue* pWaitingList,
                                            const bool     kIsInterruptible)
 {
   S_KernelThread* pThread;
+  uint32_t        intState;
 
   pThread = GetCurrentThread();
 
-  SpinlockAcquire(&pThread->lock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&pThread->lock);
 
   if (kIsInterruptible == true)
   {
@@ -1257,7 +1278,8 @@ void SetCurrentThreadToWaitingWithPriority(S_KernelQueue* pWaitingList,
     KQueuePushPrio(pThread->pThreadNode, pWaitingList, kPriority);
   }
 
-  SpinlockRelease(&pThread->lock);
+  SpinlockReleaseISR(&pThread->lock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 }
 
 void KillCurrentThread(void)
@@ -1266,18 +1288,16 @@ void KillCurrentThread(void)
 
   pThread = GetCurrentThread();
 
-  SpinlockAcquire(&pThread->lock);
-
   _SchedulerThreadExit(pThread);
-
-  SpinlockRelease(&pThread->lock);
 }
 
 void SetThreadToReady(S_KernelThread* pThread)
 {
   S_ScheduleContext* pContext;
+  uint32_t           intState;
 
-  SpinlockAcquire(&pThread->lock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&pThread->lock);
 
   if (pThread->currentState != THREAD_STATE_READY &&
       pThread->currentState != THREAD_STATE_ZOMBIE &&
@@ -1287,17 +1307,20 @@ void SetThreadToReady(S_KernelThread* pThread)
     _SetThreadToReady(pContext, pThread);
   }
 
-  SpinlockRelease(&pThread->lock);
+  SpinlockReleaseISR(&pThread->lock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 }
 
 void SetThreadSignaled(S_KernelThread* pThread)
 {
   uint32_t           cpuId;
   S_ScheduleContext* pContext;
+  uint32_t           intState;
 
   cpuId = CPUGetId();
 
-  SpinlockAcquire(&pThread->lock);
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&pThread->lock);
 
   if (pThread->mappedCPU == cpuId)
   {
@@ -1331,14 +1354,21 @@ void SetThreadSignaled(S_KernelThread* pThread)
     _RequestThreadSignaled(pThread);
   }
 
-  SpinlockRelease(&pThread->lock);
+  SpinlockReleaseISR(&pThread->lock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 }
 
 void SetThreadPriority(S_KernelThread* pThread, const uint32_t kPriority)
 {
-  SpinlockAcquire(&pThread->lock);
+  uint32_t intState;
+
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
+  SpinlockAcquireISR(&pThread->lock);
+
   pThread->priority = kPriority;
-  SpinlockRelease(&pThread->lock);
+
+  SpinlockReleaseISR(&pThread->lock);
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 }
 
 bool SchedulerIsInitialized(void)
@@ -1600,25 +1630,31 @@ E_Return JoinThread(S_KernelThread* pThread,
 
   pCurrentThread = GetCurrentThread();
 
+  KERNEL_ENTER_CRITICAL_LOCAL(intState);
   /* Ensure we are allowed to join the thread */
   if (pThread != pCurrentThread &&
       pThread != pThread->pProcess->pMainThread)
   {
-    SpinlockAcquire(&pThread->lock);
+    SpinlockAcquireISR(&pThread->lock);
     /* Check if a thread is already trying to join */
     if (pThread->pJoiningThread == NULL)
     {
       /* Check if the thread is not a zombie, block */
       while (pThread->currentState != THREAD_STATE_ZOMBIE)
       {
-        KERNEL_ENTER_CRITICAL_LOCAL(intState);
         _SetThreadToJoining(pCurrentThread);
+
         pThread->pJoiningThread = pCurrentThread;
-        SpinlockRelease(&pThread->lock);
+
+        SpinlockReleaseISR(&pThread->lock);
+
         CPUSaveContextAndSchedule(pCurrentThread->pVCpu);
-        KERNEL_EXIT_CRITICAL_LOCAL(intState);
-        SpinlockAcquire(&pThread->lock);
+
+        SpinlockAcquireISR(&pThread->lock);
       }
+
+      SpinlockReleaseISR(&pThread->lock);
+
       /* Ensure the thread is completely done */
       while (pThread->isScheduled == true) {}
 
@@ -1635,12 +1671,14 @@ E_Return JoinThread(S_KernelThread* pThread,
     {
       error = ERR_UNAUTHORIZED_ACTION;
     }
-    SpinlockRelease(&pThread->lock);
+
   }
   else
   {
     error = ERR_UNAUTHORIZED_ACTION;
   }
+
+  KERNEL_EXIT_CRITICAL_LOCAL(intState);
 
   return error;
 }
@@ -2057,9 +2095,7 @@ void* SyscallThreadExit(void* pParam0,
 
   pThread = GetCurrentThread();
   pThread->returnValue = pParam0;
-  SpinlockAcquire(&pThread->lock);
   _SchedulerThreadExit(pThread);
-  SpinlockRelease(&pThread->lock);
 
   return NULL;
 }

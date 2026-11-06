@@ -9,7 +9,7 @@
 # virtualbox.
 ################################################################################
 
-QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 256M -vga std -global VGA.vgamem_mb=16 \
+QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 1024M -vga std -global VGA.vgamem_mb=16  \
 			-smp 4 -serial stdio -machine q35 \
 			-drive if=none,format=raw,file=../Peripherals/hddmbr.img,id=disk0 \
 			-drive if=none,format=raw,file=../Peripherals/hddgpt.img,id=disk1 \
@@ -22,7 +22,7 @@ QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 256M -vga std -global V
 			-netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
 			-device e1000,netdev=net0,id=nic0
 
-QEMUOPTSTEST = -cpu EPYC -rtc base=localtime -m 256M \
+QEMUOPTSTEST = -cpu EPYC -rtc base=localtime -m 1024M \
 			-smp 4 -serial stdio -machine q35 \
 			-drive if=none,format=raw,file=../Peripherals/hddmbr.img,id=disk0 \
 			-drive if=none,format=raw,file=../Peripherals/hddgpt.img,id=disk1 \
