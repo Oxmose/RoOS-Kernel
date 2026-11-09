@@ -701,6 +701,18 @@
 /* --- Status Register Bits --- */
 /** @brief Status Register: Link Up */
 #define E1000_STATUS_LU (1 << 1)
+/** @brief Status Register: Speed */
+#define E1000_STATUS_SPEED_MASK (3 << 6)
+/** @brief Status Register: Speed 1000 Mbps */
+#define E1000_STATUS_SPEED_1000A (2 << 6)
+/** @brief Status Register: Speed 100 Mbps */
+#define E1000_STATUS_SPEED_1000B (3 << 6)
+/** @brief Status Register: Speed 10 Mbps */
+#define E1000_STATUS_SPEED_100  (1 << 6)
+/** @brief Status Register: Speed 10 Mbps */
+#define E1000_STATUS_SPEED_10   (0 << 6)
+/** @brief Status Register: Full Duplex */
+#define E1000_STATUS_FD (1 << 0)
 
 /* --- MDIO Register Values --- */
 /** @brief MDIO Data Mask */
@@ -3926,6 +3938,9 @@ static bool _E1000InterruptHandler(void)
       pDriver->cachedICR = status;
       NetManagerSubmitTask(&pDriver->networkDevice);
     }
+
+    /* Mask the interrupt in the device */
+    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMC), 0xFFFFFFFF);
   }
 
   /* Acknowledge the interrupt in the IOAPIC */
@@ -3947,10 +3962,6 @@ static void _HandleInterruptWorker(void* pDriverPtr)
                pDriver->pPCIDevice->bus,
                pDriver->pPCIDevice->slot,
                pDriver->pPCIDevice->function);
-
-
-  /* Mask the interrupt in the device */
-  _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMC), 0xFFFFFFFF);
 
   icrStatus = pDriver->cachedICR;
 
@@ -3992,6 +4003,37 @@ static void _HandleLinkStatusChange(void* pDriverPtr)
   if (status & E1000_STATUS_LU)
   {
     pDriver->isLinkUp = true;
+
+    if ((status & E1000_STATUS_SPEED_MASK) == E1000_STATUS_SPEED_1000A)
+    {
+      pDriver->linkSpeed = LINK_SPEED_1GBPS
+    }
+    if ((status & E1000_STATUS_SPEED_MASK) == E1000_STATUS_SPEED_1000B)
+    {
+      pDriver->linkSpeed = LINK_SPEED_1GBPS
+    }
+    else if ((status & E1000_STATUS_SPEED_MASK) == E1000_STATUS_SPEED_100)
+    {
+      pDriver->linkSpeed = LINK_SPEED_100MBPS;
+    }
+    else if ((status & E1000_STATUS_SPEED_MASK) == E1000_STATUS_SPEED_10)
+    {
+      pDriver->linkSpeed = LINK_SPEED_10MBPS;
+    }
+    else
+    {
+      pDriver->linkSpeed = LINK_SPEED_10MBPS;
+    }
+
+    if (status & E1000_STATUS_FD)
+    {
+      pDriver->duplexType = DUPLEX_FULL;
+    }
+    else
+    {
+      pDriver->duplexType = DUPLEX_HALF;
+    }
+
     KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                  MODULE_NAME,
                  "E1000 device %04X:%04X:%04X link is up",

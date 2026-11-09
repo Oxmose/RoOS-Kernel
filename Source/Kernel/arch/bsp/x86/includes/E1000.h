@@ -9,11 +9,11 @@
  *
  * @version 1.0
  *
- * @brief Kernel's E1000 and E1000e (Ethernet Controller) driver.
+ * @brief Kernel's E1000 (Ethernet Controller) driver.
  *
- * @details Kernel's E1000 and E1000e (Ethernet Controller) driver. Defines
- * the functions and definitions to interact with the E1000 and E1000e
- * controllers and their devices.
+ * @details Kernel's E1000 (Ethernet Controller) driver. Defines
+ * the functions and definitions to interact with the E1000
+ * controller and its device.
  *
  * @copyright Alexy Torres Aurora Dugo
  ******************************************************************************/
