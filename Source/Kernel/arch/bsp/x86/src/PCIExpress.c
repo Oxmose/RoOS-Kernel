@@ -108,10 +108,21 @@
 
 /** @brief Bit mask for the capabilities list bit in the PCI status register */
 #define PCI_STATUS_CAPABILITIES_LIST 0x0010
-/** @brief Capability ID for MSI */
-#define PCI_CAPABILITY_ID_MSI 0x05
-/** @brief Capability ID for MSI-X */
-#define PCI_CAPABILITY_ID_MSIX 0x11
+
+/** @brief Maximum number of capabilities to visit */
+#define PCI_MAX_CAP_VISIT 48
+/** @brief Starting offset for extended capabilities */
+#define PCI_EXT_CAP_START_OFFSET 0x100
+/** @brief Maximum number of extended capabilities to visit */
+#define PCI_EXT_MAX_CAP_VISIT 480
+
+/** @brief PCI configuration status register */
+#define PCI_REG_STATUS 0x06
+/** @brief PCI configuration capabilities list pointer register */
+#define PCI_STATUS_CAP_LIST 0x10
+/** @brief PCI configuration capabilities pointer register */
+#define PCI_REG_CAP_PTR 0x34
+
 /** @brief MSI control bit for enabling MSI */
 #define PCIE_MSI_CONTROL_ENABLE 0x00010000
 /** @brief MSI control bit for 64-bit address support */
@@ -178,6 +189,31 @@
    (DEVICE << 15) +                                                         \
    (FUNCTION << 12))
 
+
+/**
+ * @brief Extracts the capability ID from the capability header
+ *
+ * @details Extracts the capability ID from the capability header. The
+ * capability ID is the lower 16 bits of the capability header.
+ *
+ * @param[in] HEADER The capability header.
+ *
+ * @return The capability ID.
+ */
+#define PCI_EXT_CAP_ID(HEADER) (uint16_t)((HEADER) & 0xFFFF)
+
+/**
+ * @brief Extracts the next capability pointer from the capability header.
+ *
+ * @details Extracts the next capability pointer from the capability header. The
+ * next capability pointer is the upper 12 bits of the capability header,
+ * shifted right by 20 bits.
+ *
+ * @param[in] HEADER The capability header.
+ *
+ * @return The next capability pointer.
+ */
+#define PCI_EXT_CAP_NEXT(HEADER) ((uint16_t)(((HEADER) >> 20) & 0xFFC))
 /*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
@@ -1786,6 +1822,178 @@ E_Return PrepareDeviceLegacyInterrupt(S_PCIDevice* pDevice)
   return retCode;
 }
 
+uint32_t PCIReadConfig32(const S_PCIDevice* kpDevice, const uint16_t kOffset)
+{
+  void*    pRegister;
+  uint32_t value;
+
+  pRegister = (void*)((uintptr_t)&kpDevice->pFunction + (kOffset & 0xFFC));
+
+  value = _MMIORead32(pRegister);
+
+  return value;
+}
+
+void PCIWriteConfig32(const S_PCIDevice* kpDevice,
+                      const uint16_t     kOffset,
+                      const uint32_t     kValue)
+{
+  void* pRegister;
+
+  pRegister = (void*)((uintptr_t)&kpDevice->pFunction + (kOffset & 0xFFC));
+
+  _MMIOWrite32(pRegister, kValue);
+}
+
+uint16_t PCIReadConfig16(const S_PCIDevice* kpDevice, const uint16_t kOffset)
+{
+  uint32_t val32;
+
+  val32 = PCIReadConfig32(kpDevice, kOffset);
+
+  return (uint16_t)((val32 >> ((kOffset & 2) * 8)) & 0xFFFF);
+}
+
+void PCIWriteConfig16(const S_PCIDevice* kpDevice,
+                      const uint16_t     kOffset,
+                      const uint16_t     kValue)
+{
+  uint32_t shift;
+  uint32_t val32;
+
+  val32 = PCIReadConfig32(kpDevice, kOffset);
+  shift = (kOffset & 2) * 8;
+
+  val32 &= ~(0xFFFFU << shift);
+  val32 |= ((uint32_t)kValue << shift);
+
+  PCIWriteConfig32(kpDevice, kOffset, val32);
+}
+
+uint8_t PCIReadConfig8(const S_PCIDevice* kpDevice, const uint16_t kOffset)
+{
+  uint32_t val32;
+
+  val32 = PCIReadConfig32(kpDevice, kOffset);
+
+  return (uint16_t)((val32 >> ((kOffset & 3) * 8)) & 0xFF);
+}
+
+void PCIWriteConfig8(const S_PCIDevice* kpDevice,
+                     const uint16_t     kOffset,
+                     const uint8_t      kValue)
+{
+  uint32_t shift;
+  uint32_t val32;
+
+  val32 = PCIReadConfig32(kpDevice, kOffset);
+  shift = (kOffset & 3) * 8;
+
+  val32 &= ~(0xFFU << shift);
+  val32 |= ((uint32_t)kValue << shift);
+
+  PCIWriteConfig32(kpDevice, kOffset, val32);
+}
+
+uint8_t PCIFindCapability(const S_PCIDevice* kpDevice, const uint8_t kCapId)
+{
+  uint16_t status;
+  uint8_t  capOffset;
+  uint8_t  currentId;
+  uint8_t  i;
+
+  /* Verify a capability list exists */
+  status = PCIReadConfig16(kpDevice, PCI_REG_STATUS);
+  if (status != 0xFFFF && (status & PCI_STATUS_CAP_LIST) == 0)
+  {
+    /* 2. Read the initial Capabilities Pointer */
+    capOffset = PCIReadConfig8(kpDevice, PCI_REG_CAP_PTR) & 0xFC;
+
+    /* 3. Walk the linked list */
+    for (i = 0; i < PCI_MAX_CAP_VISIT; ++i)
+    {
+      currentId = PCIReadConfig8(kpDevice, capOffset);
+
+      /* Guard against unimplemented or disconnected bus reads */
+      if (currentId == 0xFF)
+      {
+        break;
+      }
+
+      if (currentId == kCapId)
+      {
+        return capOffset;
+      }
+
+      /* Advance to the next capability pointer located at offset + 1 */
+      capOffset = PCIReadConfig8(kpDevice, capOffset + 1) & 0xFC;
+      if (capOffset > 0x40)
+      {
+        capOffset = 0;
+        break;
+      }
+    }
+    if (i == PCI_MAX_CAP_VISIT)
+    {
+      capOffset = 0;
+    }
+  }
+  else
+  {
+    capOffset = 0;
+  }
+
+  return capOffset;
+}
+
+uint16_t PCIFindExtendedCapability(const S_PCIDevice* kpDevice,
+                                   const uint16_t     kExtCapId)
+{
+  uint16_t offset;
+  uint32_t header;
+  uint16_t i;
+
+  /* 1. Verify the device is a PCI Express device */
+  if (PCIFindCapability(kpDevice, PCI_CAPABILITY_ID_PCIE) != 0)
+  {
+    /* Walk the 4KB extended capability linked list */
+    offset = PCI_EXT_CAP_START_OFFSET;
+
+    for (i = 0; i < PCI_EXT_MAX_CAP_VISIT; ++i)
+    {
+      header = PCIReadConfig32(kpDevice, offset);
+
+      /* An all-zero or all-ones header indicates unimplemented/empty ECAM space */
+      if (header == 0x00000000 || header == 0xFFFFFFFF)
+      {
+        offset = 0;
+        break;
+      }
+      else if (PCI_EXT_CAP_ID(header) == kExtCapId)
+      {
+        break;
+      }
+
+      offset = PCI_EXT_CAP_NEXT(header);
+      if (offset < PCI_EXT_CAP_START_OFFSET)
+      {
+        offset = 0;
+        break;
+      }
+    }
+
+    if (i == PCI_EXT_MAX_CAP_VISIT)
+    {
+      offset = 0;
+    }
+  }
+  else
+  {
+    offset = 0;
+  }
+
+  return offset;
+}
 /***************************** DRIVER REGISTRATION ****************************/
 DRIVERMGR_REG_LAYER(sX86PCIEDriver);
 

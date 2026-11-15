@@ -584,21 +584,21 @@
 #define E1000_TCTL_COLD_HALF 0x200
 
 /** @brief Transmit Descriptor Command: End of Packet */
-#define E1000_TX_CMD_EOP ((1 << 0) << 24)
+#define E1000_TX_CMD_EOP (1 << 0)
 /** @brief Transmit Descriptor Command: Insert FCS */
-#define E1000_TX_CMD_IFCS ((1 << 1) << 24)
+#define E1000_TX_CMD_IFCS (1 << 1)
 /** @brief Transmit Descriptor Command: Insert Checksum */
-#define E1000_TX_CMD_IC ((1 << 2) << 24)
+#define E1000_TX_CMD_IC (1 << 2)
 /** @brief Transmit Descriptor Command: Report Status */
-#define E1000_TX_CMD_RS ((1 << 3) << 24)
+#define E1000_TX_CMD_RS (1 << 3)
 /** @brief Transmit Descriptor Command: Report Packet Sent */
-#define E1000_TX_CMD_RPS ((1 << 4) << 24)
+#define E1000_TX_CMD_RPS (1 << 4)
 /** @brief Transmit Descriptor Command: Descriptor Extension */
-#define E1000_TX_CMD_DEXT ((1 << 5) << 24)
+#define E1000_TX_CMD_DEXT (1 << 5)
 /** @brief Transmit Descriptor Command: VLAN Packet Enable */
-#define E1000_TX_CMD_VLE ((1 << 6) << 24)
+#define E1000_TX_CMD_VLE (1 << 6)
 /** @brief Transmit Descriptor Command: Interrupt Delay Enabl */
-#define E1000_TX_CMD_IDE ((1 << 7) << 24)
+#define E1000_TX_CMD_IDE (1 << 7)
 
 /* --- Transmit Descriptor Status Bits --- */
 /** @brief Transmit Descriptor Status: Descriptor Done */
@@ -3701,8 +3701,8 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
   ssize_t        sentBytes;
   uintptr_t      physAddr;
   uint32_t       tailIdx;
-  uint32_t       packetSize;
-  uint64_t       regValue;
+  uint16_t       packetSize;
+  uint8_t        regValue;
   uint32_t       requiredPackets;
   uint32_t       availableDescriptors;
   uint32_t       transmitTicket;
@@ -3767,7 +3767,7 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
 
         /* Save the metadata for the last packet only */
         sentBytes += packetSize;
-        regValue = packetSize | E1000_TX_CMD_IDE;
+        regValue = E1000_TX_CMD_IDE;
         if ((size_t)sentBytes == kSize)
         {
           regValue |= E1000_TX_CMD_EOP | E1000_TX_CMD_IFCS;
@@ -3787,7 +3787,9 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
           regValue |= E1000_TX_CMD_RS;
         }
 
-        pDriver->pTXDescriptorRing[tailIdx].length = regValue;
+        pDriver->pTXDescriptorRing[tailIdx].length = packetSize;
+        pDriver->pTXDescriptorRing[tailIdx].cmd    = regValue;
+        pDriver->pTXDescriptorRing[tailIdx].status = 0;
 
         /* Update the transmit descriptor tail */
         tailIdx = (tailIdx + 1) % pDriver->txBufferCount;
@@ -4102,7 +4104,8 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
                   pDriver->pPCIDevice->function,
                   watchIdx,
                   pDriver->pTXDescriptorRing[watchIdx].status);
-      if ((pDriver->pTXDescriptorRing[watchIdx].status & E1000_TXD_STAT_DD) == E1000_TXD_STAT_DD)
+      if ((pDriver->pTXDescriptorRing[watchIdx].status & E1000_TXD_STAT_DD) ==
+           E1000_TXD_STAT_DD)
       {
         while (cleanIdx != nextIdx && freeCount < E1000_TX_CLEAN_BUDGET)
         {

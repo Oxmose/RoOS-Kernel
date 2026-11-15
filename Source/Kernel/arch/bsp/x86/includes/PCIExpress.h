@@ -29,7 +29,79 @@
 /*******************************************************************************
  * CONSTANTS
  ******************************************************************************/
-/* None */
+/** @brief Capability ID for Power Management */
+#define PCI_CAPABILITY_ID_POWERMGNT 0x01
+/** @brief Capability ID for AGP Support */
+#define PCI_CAPABILITY_ID_AGP 0x02
+/** @brief Capability ID for VPD */
+#define PCI_CAPABILITY_ID_VPD 0x03
+/** @brief Capability ID for Slot Identification */
+#define PCI_CAPABILITY_ID_SLOTID 0x04
+/** @brief Capability ID for MSI */
+#define PCI_CAPABILITY_ID_MSI 0x05
+/** @brief Capability ID for CompactPCI Hot Swap */
+#define PCI_CAPABILITY_ID_CPCI_HOTSWAP 0x06
+/** @brief Capability ID for PCI-X */
+#define PCI_CAPABILITY_ID_PCIX 0x07
+/** @brief Capability ID for HyperTransport */
+#define PCI_CAPABILITY_ID_HT 0x08
+/** @brief Capability ID for Vendor-Specific */
+#define PCI_CAPABILITY_ID_VENDOR 0x09
+/** @brief Capability ID for Debug Port */
+#define PCI_CAPABILITY_ID_DEBUGPORT 0x0A
+/** @brief Capability ID for CompactPCI Central Resource Control */
+#define PCI_CAPABILITY_ID_CPCI_CRC 0x0B
+/** @brief Capability ID for PCI Hot-Plug */
+#define PCI_CAPABILITY_ID_HOTPLUG 0x0C
+/** @brief Capability ID for Bridge Subsystem Vendor ID */
+#define PCI_CAPABILITY_ID_BRIDGE_SUBSYS 0x0D
+/** @brief Capability ID for AGP 8x */
+#define PCI_CAPABILITY_ID_AGP8X 0x0E
+/** @brief Capability ID for Secure Device */
+#define PCI_CAPABILITY_ID_SECUREDEV 0x0F
+/** @brief Capability ID for PCI-Express */
+#define PCI_CAPABILITY_ID_PCIE 0x10
+/** @brief Capability ID for MSI-X */
+#define PCI_CAPABILITY_ID_MSIX 0x11
+/** @brief Capability ID for SATA Data/Index Configuration */
+#define PCI_CAPABILITY_ID_SATA 0x12
+/** @brief Capability ID for Advanced Features */
+#define PCI_CAPABILITY_ID_AF 0x13
+/** @brief Capability ID for Enhanced Allocation */
+#define PCI_CAPABILITY_ID_ENHANCED_ALLOC 0x14
+
+
+/* --- PCI Power Management Capability Register Offsets & Masks --- */
+/** @brief Power Management Control/Status register */
+#define PCI_PM_CTRL_STATUS_OFFSET   0x04
+/** @brief Power state mask */
+#define PCI_PM_CTRL_STATE_MASK      0x0003
+/** @brief Power state D0 (Active) */
+#define PCI_PM_CTRL_STATE_D0        0x0000
+/** @brief Power state D1 (Low-Power) */
+#define PCI_PM_CTRL_STATE_D1        0x0001
+/** @brief Power state D2 (Low-Power) */
+#define PCI_PM_CTRL_STATE_D2        0x0002
+/** @brief Power state D3hot (Low-Power) */
+#define PCI_PM_CTRL_STATE_D3HOT     0x0003
+
+/* --- PCI Express Capability Register Offsets & Masks --- */
+/** @brief Device Control register */
+#define PCI_PCIE_DEV_CTRL_OFFSET    0x08
+/** @brief Device Status register */
+#define PCI_PCIE_DEV_STATUS_OFFSET  0x0A
+/** @brief Link Control register */
+#define PCI_PCIE_LINK_CTRL_OFFSET   0x10
+/** @brief Link Status register */
+#define PCI_PCIE_LINK_STATUS_OFFSET 0x12
+
+/* --- PCIe Link Control ASPM Bits --- */
+/** @brief ASPM Control bits mask */
+#define PCI_PCIE_LCTL_ASPM_MASK     0x0003
+/** @brief L0s Entry Enabled */
+#define PCI_PCIE_LCTL_ASPM_L0S      0x0001
+/** @brief L1 Entry Enabled */
+#define PCI_PCIE_LCTL_ASPM_L1       0x0002
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -352,6 +424,124 @@ E_Return PrepareDeviceMSIInterrupt(S_PCIDevice* pDevice);
  * failure of the operation.
  */
 E_Return PrepareDeviceLegacyInterrupt(S_PCIDevice* pDevice);
+
+/**
+ * @brief Reads a 32-bit value from the PCI configuration space.
+ *
+ * @details This function reads a 32-bit value from the PCI configuration space
+ * at the specified offset.
+ *
+ * @param[in] kpDevice The PCI device to read from.
+ * @param[in] kOffset The offset to read from.
+ *
+ * @return The function returns the value read from the PCI configuration space.
+ */
+uint32_t PCIReadConfig32(const S_PCIDevice* kpDevice, const uint16_t kOffset);
+
+/**
+ * @brief Writes a 32-bit value to the PCI configuration space.
+ *
+ * @details This function writes a 32-bit value to the PCI configuration space
+ * at the specified offset.
+ *
+ * @param[in] kpDevice The PCI device to write to.
+ * @param[in] kOffset The offset to write to.
+ * @param[in] kValue The value to write.
+ */
+void PCIWriteConfig32(const S_PCIDevice* kpDevice,
+                      const uint16_t     kOffset,
+                      const uint32_t     kValue);
+
+/**
+ * @brief Reads a 16-bit value from the PCI configuration space.
+ *
+ * @details This function reads a 16-bit value from the PCI configuration space
+ * at the specified offset.
+ *
+ * @param[in] kpDevice The PCI device to read from.
+ * @param[in] kOffset The offset to read from.
+ *
+ * @return The function returns the value read from the PCI configuration space.
+ */
+uint16_t PCIReadConfig16(const S_PCIDevice* kpDevice, const uint16_t kOffset);
+
+/**
+ * @brief Writes a 16-bit value to the PCI configuration space.
+ *
+ * @details This function writes a 16-bit value to the PCI configuration space
+ * at the specified offset.
+ *
+ * @param[in] kpDevice The PCI device to write to.
+ * @param[in] kOffset The offset to write to.
+ * @param[in] kValue The value to write.
+ */
+void PCIWriteConfig16(const S_PCIDevice* kpDevice,
+                      const uint16_t     kOffset,
+                      const uint16_t     kValue);
+
+/**
+ * @brief Reads an 8-bit value from the PCI configuration space.
+ *
+ * @details This function reads an 8-bit value from the PCI configuration space
+ * at the specified offset.
+ *
+ * @param[in] kpDevice The PCI device to read from.
+ * @param[in] kOffset The offset to read from.
+ *
+ * @return The function returns the value read from the PCI configuration space.
+ */
+uint8_t PCIReadConfig8(const S_PCIDevice* kpDevice, const uint16_t kOffset);
+
+/**
+ * @brief Writes an 8-bit value to the PCI configuration space.
+ *
+ * @details This function writes an 8-bit value to the PCI configuration space
+ * at the specified offset.
+ *
+ * @param[in] kpDevice The PCI device to write to.
+ * @param[in] kOffset The offset to write to.
+ * @param[in] kValue The value to write.
+ */
+void PCIWriteConfig8(const S_PCIDevice* kpDevice,
+                     const uint16_t     kOffset,
+                     const uint8_t      kValue);
+
+/**
+ * @brief Locates a standard PCI capability structure in configuration space
+ * (0x40 - 0xFC).
+ *
+ * @details This function searches for a specific standard PCI capability in the
+ * configuration space of a given PCI device. It returns the byte offset of the
+ * capability if found, or 0 if not found. The search is performed in the range
+ * of 0x40 to 0xFC, which is the valid range for standard PCI capabilities in
+ * PCI devices.
+ *
+ * @param[in] kpDevice The target PCI/PCIe device descriptor.
+ * @param[in] kCapId The 8-bit Capability ID to search for.
+ *
+ * @return The byte offset of the capability header, or 0 if unsupported or not
+ * found.
+ */
+uint8_t PCIFindCapability(const S_PCIDevice* kpDevice, const uint8_t kCapId);
+
+/**
+ * @brief Finds the offset of a PCIe Extended Capability in ECAM space
+ * (0x100 - 0xFFF).
+ *
+ * @details This function searches for a specific Extended Capability in the
+ * PCIe configuration space of a given PCIe device. It returns the byte offset
+ * of the capability if found, or 0 if not found. The search is performed in the
+ * range of 0x100 to 0xFFC, which is the valid range for Extended Capabilities
+ * in PCIe devices.
+ *
+ * @param[in] kpDevice The target PCIe device.
+ * @param[in] kExtCapId The 16-bit Extended Capability ID to locate.
+ *
+ * @return The 12-bit byte offset of the capability (0x100 - 0xFFC), or 0 if not
+ * found.
+ */
+uint16_t PCIFindExtendedCapability(const S_PCIDevice* kpDevice,
+                                   const uint16_t     kExtCapId);
 
 #endif /* #ifndef __X86_PCIEXPRESS_H_ */
 

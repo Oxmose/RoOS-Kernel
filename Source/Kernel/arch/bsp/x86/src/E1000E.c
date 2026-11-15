@@ -72,12 +72,12 @@
 #define E1000E_DEV_ID_82571EB_SERDES         0x1060
 /** @brief 82571EB Quad Copper Network Controllers */
 #define E1000E_DEV_ID_82571EB_QUAD_COPPER    0x10A4
-/** @brief 82571PT Quad Copper Network Controllers */
-#define E1000E_DEV_ID_82571PT_QUAD_COPPER    0x10D5
 /** @brief 82571EB Quad Fiber Network Controllers */
 #define E1000E_DEV_ID_82571EB_QUAD_FIBER     0x10A5
 /** @brief 82571EB Quad Copper Low-Power Network Controllers */
 #define E1000E_DEV_ID_82571EB_QUAD_COPPER_LP 0x10BC
+/** @brief 82571PT Quad Copper Network Controllers */
+#define E1000E_DEV_ID_82571PT_QUAD_COPPER    0x10D5
 /** @brief 82571EB Dual SerDes Network Controllers */
 #define E1000E_DEV_ID_82571EB_SERDES_DUAL    0x10D9
 /** @brief 82571EB Quad SerDes Network Controllers */
@@ -105,11 +105,15 @@
 /** @brief 82574LA Network Controllers */
 #define E1000E_DEV_ID_82574LA                0x10F6
 /** @brief 82583V Network Controllers */
-#define E1000E_DEV_ID_82583V                 0x10D8
+#define E1000E_DEV_ID_82583V                 0x150C
 
 /* ==========================================================================
  * Intel 80003ES2LAN Corporate Server Family
  * ========================================================================== */
+/** @brief 80003ES2LAN Dual-Port Copper Network Controllers */
+#define E1000E_DEV_ID_80003ES2LAN_COPPER_DPT 0x1096
+/** @brief 80003ES2LAN Dual-Port SerDes Network Controllers */
+#define E1000E_DEV_ID_80003ES2LAN_SERDES_DPT 0x1098
 /** @brief 80003ES2LAN Copper Network Controllers */
 #define E1000E_DEV_ID_80003ES2LAN_COPPER     0x10BA
 /** @brief 80003ES2LAN SerDes Network Controllers */
@@ -120,38 +124,42 @@
  * ========================================================================== */
 /** @brief ICH8 IGP Network Controllers (Intel AMT) */
 #define E1000E_DEV_ID_ICH8_IGP_AMT           0x1049
+/** @brief ICH8 IGP Mobile Network Controllers (Intel AMT) */
+#define E1000E_DEV_ID_ICH8_IGP_M_AMT         0x104A
 /** @brief ICH8 IGP Corporate/Desktop Network Controllers */
 #define E1000E_DEV_ID_ICH8_IGP_C             0x104B
-/** @brief ICH8 IGP Mobile Network Controllers */
-#define E1000E_DEV_ID_ICH8_IGP_M_AMT         0x104A
 /** @brief ICH8 IGP Mobile Network Controllers (No AMT) */
 #define E1000E_DEV_ID_ICH8_IGP_M             0x104C
+/** @brief ICH8 IGP Mobile Network Controllers (Consumer) */
+#define E1000E_DEV_ID_ICH8_IGP_M_V           0x104D
 /** @brief ICH8 82562V 10/100 Network Connection */
 #define E1000E_DEV_ID_ICH8_IFE               0x10C4
 /** @brief ICH8 82562V 10/100 Network Connection (G-Link) */
 #define E1000E_DEV_ID_ICH8_IFE_GT            0x10C5
-/** @brief ICH8 82562V 10/100 Network Connection (M-Link) */
-#define E1000E_DEV_ID_ICH8_IFE_G             0x10E5
+/** @brief ICH8 82567V-3 Network Connection */
+#define E1000E_DEV_ID_ICH8_82567V_3          0x1501
+
 /** @brief ICH9 IGP Corporate Network Controllers (Intel AMT) */
 #define E1000E_DEV_ID_ICH9_IGP_AMT           0x10BD
-/** @brief ICH9 IGP Corporate Desktop Network Controllers */
-#define E1000E_DEV_ID_ICH9_IGP_C             0x10C0
-/** @brief ICH9 IGP Mobile Network Controllers (Intel AMT) */
-#define E1000E_DEV_ID_ICH9_IGP_M_AMT         0x10F5
 /** @brief ICH9 IGP Mobile Network Controllers */
 #define E1000E_DEV_ID_ICH9_IGP_M             0x10BF
+/** @brief ICH9 IGP Corporate Desktop Network Controllers */
+#define E1000E_DEV_ID_ICH9_IGP_C             0x10C0
+/** @brief ICH9 82562V 10/100 Connection (G-Link) */
+#define E1000E_DEV_ID_ICH9_IFE_G             0x10C2
+/** @brief ICH9 82562V 10/100 Corporate Connection (GT-Link) */
+#define E1000E_DEV_ID_ICH9_IFE_GT            0x10C3
 /** @brief ICH9 IGP Mobile Network Controllers (Low Power) */
 #define E1000E_DEV_ID_ICH9_IGP_M_V           0x10CB
-/** @brief ICH9 82562V 10/100 Corporate Connection */
-#define E1000E_DEV_ID_ICH9_IFE               0x10C3
-/** @brief ICH9 82562V 10/100 Corporate Connection (G-Link) */
-#define E1000E_DEV_ID_ICH9_IFE_GT            0x10C2
-/** @brief ICH9 82562V 10/100 Corporate Connection (M-Link) */
-#define E1000E_DEV_ID_ICH9_IFE_G             0x10E4
 /** @brief ICH9 IGP Consumer Desktop Network Controllers */
 #define E1000E_DEV_ID_ICH9_BM                0x10E5
+/** @brief ICH9 IGP Mobile Network Controllers (Intel AMT) */
+#define E1000E_DEV_ID_ICH9_IGP_M_AMT         0x10F5
+/** @brief ICH9 IGP Corporate Desktop Network Controllers (Alternate) */
+#define E1000E_DEV_ID_ICH9_IGP_C_ALT         0x294C
+
 /** @brief ICH10 Corporate Desktop Network Controllers (Intel AMT) */
-#define E1000E_DEV_ID_ICH10_R_BM_LM          0x10F6
+#define E1000E_DEV_ID_ICH10_R_BM_LM          0x10CC
 /** @brief ICH10 Consumer Desktop Network Controllers */
 #define E1000E_DEV_ID_ICH10_R_BM_LF          0x10CD
 /** @brief ICH10 Retail Desktop Network Controllers */
@@ -160,9 +168,11 @@
 #define E1000E_DEV_ID_ICH10_D_BM_LM          0x10DE
 /** @brief ICH10 Consumer LOM Network Controllers */
 #define E1000E_DEV_ID_ICH10_D_BM_LF          0x10DF
+/** @brief ICH10 Retail LOM Network Controllers */
+#define E1000E_DEV_ID_ICH10_D_BM_V           0x1525
 
 /* ==========================================================================
- * Intel PCH PCH2 (82577 / 82578 / 82579) Integrated Generation
+ * Intel PCH / PCH2 (82577 / 82578 / 82579) Integrated Generation
  * ========================================================================== */
 /** @brief PCH 82577LM Corporate Mobile Connections */
 #define E1000E_DEV_ID_PCH_M_HW_LM            0x10EA
@@ -177,7 +187,121 @@
 /** @brief PCH2 82579V Consumer Network Connections */
 #define E1000E_DEV_ID_PCH2_LV_V              0x1503
 
+/* ==========================================================================
+ * Intel I217 / I218 / I219 PCH Integrated Generations (8-Series to 800-Series)
+ * ========================================================================== */
+/** @brief Lynx Point I217-LM Corporate Network Connection */
+#define E1000E_DEV_ID_PCH_LPT_I217_LM        0x153A
+/** @brief Lynx Point I217-V Consumer Network Connection */
+#define E1000E_DEV_ID_PCH_LPT_I217_V         0x153B
 
+/** @brief Lynx Point-LP I218-V Consumer Network Connection */
+#define E1000E_DEV_ID_PCH_LPTLP_I218_V       0x1559
+/** @brief Lynx Point-LP I218-LM Corporate Network Connection */
+#define E1000E_DEV_ID_PCH_LPTLP_I218_LM      0x155A
+/** @brief Wildcat Point I218-LM2 Corporate Network Connection */
+#define E1000E_DEV_ID_PCH_I218_LM2           0x15A0
+/** @brief Wildcat Point I218-V2 Consumer Network Connection */
+#define E1000E_DEV_ID_PCH_I218_V2            0x15A1
+/** @brief Wildcat Point I218-LM3 Corporate Network Connection */
+#define E1000E_DEV_ID_PCH_I218_LM3           0x15A2
+/** @brief Wildcat Point I218-V3 Consumer Network Connection */
+#define E1000E_DEV_ID_PCH_I218_V3            0x15A3
+
+/** @brief Sunrise Point I219-LM (100-Series) */
+#define E1000E_DEV_ID_PCH_SPT_I219_LM        0x156F
+/** @brief Sunrise Point I219-V (100-Series) */
+#define E1000E_DEV_ID_PCH_SPT_I219_V         0x1570
+/** @brief Sunrise Point I219-LM2 (100/200-Series) */
+#define E1000E_DEV_ID_PCH_SPT_I219_LM2       0x15B7
+/** @brief Sunrise Point I219-V2 (100/200-Series) */
+#define E1000E_DEV_ID_PCH_SPT_I219_V2        0x15B8
+/** @brief Lewisburg I219-LM3 (C620 Server Chipset) */
+#define E1000E_DEV_ID_PCH_LBG_I219_LM3       0x15B9
+/** @brief Kaby Lake / Sunrise Point I219-V5 (200-Series) */
+#define E1000E_DEV_ID_PCH_SPT_I219_V5        0x15D6
+/** @brief Kaby Lake / Sunrise Point I219-LM4 (200-Series) */
+#define E1000E_DEV_ID_PCH_SPT_I219_LM4       0x15D7
+/** @brief Kaby Lake / Sunrise Point I219-V4 (200-Series) */
+#define E1000E_DEV_ID_PCH_SPT_I219_V4        0x15D8
+/** @brief Kaby Lake / Sunrise Point I219-LM5 (200-Series) */
+#define E1000E_DEV_ID_PCH_SPT_I219_LM5       0x15E3
+
+/** @brief Cannon Lake / Coffee Lake I219-LM7 (300-Series) */
+#define E1000E_DEV_ID_PCH_CNP_I219_LM7       0x15BB
+/** @brief Cannon Lake / Coffee Lake I219-V7 (300-Series) */
+#define E1000E_DEV_ID_PCH_CNP_I219_V7        0x15BC
+/** @brief Cannon Lake / Coffee Lake I219-LM6 (300-Series) */
+#define E1000E_DEV_ID_PCH_CNP_I219_LM6       0x15BD
+/** @brief Cannon Lake / Coffee Lake I219-V6 (300-Series) */
+#define E1000E_DEV_ID_PCH_CNP_I219_V6        0x15BE
+
+/** @brief Ice Lake I219-LM8 (400-Series Mobile) */
+#define E1000E_DEV_ID_PCH_ICP_I219_LM8       0x15DF
+/** @brief Ice Lake I219-V8 (400-Series Mobile) */
+#define E1000E_DEV_ID_PCH_ICP_I219_V8        0x15E0
+/** @brief Ice Lake I219-LM9 (400-Series Mobile) */
+#define E1000E_DEV_ID_PCH_ICP_I219_LM9       0x15E1
+/** @brief Ice Lake I219-V9 (400-Series Mobile) */
+#define E1000E_DEV_ID_PCH_ICP_I219_V9        0x15E2
+
+/** @brief Comet Lake I219-LM11 (400-Series Desktop) */
+#define E1000E_DEV_ID_PCH_CMP_I219_LM11      0x0D4C
+/** @brief Comet Lake I219-V11 (400-Series Desktop) */
+#define E1000E_DEV_ID_PCH_CMP_I219_V11       0x0D4D
+/** @brief Comet Lake I219-LM10 (400-Series Desktop) */
+#define E1000E_DEV_ID_PCH_CMP_I219_LM10      0x0D4E
+/** @brief Comet Lake I219-V10 (400-Series Desktop) */
+#define E1000E_DEV_ID_PCH_CMP_I219_V10       0x0D4F
+
+/** @brief Comet Lake I219-LM12 (400-Series Workstation) */
+#define E1000E_DEV_ID_PCH_CMP_I219_LM12      0x0D53
+/** @brief Comet Lake I219-V12 (400-Series Workstation) */
+#define E1000E_DEV_ID_PCH_CMP_I219_V12       0x0D55
+
+/** @brief Tiger Lake I219-LM15 (500-Series) */
+#define E1000E_DEV_ID_PCH_TGP_I219_LM15      0x15F4
+/** @brief Tiger Lake I219-V15 (500-Series) */
+#define E1000E_DEV_ID_PCH_TGP_I219_V15       0x15F5
+/** @brief Tiger Lake I219-LM14 (500-Series) */
+#define E1000E_DEV_ID_PCH_TGP_I219_LM14      0x15F9
+/** @brief Tiger Lake I219-V14 (500-Series) */
+#define E1000E_DEV_ID_PCH_TGP_I219_V14       0x15FA
+/** @brief Tiger Lake I219-LM13 (500-Series) */
+#define E1000E_DEV_ID_PCH_TGP_I219_LM13      0x15FB
+/** @brief Tiger Lake I219-V13 (500-Series) */
+#define E1000E_DEV_ID_PCH_TGP_I219_V13       0x15FC
+
+/** @brief Alder Lake I219-LM17 (600-Series) */
+#define E1000E_DEV_ID_PCH_ADP_I219_LM17      0x1A1C
+/** @brief Alder Lake I219-V17 (600-Series) */
+#define E1000E_DEV_ID_PCH_ADP_I219_V17       0x1A1D
+/** @brief Alder Lake I219-LM16 (600-Series) */
+#define E1000E_DEV_ID_PCH_ADP_I219_LM16      0x1A1E
+/** @brief Alder Lake I219-V16 (600-Series) */
+#define E1000E_DEV_ID_PCH_ADP_I219_V16       0x1A1F
+
+/** @brief Raptor Lake I219-LM19 (700-Series) */
+#define E1000E_DEV_ID_PCH_RPL_I219_LM19      0x0DC5
+/** @brief Raptor Lake I219-V19 (700-Series) */
+#define E1000E_DEV_ID_PCH_RPL_I219_V19       0x0DC6
+/** @brief Raptor Lake I219-LM18 (700-Series) */
+#define E1000E_DEV_ID_PCH_RPL_I219_LM18      0x0DC7
+/** @brief Raptor Lake I219-V18 (700-Series) */
+#define E1000E_DEV_ID_PCH_RPL_I219_V18       0x0DC8
+
+/** @brief Meteor Lake I219-LM20 (800-Series) */
+#define E1000E_DEV_ID_PCH_MTP_I219_LM20      0x550A
+/** @brief Meteor Lake I219-V20 (800-Series) */
+#define E1000E_DEV_ID_PCH_MTP_I219_V20       0x550B
+/** @brief Meteor Lake I219-LM21 (800-Series) */
+#define E1000E_DEV_ID_PCH_MTP_I219_LM21      0x550C
+/** @brief Meteor Lake I219-V21 (800-Series) */
+#define E1000E_DEV_ID_PCH_MTP_I219_V21       0x550D
+/** @brief Arrow Lake I219-LM22 (800-Series) */
+#define E1000E_DEV_ID_PCH_ARL_I219_LM22      0x57A0
+/** @brief Arrow Lake I219-V22 (800-Series) */
+#define E1000E_DEV_ID_PCH_ARL_I219_V22       0x57A1
 
 /* --- Registers: General --- */
 /** @brief Device Control Register */
@@ -328,8 +452,8 @@
 #define E1000E_MAVTV2 0x5018
 /** @brief Management VLAN TAG Value 3 */
 #define E1000E_MAVTV3 0x501C
-/** @brief Table Array */
-#define E1000E_Multicast 0x05200
+/** @brief Multicast Table Array */
+#define E1000E_MTA 0x05200
 /** @brief Receive Address Low (0) */
 #define E1000E_RAL_0 0x05400
 /** @brief Receive Address High (0) */
@@ -601,9 +725,376 @@
 /** @brief Packet Buffer Size */
 #define E1000E_PBS 0x01008
 
+/* --- Registers: Power Management --- */
+/** @brief Energy Efficient Ethernet Register */
+#define E1000E_EEER 0x0E30
+/** @brief Internal PHY Configuration Register */
+#define E1000E_IPCNFG 0x0E38
+
 /* --- Software Semaphore Register Bits --- */
 /** @brief Software EEPROM Semaphore Bit for the E1000E */
 #define E1000E_SWSM_SWESMBI (1 << 1)
+
+/* --- MDIO Phy Clause --- */
+/** @brief MDIO Control Register */
+#define E1000_PHY_MMD_CTRL 0x0D
+/** @brief MDIO Data Register */
+#define E1000_PHY_MMD_DATA 0x0E
+
+/** @brief E1000E EEPROM Signature Retry Delay in nanoseconds */
+#define E1000E_EEPROM_SIGNATURE_RETRY_DELAY_NS 20000000ULL
+/** @brief E1000E EEPROM Signature Retry Count */
+#define E1000E_EEPROM_SIGNATURE_RETRIES 5
+/** @brief E1000E EEPROM Size in words */
+#define E1000E_EEPROM_SIZE 64
+/** @brief E1000E EEPROM Signature */
+#define E1000E_EEPROM_SIGNATURE 0xBABA
+/** @brief EEPROM read timeout in nanoseconds */
+#define E1000E_EEPROM_READ_TIMEOUT_NS 5000000ULL
+/** @brief E1000E Semaphore Lock Timeout in nanoseconds */
+#define E1000E_SEMAPHORE_LOCK_TIMEOUT_NS 5000000ULL
+
+/** @brief MDIO Write command */
+#define E1000E_MDIO_WRITE (1 << 26)
+/** @brief MDIO Read command */
+#define E1000E_MDIO_READ (1 << 27)
+/** @brief MDIO Done flag */
+#define E1000E_MDIO_DONE (1 << 28)
+/** @brief MDIO Error flag */
+#define E1000E_MDIO_ERROR (1 << 30)
+/** @brief MDIO Address shift */
+#define E1000E_MDIO_ADDR_SHIFT 16
+/** @brief MDIO PHY shift */
+#define E1000E_MDIO_PHY_SHIFT 21
+/** @brief MDIO Data mask */
+#define E1000E_MDIO_DATA_MASK 0xFFFF
+/** @brief MDIO Access timeout in nanoseconds */
+#define E1000E_MDIO_ACCESS_TIMEOUT_NS 10000000ULL
+
+/** @brief Reset timeout in nanoseconds */
+#define E1000E_RESET_TIMEOUT_NS 20000000ULL
+
+/* --- Receive Control Registers --- */
+/** @brief Receive Control Register: Enable */
+#define E1000E_RCTL_EN (1 << 1)
+/** @brief Receive Control Register: Store Bad Packets */
+#define E1000E_RCTL_SBP (1 << 2)
+/** @brief Receive Control Register: Unicast Promiscuous Enable */
+#define E1000E_RCTL_UPE (1 << 3)
+/** @brief Receive Control Register: Multicast Promiscuous Enable */
+#define E1000E_RCTL_MPE (1 << 4)
+/** @brief Receive Control Register: Long Packet Enable */
+#define E1000E_RCTL_LPE (1 << 5)
+/** @brief Receive Control Register: Loopback Mode - None */
+#define E1000E_RCTL_LBM_NONE (0 << 6)
+/** @brief Receive Control Register: Loopback Mode - PHY */
+#define E1000E_RCTL_LBM_PHY (0 << 6)
+/** @brief Receive Control Register: Receive Descriptor Minimum Threshold 2/8 */
+#define E1000E_RCTL_RDMTS_2 (0 << 8)
+/** @brief Receive Control Register: Receive Descriptor Minimum Threshold 4/8 */
+#define E1000E_RCTL_RDMTS_4 (1 << 8)
+/** @brief Receive Control Register: Receive Descriptor Minimum Threshold 8/8 */
+#define E1000E_RCTL_RDMTS_8 (2 << 8)
+/** @brief Receive Control Register: Multicast Offset [47:36] */
+#define E1000E_RCTL_MO_36 (0 << 12)
+/** @brief Receive Control Register: Multicast Offset [46:35] */
+#define E1000E_RCTL_MO_35 (1 << 12)
+/** @brief Receive Control Register: Multicast Offset [45:34] */
+#define E1000E_RCTL_MO_34 (2 << 12)
+/** @brief Receive Control Register: Multicast Offset [43:32] */
+#define E1000E_RCTL_MO_32 (3 << 12)
+/** @brief Receive Control Register: Broadcast Accept Mode */
+#define E1000E_RCTL_BAM (1 << 15)
+/** @brief Receive Control Register: Receive Buffer Size 2048 */
+#define E1000E_RCTL_BSIZE_2048 (0 << 16)
+/** @brief Receive Control Register: Receive Buffer Size 1024 */
+#define E1000E_RCTL_BSIZE_1024 (1 << 16)
+/** @brief Receive Control Register: Receive Buffer Size 512 */
+#define E1000E_RCTL_BSIZE_512 (2 << 16)
+/** @brief Receive Control Register: Receive Buffer Size 256 */
+#define E1000E_RCTL_BSIZE_256 (3 << 16)
+/** @brief Receive Control Register: Receive Buffer Size 16384 */
+#define E1000E_RCTL_BSIZE_16384 (1 << 16)
+/** @brief Receive Control Register: Receive Buffer Size 8192 */
+#define E1000E_RCTL_BSIZE_8192 (2 << 16)
+/** @brief Receive Control Register: Receive Buffer Size 4096 */
+#define E1000E_RCTL_BSIZE_4096 (3 << 16)
+/** @brief Receive Control Register: VLAN Filter Enable */
+#define E1000E_RCTL_VFE (1 << 18)
+/** @brief Receive Control Register: Canonical Form Indicator Enable */
+#define E1000E_RCTL_CFIEN (1 << 19)
+/** @brief Receive Control Register: Canonical Form Indicator */
+#define E1000E_RCTL_CFI (1 << 20)
+/** @brief Receive Control Register: Discard Pause Frames */
+#define E1000E_RCTL_DPF (1 << 22)
+/** @brief Receive Control Register: Pass MAC Control Frames */
+#define E1000E_RCTL_PMCF (1 << 23)
+/** @brief Receive Control Register: Buffer Size Extension */
+#define E1000E_RCTL_BSEX (1 << 25)
+/** @brief Receive Control Register: Strip Ethernet CRC */
+#define E1000E_RCTL_SECRC (1 << 26)
+
+/* --- Initialization Values --- */
+/** @brief Default auto-negotiation mask */
+#define E1000E_AUTONEG_MASK 0x002F
+/** @brief Default interrupt throttle value */
+#define E1000E_INT_THROTTLE_INIT 4000
+/** @brief Default RX interrupt delay value */
+#define E1000E_RX_INT_DELAY_INIT 0
+/** @brief Default TX interrupt delay value */
+#define E1000E_TX_INT_DELAY_INIT 8
+/** @brief Default absolute RX interrupt delay value */
+#define E1000E_RX_ABS_INT_DELAY_INIT 128
+/** @brief Default absolute TX interrupt delay value */
+#define E1000E_TX_ABS_INT_DELAY_INIT 32
+/** @brief Default RX checksum enable value */
+#define E1000E_ENABLE_XSUM_RX_INIT true
+/** @brief Default use of jumbo frames */
+#define E1000E_USE_JUMBO_FRAMES_INIT false
+/** @brief Default receive buffer count */
+#define E1000E_RX_BUFFER_COUNT 256
+/** @brief Default transmit buffer count */
+#define E1000E_TX_BUFFER_COUNT 256
+/** @brief Default unicast promiscuous mode */
+#define E1000E_ENABLE_UNICAST_PROMISCUOUS_INIT true
+/** @brief Default multicast promiscuous mode */
+#define E1000E_ENABLE_MCAST_PROMISCUOUS_INIT true
+/** @brief Default broadcast listen mode */
+#define E1000E_LISTEN_BROADCAST_INIT true
+/** @brief Default CRC stripping mode */
+#define E1000E_CRC_STRIPPING_INIT false
+
+/* --- Miscellaneous --- */
+/** @brief Receive buffer size */
+#define E1000E_RX_BUFFER_SIZE 2048
+/** @brief Receive buffer alignment */
+#define E1000E_RX_BUFFER_ALIGNMENT 128
+/** @brief Transmit buffer size */
+#define E1000E_TX_BUFFER_SIZE 2048
+/** @brief Transmit buffer alignment */
+#define E1000E_TX_BUFFER_ALIGNMENT 128
+
+/** @brief Receive Address Hash Register Valid Bit */
+#define E1000E_RAH_VALID (1 << 31)
+
+/** @brief E1000E EXTCNF_CTRL Register Software Ownership Bit */
+#define E1000E_EXTCNF_CTRL_SWOWN (1 << 5)
+
+/* --- Transmit Control Registers --- */
+/** @brief Transmit Control Register: Enable */
+#define E1000E_TCTL_EN (1 << 1)
+/** @brief Transmit Control Register: Pad Short Packets */
+#define E1000_TCTL_PSP (1 << 3)
+/** @brief Transmit Control Register: Collision Threshold */
+#define E1000_TCTL_CT_SHIFT 4
+/** @brief Transmit Control Register: Collision Distance */
+#define E1000_TCTL_COLD_SHIFT 12
+/** @brief Transmit Control Register: Software XOFF */
+#define E1000_TCTL_SWXOFF (1 << 22)
+/** @brief Transmit Control Register: Re-transmit on Late Collision */
+#define E1000_TCTL_RTLC (1 << 24)
+/** @brief Transmit Control Register: No Re-transmit on underrun */
+#define E1000_TCTL_UNORTX (1 << 25)
+/** @brief Transmit Control Register: Collision Threshold for Ethernet */
+#define E1000_TCTL_CT_ETHER 0x10
+/** @brief Transmit Control Register: Collision Distance for Full Duplex */
+#define E1000_TCTL_COLD_FULL 0x40
+/** @brief Transmit Control Register: Collision Distance for Half Duplex */
+#define E1000_TCTL_COLD_HALF 0x200
+
+/* --- Device Control Register Bits --- */
+/** @brief Full Duplex Enable */
+#define E1000E_CTRL_FD (1 << 0)
+/** @brief Auto-Speed Detection Enable */
+#define E1000E_CTRL_ASDE (1 << 5)
+/** @brief Speed Link Up */
+#define E1000E_CTRL_SLU (1 << 6)
+/** @brief Speed Selection mask */
+#define E1000E_CTRL_SPD_SEL (3 << 8)
+/** @brief Speed Selection 10 Mbps */
+#define E1000E_CTRL_SPD_SEL_10 (0 << 8)
+/** @brief Speed Selection 100 Mbps */
+#define E1000E_CTRL_SPD_SEL_100 (1 << 8)
+/** @brief Speed Selection 1000 Mbps */
+#define E1000E_CTRL_SPD_SEL_1000 (2 << 8)
+/** @brief Force Speed Selection */
+#define E1000E_CTRL_FRCSPEED (1 << 11)
+/** @brief Force Duplex Selection */
+#define E1000E_CTRL_FRCDPLX (1 << 12)
+/** @brief Reset control bit */
+#define E1000E_CTRL_RST (1 << 26)
+/** @brief E1000 CTRL Register RFCE (Receive Flow Control Enable) bit */
+#define E1000E_CTRL_RFCE (1 << 27)
+/** @brief E1000 CTRL Register TFCE (Transmit Flow Control Enable) bit */
+#define E1000E_CTRL_TFCE (1 << 28)
+
+/** @brief E1000E CTRL_EXT Register IAME (Interrupt Auto Mask Enable) bit */
+#define E1000E_CTRL_EXT_IAME (1 << 27)
+/** @brief E1000E CTRL_EXT Register Driver Load Bit */
+#define E1000E_CTRL_EXT_DRV_LOAD (1 << 28)
+
+/** @brief Interrupt Mask Set/Read Register: Transmit Descriptor Written Back */
+#define E1000E_IMS_TXDW (1 << 0)
+/** @brief Interrupt Mask Set/Read Register: Transmit Queue Empty */
+#define E1000E_IMS_TXQE (1 << 1)
+/** @brief Interrupt Mask Set/Read Register: Link Status Change */
+#define E1000E_IMS_LSC (1 << 2)
+/**
+ * @brief Interrupt Mask Set/Read Register: Receive Descriptor Minimum Threshold
+ * hit
+ */
+#define E1000E_IMS_RXDMT0 (1 << 4)
+/** @brief Interrupt Mask Set/Read Register: Receive Overrun */
+#define E1000E_IMS_RXO (1 << 6)
+/** @brief Interrupt Mask Set/Read Register: Receive Timer Interrupt */
+#define E1000E_IMS_RXT0 (1 << 7)
+/** @brief Interrupt Mask Set/Read Register: MDI/O Access Complete  */
+#define E1000E_IMS_MDAC (1 << 9)
+/** @brief Interrupt Mask Set/Read Register: Receiving /C/ ordered sets */
+#define E1000E_IMS_RXCFG (1 << 10)
+/** @brief Interrupt Mask Set/Read Register: PHY Interrupt */
+#define E1000E_IMS_PHYINT (1 << 12)
+/** @brief Interrupt Mask Set/Read Register: General Purpose Interrupts */
+#define E1000E_IMS_GPI (2 << 13)
+/**
+ * @brief Interrupt Mask Set/Read Register: Transmit Descriptor Low Threshold
+ * hit
+ */
+#define E1000E_IMS_TXD_LOW (1 << 15)
+/** @brief Interrupt Mask Set/Read Register: Small Receive Packet Detection */
+#define E1000E_IMS_SRPD (1 << 16)
+
+/** @brief Enabled interrupt mask */
+#define E1000E_ENABLED_INTERRUPTS (E1000E_IMS_TXDW | \
+                                   E1000E_IMS_LSC  | \
+                                   E1000E_IMS_RXT0)
+
+/* --- Device PBA Register Bits --- */
+/** @brief E1000 PBA (Packet Buffer Allocation) Register value mask */
+#define E1000E_PBA_RX_MASK 0x0000FFFF
+/** @brief E1000 PBA (Packet Buffer Allocation) Register value shift */
+#define E1000E_PBA_RX_SHIFT 0
+
+/* --- Status Register Bits --- */
+/** @brief Status Register: Link Up */
+#define E1000E_STATUS_LU (1 << 1)
+/** @brief Status Register: Speed */
+#define E1000E_STATUS_SPEED_MASK (3 << 6)
+/** @brief Status Register: Speed 1000 Mbps */
+#define E1000E_STATUS_SPEED_1000A (2 << 6)
+/** @brief Status Register: Speed 100 Mbps */
+#define E1000E_STATUS_SPEED_1000B (3 << 6)
+/** @brief Status Register: Speed 10 Mbps */
+#define E1000E_STATUS_SPEED_100  (1 << 6)
+/** @brief Status Register: Speed 10 Mbps */
+#define E1000E_STATUS_SPEED_10   (0 << 6)
+/** @brief Status Register: Full Duplex */
+#define E1000E_STATUS_FD (1 << 0)
+
+/* --- Auto-Negotiation Masks --- */
+/** @brief Auto-Negotiation Mask: 1000BASE-T Full Duplex */
+#define E1000E_AUTONEG_MASK_1000_FULL 0x20
+/** @brief Auto-Negotiation Mask: 1000BASE-T Half Duplex */
+#define E1000E_AUTONEG_MASK_1000_HALF 0x10
+/** @brief Auto-Negotiation Mask: 100BASE-TX Full Duplex */
+#define E1000E_AUTONEG_MASK_100_FULL 0x08
+/** @brief Auto-Negotiation Mask: 100BASE-TX Half Duplex */
+#define E1000E_AUTONEG_MASK_100_HALF 0x04
+/** @brief Auto-Negotiation Mask: 10BASE-T Full Duplex */
+#define E1000E_AUTONEG_MASK_10_FULL 0x02
+/** @brief Auto-Negotiation Mask: 10BASE-T Half Duplex */
+#define E1000E_AUTONEG_MASK_10_HALF 0x01
+/** @brief Auto-Negotiation Mask: Off */
+#define E1000E_AUTONEG_MASK_OFF 0x00
+
+/* --- Miscellaneous --- */
+/** @brief E1000 PBA (Packet Buffer Allocation) Register default value */
+#define E1000E_PBA_RX_DEFAULT 0x00000030
+
+/** @brief E1000 FCRTL Register XON Enable Bit */
+#define E1000E_FCRTL_XONE (1 << 31)
+
+/** @brief E1000E RXDCTL Register Packet Threshold Mask */
+#define E1000E_RXDCTL_PTHRESH_MASK 0x0000003F
+/** @brief E1000E RXDCTL Register Header Threshold Mask */
+#define E1000E_RXDCTL_HTHRESH_MASK 0x00003F00
+/** @brief E1000E RXDCTL Register Writeback Threshold Mask */
+#define E1000E_RXDCTL_WTHRESH_MASK 0x003F0000
+
+/** @brief E1000E RXDCTL Register Packet Threshold Default Value */
+#define E1000E_RXDCTL_PTHRESH_DEFAULT 0x1F
+/** @brief E1000E RXDCTL Register Header Threshold Default Value */
+#define E1000E_RXDCTL_HTHRESH_DEFAULT 0x01
+/** @brief E1000E RXDCTL Register Writeback Threshold Default Value */
+#define E1000E_RXDCTL_WTHRESH_DEFAULT 0x00
+/** @brief E1000E RXDCTL Register Granularity Bit */
+#define E1000E_RXDCTL_GRAN (1 << 24)
+
+/** @brief E1000E TXDCTL Register Packet Threshold Mask */
+#define E1000E_TXDCTL_PTHRESH_MASK 0x0000003F
+/** @brief E1000E TXDCTL Register Header Threshold Mask */
+#define E1000E_TXDCTL_HTHRESH_MASK 0x00003F00
+/** @brief E1000E TXDCTL Register Writeback Threshold Mask */
+#define E1000E_TXDCTL_WTHRESH_MASK 0x003F0000
+/** @brief E1000E TXDCTL Register Packet Threshold Default Value */
+#define E1000E_TXDCTL_PTHRESH_DEFAULT 0x1F
+/** @brief E1000E TXDCTL Register Header Threshold Default Value */
+#define E1000E_TXDCTL_HTHRESH_DEFAULT 0x01
+/** @brief E1000E TXDCTL Register Writeback Threshold Default Value */
+#define E1000E_TXDCTL_WTHRESH_DEFAULT 0x00
+/** @brief E1000E TXDCTL Register Granularity Bit */
+#define E1000E_TXDCTL_GRAN (1 << 24)
+
+/* --- EEPROM --- */
+/** @brief EEPROM Read Status Flags: Address Shift */
+#define E1000E_EERD_ADDR_SHIFT 2
+/** @brief EEPROM Read Status Flags: Data Shift */
+#define E1000E_EERD_DATA_SHIFT 16
+/** @brief EEPROM Read Status Flags: Start */
+#define E1000E_EERD_START (1 << 0)
+/** @brief EEPROM Read Status Flags: Done */
+#define E1000E_EERD_DONE (1 << 1)*/
+
+/** @brief E1000E IP Control Register: EEE Enable for 100M */
+#define E1000_IPCNFG_EEE_100M_AN (1 << 2)
+/** @brief E1000E IP Control Register: EEE Enable for 1000M */
+#define E1000_IPCNFG_EEE_1G_AN (1 << 3)  /* Enable 1000BASE-T EEE Auto-Neg */
+
+#define E1000E_IPCNFG_EEE_100M_AN
+#define E1000E_IPCNFG_EEE_1G_AN
+#define E1000E_PHY_INIT_TIMEOUT_NS
+#define E1000E_WUC_PME_EN
+
+#define E1000E_WUC_APME
+#define E1000E_WUC_PME_STATUS
+#define E1000E_GCR_L1_ACT_WITHOUT_L0S_RX
+#define E1000E_CTRL_EXT_DMA_DYN_CLK
+
+#define E1000E_MULTICAST_TABLE_SIZE 128
+#define E1000E_VLAN_FILTER_TABLE_SIZE 128
+
+#define E1000E_RXCSUM_CLEAR_MASK
+#define E1000E_RXCSUM_IPOFL
+#define E1000E_RXCSUM_TUOFL
+#define E1000E_RXCSUM_IPV6OFL
+
+#define E1000E_STAT_UPDATE_INTERVAL_NS
+
+#define E1000E_TCTL_PSP
+
+#define E1000E_TRANSACTION_WAIT_NS
+#define E1000E_TRANSACTION_WAIT_COUNT
+
+#define E1000_TX_BUFFER_SIZE 2048
+
+#define E1000E_TX_CMD_IDE
+#define E1000E_TX_CMD_IFCS
+#define E1000E_TX_CMD_EOP
+#define E1000E_TX_CMD_RS
+
+#define E1000E_ICR_RXT0
+#define E1000E_ICR_LSC
+#define E1000E_ICR_TXDW
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -644,6 +1135,15 @@ typedef enum
   /** @brief E1000E Flow Control: RX/TX Pause */
   FLOW_CONTROL_RX_TX_PAUSE
 } E_E1000EFlowControl;
+
+/** @brief The type of the E1000E semaphore. */
+typedef enum
+{
+  /** @brief E1000E Semaphore: NVM */
+  E1000E_SEM_NVM,
+  /** @brief E1000E Semaphore: PHY */
+  E1000E_SEM_PHY
+} E_E1000ESemaphore;
 
 /** @brief RX Packet Buffer Descriptor */
 typedef struct
@@ -870,6 +1370,31 @@ typedef struct S_E1000EDriver
 /*******************************************************************************
  * STATIC FUNCTIONS DECLARATIONS
  ******************************************************************************/
+/**
+ * @brief Locks the specified E1000E semaphore.
+ *
+ * @details Locks the specified E1000E semaphore. This function will block until
+ * the semaphore is acquired or a timeout occurs.
+ *
+ * @param[in] pDriver The E1000E driver instance.
+ * @param[in] kSemaphore The semaphore to lock.
+ *
+ * @return The success state or the error code.
+ */
+static E_Return _SemaphoreLock(S_E1000EDriver*         pDriver,
+                               const E_E1000ESemaphore kSemaphore);
+
+/**
+ * @brief Unlocks the specified E1000E semaphore.
+ *
+ * @details Unlocks the specified E1000E semaphore. This function will release
+ * the semaphore and allow other operations to proceed.
+ *
+ * @param[in] pDriver The E1000E driver instance.
+ * @param[in] kSemaphore The semaphore to unlock.
+ */
+static void _SemaphoreUnlock(S_E1000EDriver*         pDriver,
+                             const E_E1000ESemaphore kSemaphore);
 
 /**
  * @brief Validates the E1000E EEPROM.
@@ -1155,6 +1680,18 @@ static void _SetPhyNonCopper(S_E1000EDriver* pDriver);
  * @param[in] pDriver The E1000E driver instance.
  */
 static void _InitializePhy(S_E1000EDriver* pDriver);
+
+/**
+ * @brief Configures the power management of the E1000E device.
+ *
+ * @details Configures the power management of the E1000E device, enabling or
+ * disabling active mode based on the provided parameter.
+ *
+ * @param[in] pDriver The E1000E driver instance.
+ * @param[in] kEnableActiveMode Whether to enable active mode.
+ */
+static void _ConfigurePowerManagement(S_E1000EDriver* pDriver,
+                                      const bool     kEnableActiveMode);
 
 /**
  * @brief Sets up the multicast table for the E1000E device.
@@ -1501,189 +2038,6 @@ static T_Spinlock sDriverListLock = SPINLOCK_INIT_VALUE;
 /*******************************************************************************
  * FUNCTIONS
  ******************************************************************************/
-static void _SemaphoreUnlock(S_E1000EDriver*         pDriver,
-                             const E_E1000ESemaphore kSemaphore);
-static E_Return _SemaphoreLock(S_E1000EDriver*         pDriver,
-                               const E_E1000ESemaphore kSemaphore);
-typedef enum
-{
-  E1000E_SEM_NVM,
-  E1000E_SEM_PHY
-} E_E1000ESemaphore;
-
-
-#define E1000E_EEPROM_SIGNATURE_RETRY_DELAY_NS 20000000ULL
-#define E1000E_EEPROM_SIGNATURE_RETRIES 5
-#define E1000E_EEPROM_SIZE 64
-#define E1000E_EEPROM_SIGNATURE 0xBABA
-/** @brief EEPROM Read Status Flags: Address Shift */
-#define E1000E_EERD_ADDR_SHIFT 2
-/** @brief EEPROM Read Status Flags: Data Shift */
-#define E1000E_EERD_DATA_SHIFT 16
-/** @brief EEPROM Read Status Flags: Start */
-#define E1000E_EERD_START (1 << 0)
-/** @brief EEPROM Read Status Flags: Done */
-#define E1000E_EERD_DONE (1 << 1)
-/** @brief EEPROM read timeout in nanoseconds */
-#define E1000E_EEPROM_READ_TIMEOUT_NS 5000000ULL
-
-#define E1000E_SEMAPHORE_LOCK_TIMEOUT_NS 5000000ULL
-
-#define E1000E_MDIO_WRITE (1 << 26)
-#define E1000E_MDIO_READ (1 << 27)
-#define E1000E_MDIO_DONE (1 << 28)
-#define E1000E_MDIO_ERROR (1 << 30)
-#define E1000E_MDIO_ADDR_SHIFT 16
-#define E1000E_MDIO_PHY_SHIFT 21
-#define E1000E_MDIO_DATA_MASK 0xFFFF
-#define E1000E_MDIO_ACCESS_TIMEOUT_NS 10000000ULL
-
-/** @brief Reset timeout in nanoseconds */
-#define E1000E_RESET_TIMEOUT_NS 20000000ULL
-
-/* --- Initialization Values --- */
-/** @brief Default auto-negotiation mask */
-#define E1000E_AUTONEG_MASK 0x002F
-/** @brief Default interrupt throttle value */
-#define E1000E_INT_THROTTLE_INIT 4000
-/** @brief Default RX interrupt delay value */
-#define E1000E_RX_INT_DELAY_INIT 0
-/** @brief Default TX interrupt delay value */
-#define E1000E_TX_INT_DELAY_INIT 8
-/** @brief Default absolute RX interrupt delay value */
-#define E1000E_RX_ABS_INT_DELAY_INIT 128
-/** @brief Default absolute TX interrupt delay value */
-#define E1000E_TX_ABS_INT_DELAY_INIT 32
-/** @brief Default RX checksum enable value */
-#define E1000E_ENABLE_XSUM_RX_INIT true
-/** @brief Default use of jumbo frames */
-#define E1000E_USE_JUMBO_FRAMES_INIT false
-/** @brief Default receive buffer count */
-#define E1000E_RX_BUFFER_COUNT 256
-/** @brief Default transmit buffer count */
-#define E1000E_TX_BUFFER_COUNT 256
-/** @brief Default unicast promiscuous mode */
-#define E1000E_ENABLE_UNICAST_PROMISCUOUS_INIT true
-/** @brief Default multicast promiscuous mode */
-#define E1000E_ENABLE_MCAST_PROMISCUOUS_INIT true
-/** @brief Default broadcast listen mode */
-#define E1000E_LISTEN_BROADCAST_INIT true
-/** @brief Default CRC stripping mode */
-#define E1000E_CRC_STRIPPING_INIT false
-
-/* --- Miscellaneous --- */
-/** @brief Receive buffer size */
-#define E1000E_RX_BUFFER_SIZE 2048
-/** @brief Receive buffer alignment */
-#define E1000E_RX_BUFFER_ALIGNMENT 128
-/** @brief Transmit buffer size */
-#define E1000E_TX_BUFFER_SIZE 2048
-/** @brief Transmit buffer alignment */
-#define E1000E_TX_BUFFER_ALIGNMENT 128
-
-#define E1000E_RAH_VALID (1 << 31)
-
-#define E1000E_EXTCNF_CTRL_SWOWN (1 << 5)
-
-/* --- Transmit Control Registers --- */
-/** @brief Transmit Control Register: Enable */
-#define E1000E_TCTL_EN (1 << 1)
-/** @brief Transmit Control Register: Pad Short Packets */
-#define E1000E_TCTL_PSP (1 << 3)
-
-/* --- Device Control Register Bits --- */
-/** @brief Full Duplex Enable */
-#define E1000E_CTRL_FD (1 << 0)
-/** @brief Auto-Speed Detection Enable */
-#define E1000E_CTRL_ASDE (1 << 5)
-/** @brief Speed Link Up */
-#define E1000E_CTRL_SLU (1 << 6)
-/** @brief Speed Selection mask */
-#define E1000E_CTRL_SPD_SEL (3 << 8)
-/** @brief Speed Selection 10 Mbps */
-#define E1000E_CTRL_SPD_SEL_10 (0 << 8)
-/** @brief Speed Selection 100 Mbps */
-#define E1000E_CTRL_SPD_SEL_100 (1 << 8)
-/** @brief Speed Selection 1000 Mbps */
-#define E1000E_CTRL_SPD_SEL_1000 (2 << 8)
-/** @brief Force Speed Selection */
-#define E1000E_CTRL_FRCSPEED (1 << 11)
-/** @brief Force Duplex Selection */
-#define E1000E_CTRL_FRCDPLX (1 << 12)
-/** @brief Reset control bit */
-#define E1000E_CTRL_RST (1 << 26)
-/** @brief E1000 CTRL Register RFCE (Receive Flow Control Enable) bit */
-#define E1000E_CTRL_RFCE (1 << 27)
-/** @brief E1000 CTRL Register TFCE (Transmit Flow Control Enable) bit */
-#define E1000E_CTRL_TFCE (1 << 28)
-
-#define E1000E_CTRL_EXT_IAME (1 << 27)
-
-/** @brief Interrupt Mask Set/Read Register: Transmit Descriptor Written Back */
-#define E1000E_IMS_TXDW (1 << 0)
-/** @brief Interrupt Mask Set/Read Register: Transmit Queue Empty */
-#define E1000E_IMS_TXQE (1 << 1)
-/** @brief Interrupt Mask Set/Read Register: Link Status Change */
-#define E1000E_IMS_LSC (1 << 2)
-/**
- * @brief Interrupt Mask Set/Read Register: Receive Descriptor Minimum Threshold
- * hit
- */
-#define E1000E_IMS_RXDMT0 (1 << 4)
-/** @brief Interrupt Mask Set/Read Register: Receive Overrun */
-#define E1000E_IMS_RXO (1 << 6)
-/** @brief Interrupt Mask Set/Read Register: Receive Timer Interrupt */
-#define E1000E_IMS_RXT0 (1 << 7)
-/** @brief Interrupt Mask Set/Read Register: MDI/O Access Complete  */
-#define E1000E_IMS_MDAC (1 << 9)
-/** @brief Interrupt Mask Set/Read Register: Receiving /C/ ordered sets */
-#define E1000E_IMS_RXCFG (1 << 10)
-/** @brief Interrupt Mask Set/Read Register: PHY Interrupt */
-#define E1000E_IMS_PHYINT (1 << 12)
-/** @brief Interrupt Mask Set/Read Register: General Purpose Interrupts */
-#define E1000E_IMS_GPI (2 << 13)
-/**
- * @brief Interrupt Mask Set/Read Register: Transmit Descriptor Low Threshold
- * hit
- */
-#define E1000E_IMS_TXD_LOW (1 << 15)
-/** @brief Interrupt Mask Set/Read Register: Small Receive Packet Detection */
-#define E1000E_IMS_SRPD (1 << 16)
-
-/** @brief Enabled interrupt mask */
-#define E1000E_ENABLED_INTERRUPTS (E1000E_IMS_TXDW | \
-                                   E1000E_IMS_LSC  | \
-                                   E1000E_IMS_RXT0)
-
-/* --- Device PBA Register Bits --- */
-/** @brief E1000 PBA (Packet Buffer Allocation) Register value mask */
-#define E1000E_PBA_RX_MASK 0x0000FFFF
-/** @brief E1000 PBA (Packet Buffer Allocation) Register value shift */
-#define E1000E_PBA_RX_SHIFT 0
-
-/* --- Miscellaneous --- */
-/** @brief E1000 PBA (Packet Buffer Allocation) Register default value */
-#define E1000E_PBA_RX_DEFAULT 0x00000030
-
-/** @brief E1000 FCRTL Register XON Enable Bit */
-#define E1000E_FCRTL_XONE (1 << 31)
-
-/* --- Status Register Bits --- */
-/** @brief Status Register: Link Up */
-#define E1000E_STATUS_LU (1 << 1)
-/** @brief Status Register: Speed */
-#define E1000E_STATUS_SPEED_MASK (3 << 6)
-/** @brief Status Register: Speed 1000 Mbps */
-#define E1000E_STATUS_SPEED_1000A (2 << 6)
-/** @brief Status Register: Speed 100 Mbps */
-#define E1000E_STATUS_SPEED_1000B (3 << 6)
-/** @brief Status Register: Speed 10 Mbps */
-#define E1000E_STATUS_SPEED_100  (1 << 6)
-/** @brief Status Register: Speed 10 Mbps */
-#define E1000E_STATUS_SPEED_10   (0 << 6)
-/** @brief Status Register: Full Duplex */
-#define E1000E_STATUS_FD (1 << 0)
-
 static E_Return _SemaphoreLock(S_E1000EDriver*         pDriver,
                                const E_E1000ESemaphore kSemaphore)
 {
@@ -1778,6 +2132,8 @@ static E_Return _ValidateEEPROM(const S_E1000EDriver* kpDriver)
   uint32_t retry;
   uint16_t checksum;
 
+
+
   for (retry = 0; retry < E1000E_EEPROM_SIGNATURE_RETRIES; ++retry)
   {
     checksum = 0;
@@ -1832,7 +2188,7 @@ static E_Return _ReadEEPROM(const S_E1000EDriver* kpDriver,
   uint16_t address;
   uint64_t timeout;
 
-  error = _SemaphoreLock((S_E1000EDriver*)kpDriver, E1000E_SEM_GENERAL);
+  error = _SemaphoreLock((S_E1000EDriver*)kpDriver, E1000E_SEM_NVM);
   if (error == NO_ERROR)
   {
     regValue = E1000E_EERD_START |
@@ -2178,20 +2534,22 @@ static E_Return _ProbeDevice(const uint16_t kDeviceId, S_E1000EDriver* pDriver)
     case E1000E_DEV_ID_82574L:
     case E1000E_DEV_ID_82574LA:
     case E1000E_DEV_ID_82583V:
+    case E1000E_DEV_ID_80003ES2LAN_COPPER_DPT:
     case E1000E_DEV_ID_80003ES2LAN_COPPER:
     case E1000E_DEV_ID_ICH8_IGP_AMT:
     case E1000E_DEV_ID_ICH8_IGP_C:
     case E1000E_DEV_ID_ICH8_IGP_M_AMT:
     case E1000E_DEV_ID_ICH8_IGP_M:
+    case E1000E_DEV_ID_ICH8_IGP_M_V:
     case E1000E_DEV_ID_ICH8_IFE:
     case E1000E_DEV_ID_ICH8_IFE_GT:
-    case E1000E_DEV_ID_ICH8_IFE_G:
+    case E1000E_DEV_ID_ICH8_82567V_3:
     case E1000E_DEV_ID_ICH9_IGP_AMT:
     case E1000E_DEV_ID_ICH9_IGP_C:
     case E1000E_DEV_ID_ICH9_IGP_M_AMT:
     case E1000E_DEV_ID_ICH9_IGP_M:
     case E1000E_DEV_ID_ICH9_IGP_M_V:
-    case E1000E_DEV_ID_ICH9_IFE:
+    case E1000E_DEV_ID_ICH9_IGP_C_ALT:
     case E1000E_DEV_ID_ICH9_IFE_GT:
     case E1000E_DEV_ID_ICH9_IFE_G:
     case E1000E_DEV_ID_ICH9_BM:
@@ -2200,12 +2558,67 @@ static E_Return _ProbeDevice(const uint16_t kDeviceId, S_E1000EDriver* pDriver)
     case E1000E_DEV_ID_ICH10_R_BM_V:
     case E1000E_DEV_ID_ICH10_D_BM_LM:
     case E1000E_DEV_ID_ICH10_D_BM_LF:
+    case E1000E_DEV_ID_ICH10_D_BM_V:
     case E1000E_DEV_ID_PCH_M_HW_LM:
     case E1000E_DEV_ID_PCH_M_HW_V:
     case E1000E_DEV_ID_PCH_D_HW_LM:
     case E1000E_DEV_ID_PCH_D_HW_V:
     case E1000E_DEV_ID_PCH2_LV_LM:
     case E1000E_DEV_ID_PCH2_LV_V:
+    case E1000E_DEV_ID_PCH2_LV_LM:
+    case E1000E_DEV_ID_PCH2_LV_V:
+    case E1000E_DEV_ID_PCH_LPT_I217_LM:
+    case E1000E_DEV_ID_PCH_LPT_I217_V:
+    case E1000E_DEV_ID_PCH_LPTLP_I218_V:
+    case E1000E_DEV_ID_PCH_LPTLP_I218_LM:
+    case E1000E_DEV_ID_PCH_I218_LM2:
+    case E1000E_DEV_ID_PCH_I218_V2:
+    case E1000E_DEV_ID_PCH_I218_LM3:
+    case E1000E_DEV_ID_PCH_I218_V3:
+    case E1000E_DEV_ID_PCH_SPT_I219_LM:
+    case E1000E_DEV_ID_PCH_SPT_I219_V:
+    case E1000E_DEV_ID_PCH_SPT_I219_LM2:
+    case E1000E_DEV_ID_PCH_SPT_I219_V2:
+    case E1000E_DEV_ID_PCH_LBG_I219_LM3:
+    case E1000E_DEV_ID_PCH_SPT_I219_V5:
+    case E1000E_DEV_ID_PCH_SPT_I219_LM4:
+    case E1000E_DEV_ID_PCH_SPT_I219_V4:
+    case E1000E_DEV_ID_PCH_SPT_I219_LM5:
+    case E1000E_DEV_ID_PCH_CNP_I219_LM7:
+    case E1000E_DEV_ID_PCH_CNP_I219_V7:
+    case E1000E_DEV_ID_PCH_CNP_I219_LM6:
+    case E1000E_DEV_ID_PCH_CNP_I219_V6:
+    case E1000E_DEV_ID_PCH_ICP_I219_LM8:
+    case E1000E_DEV_ID_PCH_ICP_I219_V8:
+    case E1000E_DEV_ID_PCH_ICP_I219_LM9:
+    case E1000E_DEV_ID_PCH_ICP_I219_V9:
+    case E1000E_DEV_ID_PCH_CMP_I219_LM11:
+    case E1000E_DEV_ID_PCH_CMP_I219_V11:
+    case E1000E_DEV_ID_PCH_CMP_I219_LM10:
+    case E1000E_DEV_ID_PCH_CMP_I219_V10:
+    case E1000E_DEV_ID_PCH_CMP_I219_LM12:
+    case E1000E_DEV_ID_PCH_CMP_I219_V12:
+    case E1000E_DEV_ID_PCH_TGP_I219_LM15:
+    case E1000E_DEV_ID_PCH_TGP_I219_V15:
+    case E1000E_DEV_ID_PCH_CMP_I219_LM10:
+    case E1000E_DEV_ID_PCH_TGP_I219_LM14:
+    case E1000E_DEV_ID_PCH_TGP_I219_V14:
+    case E1000E_DEV_ID_PCH_TGP_I219_LM13:
+    case E1000E_DEV_ID_PCH_TGP_I219_V13:
+    case E1000E_DEV_ID_PCH_ADP_I219_LM17:
+    case E1000E_DEV_ID_PCH_ADP_I219_V17:
+    case E1000E_DEV_ID_PCH_ADP_I219_LM16:
+    case E1000E_DEV_ID_PCH_ADP_I219_V16:
+    case E1000E_DEV_ID_PCH_RPL_I219_LM19:
+    case E1000E_DEV_ID_PCH_RPL_I219_V19:
+    case E1000E_DEV_ID_PCH_RPL_I219_LM18:
+    case E1000E_DEV_ID_PCH_RPL_I219_V18:
+    case E1000E_DEV_ID_PCH_MTP_I219_LM20:
+    case E1000E_DEV_ID_PCH_MTP_I219_V20:
+    case E1000E_DEV_ID_PCH_MTP_I219_LM21:
+    case E1000E_DEV_ID_PCH_MTP_I219_V21:
+    case E1000E_DEV_ID_PCH_ARL_I219_LM22:
+    case E1000E_DEV_ID_PCH_ARL_I219_V22:
       pDriver->mediaType = MEDIA_COPPER;
       break;
 
@@ -2219,6 +2632,7 @@ static E_Return _ProbeDevice(const uint16_t kDeviceId, S_E1000EDriver* pDriver)
     case E1000E_DEV_ID_82571EB_SERDES_DUAL:
     case E1000E_DEV_ID_82571EB_SERDES_QUAD:
     case E1000E_DEV_ID_82572EI_SERDES:
+    case E1000E_DEV_ID_80003ES2LAN_SERDES_DPT:
     case E1000E_DEV_ID_80003ES2LAN_SERDES:
       pDriver->mediaType = MEDIA_SERDES;
       break;
@@ -2326,42 +2740,31 @@ static E_Return _DetectDevice(S_PCIDevice* pDevice, S_E1000EDriver* pDriver)
 
     if (retCode == NO_ERROR)
     {
-      /* Validate the EEPROM */
+      /* Validate the EEPROM, this is not critical on E1000E */
       retCode = _ValidateEEPROM(pDriver);
-      if (retCode == NO_ERROR)
+      if (retCode != NO_ERROR)
       {
-        /* Load the default configuration */
-        _LoadDefaultDevice(pDriver);
-
-        KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
-                     MODULE_NAME,
-                     "E1000E device %04X:%04X:%04X MAC:"
-                     " %02X:%02X:%02X:%02X:%02X:%02X",
-                     pDriver->pPCIDevice->bus,
-                     pDriver->pPCIDevice->slot,
-                     pDriver->pPCIDevice->function,
-                     (uint8_t)(pDriver->macAddress & 0xFF),
-                     (uint8_t)((pDriver->macAddress >> 8) & 0xFF),
-                     (uint8_t)((pDriver->macAddress >> 16) & 0xFF),
-                     (uint8_t)((pDriver->macAddress >> 24) & 0xFF),
-                     (uint8_t)((pDriver->macAddress >> 32) & 0xFF),
-                     (uint8_t)((pDriver->macAddress >> 40) & 0xFF));
-      }
-      else
-      {
-        retCode = MemoryKernelUnmap((void *)pDriver->barAddress,
-                                    pDriver->barSize);
-        E1000E_ASSERT(retCode == NO_ERROR,
-                     "Failed to unmap BAR for device",
-                     retCode);
-
-        pDriver->barAddress = 0;
-        pDriver->barSize = 0;
-        KERNEL_ERROR("Failed to validate EEPROM for device %04X:%04X:%04X\n",
+        KERNEL_ERROR("E1000E device %04X:%04X:%04X failed to validate EEPROM\n",
                      pDriver->pPCIDevice->bus,
                      pDriver->pPCIDevice->slot,
                      pDriver->pPCIDevice->function);
       }
+      /* Load the default configuration */
+      _LoadDefaultDevice(pDriver);
+
+      KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
+                    MODULE_NAME,
+                    "E1000E device %04X:%04X:%04X MAC:"
+                    " %02X:%02X:%02X:%02X:%02X:%02X",
+                    pDriver->pPCIDevice->bus,
+                    pDriver->pPCIDevice->slot,
+                    pDriver->pPCIDevice->function,
+                    (uint8_t)(pDriver->macAddress & 0xFF),
+                    (uint8_t)((pDriver->macAddress >> 8) & 0xFF),
+                    (uint8_t)((pDriver->macAddress >> 16) & 0xFF),
+                    (uint8_t)((pDriver->macAddress >> 24) & 0xFF),
+                    (uint8_t)((pDriver->macAddress >> 32) & 0xFF),
+                    (uint8_t)((pDriver->macAddress >> 40) & 0xFF));
     }
     else
     {
@@ -2727,12 +3130,12 @@ static void _InitializeControlFlow(S_E1000EDriver* pDriver)
 
 static void _InitializeDeviceRX(S_E1000EDriver* pDriver)
 {
-  S_RXBufferDescriptor*    pRXDescRing;
+  S_RXBufferDescriptor*     pRXDescRing;
   S_E1000EBufferDescriptor* pRXDescAddresses;
-  uintptr_t                bufferAddress;
-  uintptr_t                physAddr;
-  uint32_t                 configReg;
-  size_t                   i;
+  uintptr_t                 bufferAddress;
+  uintptr_t                 physAddr;
+  uint32_t                  configReg;
+  size_t                    i;
 
   /* Initialize the RX descriptor ring */
   bufferAddress    = (uintptr_t)pDriver->networkDevice.pBufferPool;
@@ -2755,15 +3158,26 @@ static void _InitializeDeviceRX(S_E1000EDriver* pDriver)
   physAddr = (uintptr_t)MemoryMgrGetPhysAddr((uintptr_t)pRXDescRing,
                                              NULL,
                                              NULL);
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDBAL),
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDBAL0),
                physAddr & 0xFFFFFFFF);
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDBAH),
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDBAH0),
                (physAddr >> 32) & 0xFFFFFFFF);
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDLEN),
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDLEN0),
                pDriver->rxBufferCount * sizeof(S_RXBufferDescriptor));
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDH), 0);
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT),
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDH0), 0);
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT0),
                pDriver->rxBufferCount - 1);
+
+  /* Initialize the RX descriptor control register */
+  regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_RXDCTL));
+  regValue &= ~(E1000E_RXDCTL_PTHRESH_MASK |
+                E1000E_RXDCTL_HTHRESH_MASK |
+                E1000E_RXDCTL_WTHRESH_MASK);
+  regValue |= E1000E_RXDCTL_PTHRESH_DEFAULT |
+              E1000E_RXDCTL_HTHRESH_DEFAULT |
+              E1000E_RXDCTL_WTHRESH_DEFAULT |
+              E1000E_RXDCTL_GRAN;
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RXDCTL), regValue);
 
   configReg = E1000E_RCTL_EN | E1000E_RCTL_RDMTS_8 | E1000E_RCTL_MO_36;
   if (pDriver->enableUnicastPromiscuous == true)
@@ -2850,6 +3264,7 @@ static void _InitializeDeviceRX(S_E1000EDriver* pDriver)
 static void _InitializeDeviceTX(S_E1000EDriver* pDriver)
 {
   uintptr_t physAddr;
+  uint32_t  regValue;
 
   /* Initialize the TX descriptor ring status */
   physAddr = (uintptr_t)MemoryMgrGetPhysAddr(
@@ -2864,6 +3279,16 @@ static void _InitializeDeviceTX(S_E1000EDriver* pDriver)
                pDriver->txBufferCount * sizeof(S_TXBufferDescriptor));
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDH), 0);
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT), 0);
+
+  regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_TXDCTL));
+  regValue &= ~(E1000E_TXDCTL_PTHRESH_MASK |
+                E1000E_TXDCTL_HTHRESH_MASK |
+                E1000E_TXDCTL_WTHRESH_MASK);
+  regValue |= E1000E_TXDCTL_PTHRESH_DEFAULT |
+              E1000E_TXDCTL_HTHRESH_DEFAULT |
+              E1000E_TXDCTL_WTHRESH_DEFAULT |
+              E1000E_TXDCTL_GRAN;
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TXDCTL), regValue);
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TCTL),
                E1000E_TCTL_EN |
                E1000E_TCTL_PSP |
@@ -3031,8 +3456,7 @@ static void _SetPhyForced(S_E1000EDriver* pDriver)
   regValue |= E1000E_CTRL_FRCDPLX | E1000E_CTRL_FRCSPEED;
   regValue &= ~E1000E_CTRL_ASDE;
 
-  if (pDriver->duplexType == DUPLEX_FULL ||
-      pDriver->linkSpeed == LINK_SPEED_1GBPS)
+  if (pDriver->duplexType == DUPLEX_FUL)
   {
     phyValue = E1000E_PHY_CTRL_FD;
     regValue |= E1000E_CTRL_FD;
@@ -3054,10 +3478,14 @@ static void _SetPhyForced(S_E1000EDriver* pDriver)
     phyValue |= E1000E_PHY_CTRL_SPEED_100;
     regValue |= E1000E_CTRL_SPD_SEL_100;
   }
-  else if (pDriver->linkSpeed == LINK_SPEED_1GBPS)
+  else
   {
-    phyValue |= E1000E_PHY_CTRL_SPEED_1000;
-    regValue |= E1000E_CTRL_SPD_SEL_1000;
+    KERNEL_ERROR("E1000E device %04X:%04X:%04X invalid link speed %u, "
+                 "using default speed\n",
+                 pDriver->pPCIDevice->bus,
+                 pDriver->pPCIDevice->slot,
+                 pDriver->pPCIDevice->function,
+                 pDriver->linkSpeed);
   }
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_CTRL), regValue);
 
@@ -3140,31 +3568,29 @@ static void _SetPhyAutoNeg(S_E1000EDriver* pDriver)
                   E1000E_PHY_ANA_10BASE_T_FULL |
                   E1000E_PHY_ANA_10BASE_T_HALF);
 
-    if (pDriver->deviceId == E1000E_DEV_ID_82544EI_COPPER ||
-        pDriver->deviceId == E1000E_DEV_ID_82544GC_COPPER ||
-        pDriver->deviceId == E1000E_DEV_ID_82544GC_LOM)
+    if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_1000_FULL)
     {
-      regValue |= E1000E_PHY_ANA_1000BASE_X_FULL |
-                  E1000E_PHY_ANA_1000BASE_X_HALF;
+      regValue |= E1000E_PHY_ANA_1000BASE_X_FULL;
     }
-    else
+    if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_1000_HALF)
     {
-      if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_100_FULL)
-      {
-        regValue |= E1000E_PHY_ANA_100BASE_TX_FULL;
-      }
-      if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_100_HALF)
-      {
-        regValue |= E1000E_PHY_ANA_100BASE_TX_HALF;
-      }
-      if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_10_FULL)
-      {
-        regValue |= E1000E_PHY_ANA_10BASE_T_FULL;
-      }
-      if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_10_HALF)
-      {
-        regValue |= E1000E_PHY_ANA_10BASE_T_HALF;
-      }
+      regValue |= E1000E_PHY_ANA_1000BASE_X_HALF`;
+    }
+    if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_100_FULL)
+    {
+      regValue |= E1000E_PHY_ANA_100BASE_TX_FULL;
+    }
+    if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_100_HALF)
+    {
+      regValue |= E1000E_PHY_ANA_100BASE_TX_HALF;
+    }
+    if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_10_FULL)
+    {
+      regValue |= E1000E_PHY_ANA_10BASE_T_FULL;
+    }
+    if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_10_HALF)
+    {
+      regValue |= E1000E_PHY_ANA_10BASE_T_HALF;
     }
 
     retCode = _WriteMDIO(pDriver, E1000E_PHY_AUTONEG_ADV, regValue);
@@ -3303,11 +3729,14 @@ static void _SetPhyNonCopper(S_E1000EDriver* pDriver)
 
 static void _InitializePhy(S_E1000EDriver* pDriver)
 {
+  uint32_t ipcnfg;
+
   if (pDriver->mediaType == MEDIA_COPPER)
   {
     if (pDriver->autoNegMask == E1000E_AUTONEG_MASK_OFF &&
         pDriver->linkSpeed != LINK_SPEED_AUTONEG &&
-        pDriver->duplexType != DUPLEX_AUTONEG)
+        pDriver->duplexType != DUPLEX_AUTONEG &&
+        pDriver->linkSpeed != LINK_SPEED_1GBPS)
     {
       _SetPhyForced(pDriver);
     }
@@ -3321,8 +3750,168 @@ static void _InitializePhy(S_E1000EDriver* pDriver)
     _SetPhyNonCopper(pDriver);
   }
 
+  /* Only applies to newer E1000E PHYs (82579, I217, I218, I219).
+   * Using standard Clause 45 over Clause 22 MMD access registers (Reg 13 & 14):
+   * Device 7 (Auto-Neg), Register 0x003C (EEE Advertisement) -> Write 0x0000
+   */
+  switch (pDriver->deviceId)
+  {
+    case E1000E_DEV_ID_PCH2_LV_LM:
+    case E1000E_DEV_ID_PCH2_LV_V:
+    case E1000E_DEV_ID_PCH_LPT_I217_LM:
+    case E1000E_DEV_ID_PCH_LPT_I217_V:
+    case E1000E_DEV_ID_PCH_LPTLP_I218_V:
+    case E1000E_DEV_ID_PCH_LPTLP_I218_LM:
+    case E1000E_DEV_ID_PCH_I218_LM2:
+    case E1000E_DEV_ID_PCH_I218_V2:
+    case E1000E_DEV_ID_PCH_I218_LM3:
+    case E1000E_DEV_ID_PCH_I218_V3:
+    case E1000E_DEV_ID_PCH_SPT_I219_LM:
+    case E1000E_DEV_ID_PCH_SPT_I219_V:
+    case E1000E_DEV_ID_PCH_SPT_I219_LM2:
+    case E1000E_DEV_ID_PCH_SPT_I219_V2:
+    case E1000E_DEV_ID_PCH_LBG_I219_LM3:
+    case E1000E_DEV_ID_PCH_SPT_I219_V5:
+    case E1000E_DEV_ID_PCH_SPT_I219_LM4:
+    case E1000E_DEV_ID_PCH_SPT_I219_V4:
+    case E1000E_DEV_ID_PCH_SPT_I219_LM5:
+    case E1000E_DEV_ID_PCH_CNP_I219_LM7:
+    case E1000E_DEV_ID_PCH_CNP_I219_V7:
+    case E1000E_DEV_ID_PCH_CNP_I219_LM6:
+    case E1000E_DEV_ID_PCH_CNP_I219_V6:
+    case E1000E_DEV_ID_PCH_ICP_I219_LM8:
+    case E1000E_DEV_ID_PCH_ICP_I219_V8:
+    case E1000E_DEV_ID_PCH_ICP_I219_LM9:
+    case E1000E_DEV_ID_PCH_ICP_I219_V9:
+    case E1000E_DEV_ID_PCH_CMP_I219_LM11:
+    case E1000E_DEV_ID_PCH_CMP_I219_V11:
+    case E1000E_DEV_ID_PCH_CMP_I219_LM10:
+    case E1000E_DEV_ID_PCH_CMP_I219_V10:
+    case E1000E_DEV_ID_PCH_CMP_I219_LM12:
+    case E1000E_DEV_ID_PCH_CMP_I219_V12:
+    case E1000E_DEV_ID_PCH_TGP_I219_LM15:
+    case E1000E_DEV_ID_PCH_TGP_I219_V15:
+    case E1000E_DEV_ID_PCH_CMP_I219_LM10:
+    case E1000E_DEV_ID_PCH_TGP_I219_LM14:
+    case E1000E_DEV_ID_PCH_TGP_I219_V14:
+    case E1000E_DEV_ID_PCH_TGP_I219_LM13:
+    case E1000E_DEV_ID_PCH_TGP_I219_V13:
+    case E1000E_DEV_ID_PCH_ADP_I219_LM17:
+    case E1000E_DEV_ID_PCH_ADP_I219_V17:
+    case E1000E_DEV_ID_PCH_ADP_I219_LM16:
+    case E1000E_DEV_ID_PCH_ADP_I219_V16:
+    case E1000E_DEV_ID_PCH_RPL_I219_LM19:
+    case E1000E_DEV_ID_PCH_RPL_I219_V19:
+    case E1000E_DEV_ID_PCH_RPL_I219_LM18:
+    case E1000E_DEV_ID_PCH_RPL_I219_V18:
+    case E1000E_DEV_ID_PCH_MTP_I219_LM20:
+    case E1000E_DEV_ID_PCH_MTP_I219_V20:
+    case E1000E_DEV_ID_PCH_MTP_I219_LM21:
+    case E1000E_DEV_ID_PCH_MTP_I219_V21:
+    case E1000E_DEV_ID_PCH_ARL_I219_LM22:
+    case E1000E_DEV_ID_PCH_ARL_I219_V22:
+      /* Disable EEE */
+      ipcnfg = _MMIORead32(E1000_REG(pDriver->barAddress, E1000E_IPCNFG));
+      ipcnfg &= ~(E1000E_IPCNFG_EEE_100M_AN | E1000E_IPCNFG_EEE_1G_AN);
+      _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_IPCNFG), ipcnfg);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_EEER), 0);
+
+      /* Disable EEE advertisement on Phy */
+      if (_WriteMDIO(pDriver, E1000_PHY_MMD_CTRL, 0x0007) == NO_ERROR)
+      {
+        _WriteMDIO(pDriver, E1000_PHY_MMD_DATA, 0x003C);
+        _WriteMDIO(pDriver, E1000_PHY_MMD_CTRL, 0x4007);
+        _WriteMDIO(pDriver, E1000_PHY_MMD_DATA, 0x0000);
+      }
+      break;
+    default:
+      break;
+  }
   /* Wait for the PHY to complete auto-negotiation */
   SleepNs(E1000E_PHY_INIT_TIMEOUT_NS, NULL);
+}
+
+static void _ConfigurePowerManagement(S_E1000EDriver* pDriver,
+                                      const bool     kEnableActiveMode)
+{
+  uint32_t     regValue;
+  uint8_t      pcieCapOffset;
+  uint16_t     regCtrl;
+  S_PCIDevice* pDevice;
+
+  if (kEnableActiveMode == true)
+  {
+    /* Clear any pending Wakeup Status flags (WUS) and disable WoL */
+    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_WUFC), 0);
+    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_WUS), 0xFFFFFFFF);
+    regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000E_WUC));
+    regValue &= ~(E1000E_WUC_PME_EN | E1000E_WUC_APME);
+    regValue |= E1000E_WUC_PME_STATUS;
+    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_WUC), regValue);
+
+    /* Prevent premature L1 ASPM transitions during RX bursts */
+    regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000E_GCR));
+    regValue |= E1000E_GCR_L1_ACT_WITHOUT_L0S_RX;
+    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_GCR), regValue);
+
+    /* Enable Dynamic Clock Gating while keeping Relaxed Ordering intact */
+    regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000E_CTRL_EXT));
+    regValue |= E1000E_CTRL_EXT_DMA_DYN_CLK;
+    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_CTRL_EXT), regValue);
+
+    pDevice = pDriver->pPCIDevice;
+
+    /* Force PCI Power State to D0 (Full Power) */
+    pcieCapOffset = PCIFindCapability(pDevice, PCI_CAPABILITY_ID_POWERMGNT);
+    if (pcieCapOffset != 0)
+    {
+      regCtrl = PCIReadConfig16(pDevice,
+                                pcieCapOffset + PCI_PM_CTRL_STATUS_OFFSET);
+      if ((regCtrl & PCI_PM_CTRL_STATE_MASK) != PCI_PM_CTRL_STATE_D0)
+      {
+        regCtrl &= ~PCI_PM_CTRL_STATE_MASK;
+        regCtrl |= PCI_PM_CTRL_STATE_D0;
+        PCIWriteConfig16(pDevice,
+                         pcieCapOffset + PCI_PM_CTRL_STATUS_OFFSET, regCtrl);
+
+        /* Wait 10ms for D3 -> D0 transition */
+        SleepNs(10000000ULL, NULL);
+      }
+    }
+
+    /* Disable L0s and L1 ASPM in the PCIe Link Control Register */
+    pcieCapOffset = PCIFindCapability(pDevice, PCI_CAPABILITY_ID_PCIE);
+    if (pcieCapOffset != 0)
+    {
+      regCtrl = PCIReadConfig16(pDevice,
+                                pcieCapOffset + PCI_PCIE_LINK_CTRL_OFFSET);
+      regCtrl &= ~PCI_PCIE_LCTL_ASPM_MASK;
+      PCIWriteConfig16(pDevice,
+                       pcieCapOffset + PCI_PCIE_LINK_CTRL_OFFSET,
+                       regCtrl);
+    }
+
+    KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "E1000E device %04X:%04X:%04X active power state configured",
+                 pDriver->pPCIDevice->bus,
+                 pDriver->pPCIDevice->slot,
+                 pDriver->pPCIDevice->function);
+  }
+  else
+  {
+    /* Prepare device for low-power idle / downlink state */
+    regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000E_CTRL_EXT));
+    regValue &= ~E1000E_CTRL_EXT_DMA_DYN_CLK;
+    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_CTRL_EXT), regValue);
+
+    KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+                 MODULE_NAME,
+                 "E1000E device %04X:%04X:%04X power management set to idle",
+                 pDriver->pPCIDevice->bus,
+                 pDriver->pPCIDevice->slot,
+                 pDriver->pPCIDevice->function);
+  }
 }
 
 static void _SetupMulticastTable(S_E1000EDriver* pDriver)
@@ -3426,6 +4015,14 @@ static E_Return _DevUplinkSafe(S_E1000EDriver* pDriver)
     {
       /* Reset the controller */
       _ResetDevice(pDriver);
+
+      /* Notify the devices that the driver is loaded */
+      regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT));
+      regValue |= E1000E_CTRL_EXT_DRV_LOAD;
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT), regValue);
+
+      /* Setup power management */
+      _ConfigurePowerManagement(pDriver, true);
 
       /* Initialize the device's RXChecksum settings */
       regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_RXCSUM));
@@ -3540,16 +4137,27 @@ static E_Return _DevDownlinkSafe(S_E1000EDriver* pDriver)
 
       /* Disable RX and TX */
       _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RCTL), 0);
-      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TCTL), E1000E_TCTL_PSP);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TCTL),
+                   E1000E_TCTL_PSP);
 
       /* Clear RX and TX descriptors */
-      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDH), 0);
-      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT), 0);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDH0), 0);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT0), 0);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDH0 + 0x100), 0);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT0 + 0x100), 0);
       _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDH), 0);
       _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT), 0);
 
       /* Wait for the disable to take effect */
       SleepNs(E1000E_RESET_TIMEOUT_NS, NULL);
+
+      /* Setup power management */
+      _ConfigurePowerManagement(pDriver, false);
+
+      /* Disable driver */
+      regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT));
+      regValue &= ~E1000E_CTRL_EXT_DRV_LOAD;
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT), regValue);
 
       regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_CTRL));
       regValue &= ~(E1000E_CTRL_ASDE | E1000E_CTRL_SLU);
@@ -3656,14 +4264,14 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
                                const bool              kIsBlocking)
 {
   S_E1000EDriver* pDriver;
-  ssize_t        sentBytes;
-  uintptr_t      physAddr;
-  uint32_t       tailIdx;
-  uint32_t       packetSize;
-  uint64_t       regValue;
-  uint32_t       requiredPackets;
-  uint32_t       availableDescriptors;
-  uint32_t       transmitTicket;
+  ssize_t         sentBytes;
+  uintptr_t       physAddr;
+  uint32_t        tailIdx;
+  uint16_t        packetSize;
+  uint8_t         regValue;
+  uint32_t        requiredPackets;
+  uint32_t        availableDescriptors;
+  uint32_t        transmitTicket;
 
   pDriver = (S_E1000EDriver *)pDevice->pDriverData;
 
@@ -3683,7 +4291,7 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
     {
       availableDescriptors = pDriver->txDescriptorCleanIdx - tailIdx - 1;
     }
-    requiredPackets = (kSize + E1000E_TX_BUFFER_SIZE - 1) / E1000E_TX_BUFFER_SIZE;
+    requiredPackets = (kSize + E1000_TX_BUFFER_SIZE - 1) / E1000_TX_BUFFER_SIZE;
 
     if (requiredPackets <= availableDescriptors)
     {
@@ -3718,14 +4326,14 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
             NULL);
 
         /* Get the packet size and setup driver */
-        packetSize = MIN(kSize - sentBytes, E1000E_TX_BUFFER_SIZE);
+        packetSize = MIN(kSize - sentBytes, E1000_TX_BUFFER_SIZE);
 
         /* Send the packet */
         pDriver->pTXDescriptorRing[tailIdx].bufferAddress = physAddr;
 
         /* Save the metadata for the last packet only */
         sentBytes += packetSize;
-        regValue = packetSize | E1000E_TX_CMD_IDE;
+        regValue = E1000E_TX_CMD_IDE;
         if ((size_t)sentBytes == kSize)
         {
           regValue |= E1000E_TX_CMD_EOP | E1000E_TX_CMD_IFCS;
@@ -3745,7 +4353,9 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
           regValue |= E1000E_TX_CMD_RS;
         }
 
-        pDriver->pTXDescriptorRing[tailIdx].length = regValue;
+        pDriver->pTXDescriptorRing[tailIdx].length = packetSize;
+        pDriver->pTXDescriptorRing[tailIdx].cmd    = regValue;
+        pDriver->pTXDescriptorRing[tailIdx].status = 0;
 
         /* Update the transmit descriptor tail */
         tailIdx = (tailIdx + 1) % pDriver->txBufferCount;
@@ -3758,7 +4368,7 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
       }
 
       /* Update the transmit descriptor tail */
-      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT), tailIdx);
+      _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_TDT), tailIdx);
 
       /* Increment the transmit service */
       ++pDriver->txService;
@@ -4021,12 +4631,12 @@ static void _HandleLinkStatusChange(void* pDriverPtr)
 
 static void _CompleteTransmit(S_E1000EDriver* pDriver, bool* pIsMoreToClean)
 {
-  uint32_t                watchIdx;
-  uint32_t                cleanIdx;
-  uint32_t                nextIdx;
+  uint32_t                 watchIdx;
+  uint32_t                 cleanIdx;
+  uint32_t                 nextIdx;
   S_E1000ETXBufferMetadata freeBuffers[E1000E_TX_CLEAN_BUDGET];
-  uint32_t                freeCount;
-  S_KernelThread*         pCurThread;
+  uint32_t                 freeCount;
+  S_KernelThread*          pCurThread;
 
   pDriver->txCompleteOperationRunning = true;
 
@@ -4301,7 +4911,7 @@ static void _HandleReceivedPacket(S_E1000EDriver* pDriver)
     }
   } while (pollBudget == E1000E_POLL_MAX_BUDGET);
 
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT), tail & 0xFFFF);
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT0), tail & 0xFFFF);
 
   pDriver->rxOperationRunning = false;
 }
