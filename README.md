@@ -17,13 +17,21 @@
 | Codacy | [![Codacy Badge](https://app.codacy.com/project/badge/Grade/1a08b3fa3ec641ec897e3fe902031110)](https://app.codacy.com/gh/Oxmose/RoOS-Kernel/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) |
 
 ## Supported Architectures
-
-| i386                                           | x64                          |
-|------------------------------------------------|------------------------------|
-| **Status**<br>Work in Progress                 | **Status**<br>Work in Progress |
-| **Supported Processing**<br>Multicore, Singlecore | **Supported Processing**<br>Multicore, Singlecore |
-| **Supported Drivers**<br>PIC<br>IO-APIC<br>Local APIC<br>ACPI<br>Serial Ports<br>RTC<br>PIT<br>Local APIC Timers<br>TSC<br>VGA Text 80x25<br>Generic PS/2 Keyboard<br>ATA-PIO | **Supported Drivers**<br>PIC<br>IO-APIC<br>Local APIC<br>ACPI<br>Serial Ports<br>RTC<br>PIT<br>Local APIC Timers<br>TSC<br>VGA Text 80x25<br>Generic PS/2 Keyboard<br>ATA-PIO |
-| | |
+The currently supported architectures are:
+#### X86-64
+* ACPI
+* AHCI
+* E1000
+* E1000E
+* HPET
+* IOACPI
+* Keyboard
+* PCIExpress
+* RTC
+* TSC
+* UART
+* VESA
+* VGA Text
 
 ## Supported General Features
 ### File Device Tree
@@ -97,8 +105,6 @@ Tests can be added as new features are developed.
 ## Build and Run
 To build roOs, choose the architecture you want and execute.
 Architecture list to use in the TARGET flag:
-
-* x86_i386
 
 * x86_64
 

@@ -48,6 +48,8 @@ global SpinLock
 global SpinUnlock
 global AtomicIncrement32
 global AtomicDecrement32
+global AtomicOr32
+global AtomicExchange32
 global CPUMemoryFenceRelease
 global CPUMemoryFenceAcquire
 
@@ -100,7 +102,7 @@ SpinUnlock:
 ; 32 Bits atomic increment
 ;
 ; Param:
-;     Input: rdi: u32_atomic_t value to increment
+;     Input: rdi: T_U32Atomic value to increment
 AtomicIncrement32:
   mov  eax, 1
   lock xadd dword [rdi], eax
@@ -110,10 +112,41 @@ AtomicIncrement32:
 ; 32 Bits atomic decrement
 ;
 ; Param:
-;     Input: rdi: u32_atomic_t value to decrement
+;     Input: rdi: T_U32Atomic value to decrement
 AtomicDecrement32:
   mov  eax, -1
   lock xadd dword [rdi], eax
+  ret
+
+
+;-------------------------------------------------------------------------------
+; 32 Bits atomic or
+;
+; Param:
+;     Input: rdi: T_U32Atomic value to or
+;     Input: rsi: value to OR with
+; Return:
+;     Output: rax: previous value
+AtomicOr32:
+  mov  eax, [rdi]
+.retry:
+  mov  edx, eax
+  or   edx, esi
+  lock cmpxchg [rdi], edx
+  jnz  .retry
+  ret
+
+;-------------------------------------------------------------------------------
+; 32 Bits atomic exchange
+;
+; Param:
+;     Input: rdi: T_U32Atomic value to exchange
+;     Input: rsi: new value to exchange with
+; Return:
+;     Output: rax: previous value
+AtomicExchange32:
+  mov  eax, esi
+  xchg dword [rdi], eax
   ret
 
 ;-------------------------------------------------------------------------------

@@ -20,7 +20,7 @@ QEMUOPTS = -cpu host --enable-kvm -rtc base=localtime -m 1024M -vga std -global 
 			-device nec-usb-xhci,id=xhci \
 			-device usb-storage,bus=xhci.0,drive=stick \
 			-netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
-			-device e1000,netdev=net0,id=nic0
+			-device e1000e,netdev=net0,id=nic0
 
 QEMUOPTSTEST = -cpu EPYC -rtc base=localtime -m 1024M \
 			-smp 4 -serial stdio -machine q35 \

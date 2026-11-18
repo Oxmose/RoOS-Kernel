@@ -65,6 +65,9 @@ static volatile uint64_t criticalValueTest;
 static volatile uint64_t lockValueTest;
 static T_U32Atomic incValueTest;
 static T_U32Atomic decValueTest;
+static T_U32Atomic orValueTest;
+static T_U32Atomic exchangeLockTest;
+static volatile uint32_t exchangeCountTest;
 static T_Spinlock lock = SPINLOCK_INIT_VALUE;
 static T_Spinlock spinlock = SPINLOCK_INIT_VALUE;
 
@@ -78,12 +81,16 @@ static void* _CriticalGlobalRoutine1(void* args);
 static void* _SpinlockTestRoutine(void* args);
 static void* _AtomicIncRoutine(void* args);
 static void* _AtomicDecRoutine(void* args);
+static void* _AtomicOrRoutine(void* args);
+static void* _AtomicExchangeRoutine(void* args);
 static void _TestLocal(void);
 static void _TestGlobal(void);
 static void _TestGlobalSecond(void);
 static void _TestSpinlock(void);
 static void _TestIncrement(void);
 static void _TestDecrement(void);
+static void _TestAtomicOrExchange(void);
+static void _TestAtomicOrExchangeConcurrent(void);
 
 /*******************************************************************************
  * FUNCTIONS
@@ -187,6 +194,35 @@ static void* _AtomicDecRoutine(void* args)
   for (i = 0; i < 1000000; ++i)
   {
     AtomicDecrement32(&decValueTest);
+  }
+
+  return NULL;
+}
+
+static void* _AtomicOrRoutine(void* args)
+{
+  uint32_t i;
+  uint32_t bit;
+
+  bit = 1U << (uint32_t)(uintptr_t)args;
+  for (i = 0; i < 100000; ++i)
+  {
+    AtomicOr32(&orValueTest, bit);
+  }
+
+  return NULL;
+}
+
+static void* _AtomicExchangeRoutine(void* args)
+{
+  uint32_t i;
+
+  (void)args;
+  for (i = 0; i < 100000; ++i)
+  {
+    while (AtomicExchange32(&exchangeLockTest, 1) != 0);
+    ++exchangeCountTest;
+    AtomicExchange32(&exchangeLockTest, 0);
   }
 
   return NULL;
@@ -522,6 +558,132 @@ static void _TestDecrement(void)
                          TEST_CRITICAL_ENABLED);
 }
 
+static void _TestAtomicOrExchange(void)
+{
+  T_U32Atomic value;
+  uint32_t     previousValue;
+
+  value = 0x0F0F0000;
+  previousValue = AtomicOr32(&value, 0x0000F0F0);
+
+  TEST_POINT_ASSERT_UINT(TEST_CRITICAL_VALUE_DECREMENT + 1,
+                         previousValue == 0x0F0F0000,
+                         0x0F0F0000,
+                         previousValue,
+                         TEST_CRITICAL_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_CRITICAL_VALUE_DECREMENT + 2,
+                         value == 0x0F0FF0F0,
+                         0x0F0FF0F0,
+                         value,
+                         TEST_CRITICAL_ENABLED);
+
+  previousValue = AtomicExchange32(&value, 0x12345678);
+
+  TEST_POINT_ASSERT_UINT(TEST_CRITICAL_VALUE_DECREMENT + 3,
+                         previousValue == 0x0F0FF0F0,
+                         0x0F0FF0F0,
+                         previousValue,
+                         TEST_CRITICAL_ENABLED);
+  TEST_POINT_ASSERT_UINT(TEST_CRITICAL_VALUE_DECREMENT + 4,
+                         value == 0x12345678,
+                         0x12345678,
+                         value,
+                         TEST_CRITICAL_ENABLED);
+}
+
+static void _TestAtomicOrExchangeConcurrent(void)
+{
+  uint32_t        i;
+  E_Return        error;
+  S_KernelThread* pThreads[20];
+  void*           retVal;
+  S_CPUMask       cpuMask;
+  char            name[32] = "TEST_THREAD_VALID\0";
+
+  orValueTest = 0;
+  error = NO_ERROR;
+
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
+  {
+    CPU_MASK_RESET(cpuMask);
+    CPU_MASK_SET(cpuMask, i % CPUGetCount());
+    error = CreateThread(&pThreads[i],
+                         true,
+                         1,
+                         name,
+                         0x1000,
+                         cpuMask,
+                         _AtomicOrRoutine,
+                         (void*)(uintptr_t)i,
+                         NULL);
+
+    TEST_POINT_ASSERT_RCODE(TEST_CRITICAL_VALUE_DECREMENT + 5 + i,
+                            error == NO_ERROR,
+                            NO_ERROR,
+                            error,
+                            TEST_CRITICAL_ENABLED);
+  }
+
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
+  {
+    error = JoinThread(pThreads[i], &retVal);
+
+    TEST_POINT_ASSERT_RCODE(TEST_CRITICAL_VALUE_DECREMENT + 25 + i,
+                            error == NO_ERROR,
+                            NO_ERROR,
+                            error,
+                            TEST_CRITICAL_ENABLED);
+  }
+
+  TEST_POINT_ASSERT_UINT(TEST_CRITICAL_VALUE_DECREMENT + 45,
+                         orValueTest == 0x000FFFFF,
+                         0x000FFFFF,
+                         orValueTest,
+                         TEST_CRITICAL_ENABLED);
+
+  exchangeLockTest = 0;
+  exchangeCountTest = 0;
+  error = NO_ERROR;
+
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
+  {
+    CPU_MASK_RESET(cpuMask);
+    CPU_MASK_SET(cpuMask, i % CPUGetCount());
+    error = CreateThread(&pThreads[i],
+                         true,
+                         1,
+                         name,
+                         0x1000,
+                         cpuMask,
+                         _AtomicExchangeRoutine,
+                         (void*)(uintptr_t)i,
+                         NULL);
+
+    TEST_POINT_ASSERT_RCODE(TEST_CRITICAL_VALUE_DECREMENT + 46 + i,
+                            error == NO_ERROR,
+                            NO_ERROR,
+                            error,
+                            TEST_CRITICAL_ENABLED);
+  }
+
+  for (i = 0; i < 20 && error == NO_ERROR; ++i)
+  {
+    error = JoinThread(pThreads[i], &retVal);
+
+    TEST_POINT_ASSERT_RCODE(TEST_CRITICAL_VALUE_DECREMENT + 66 + i,
+                            error == NO_ERROR,
+                            NO_ERROR,
+                            error,
+                            TEST_CRITICAL_ENABLED);
+  }
+
+  TEST_POINT_ASSERT_UINT(TEST_CRITICAL_VALUE_DECREMENT + 86,
+                         exchangeCountTest == 20 * 100000,
+                         20 * 100000,
+                         exchangeCountTest,
+                         TEST_CRITICAL_ENABLED);
+}
+
 static void* _TestRoutine(void* args)
 {
   (void)args;
@@ -532,6 +694,8 @@ static void* _TestRoutine(void* args)
   _TestSpinlock();
   _TestIncrement();
   _TestDecrement();
+  _TestAtomicOrExchange();
+  _TestAtomicOrExchangeConcurrent();
 
   TEST_FRAMEWORK_END();
   return NULL;

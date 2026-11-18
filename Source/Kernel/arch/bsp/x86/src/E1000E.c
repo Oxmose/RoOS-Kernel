@@ -489,9 +489,9 @@
 /** @brief Transmit Descriptor Length */
 #define E1000E_TDLEN 0x03808
 /** @brief Transmit Descriptor Head */
-#define E1000E_TDH 0x03810
+#define E1000E_TDH0 0x03810
 /** @brief Transmit Descriptor Tail */
-#define E1000E_TDT 0x03818
+#define E1000E_TDT0 0x03818
 /** @brief Transmit Arbitration Count */
 #define E1000E_TARC 0x03840
 /** @brief Transmit Interrupt Delay Value */
@@ -605,7 +605,7 @@
 /** @brief Packets Transmitted [Greater than 1024 Bytes] Count */
 #define E1000E_PTC1522 0x040EC
 /** @brief Multicast Packets Transmitted Count */
-#define E1000E_MPTC 0x040F0
+#define E1000E_MCPTC 0x040F0
 /** @brief Broadcast Packets Transmitted Count */
 #define E1000E_BPTC 0x040F4
 /** @brief TCP Segmentation Context Transmitted Count */
@@ -733,13 +733,13 @@
 
 /* --- Software Semaphore Register Bits --- */
 /** @brief Software EEPROM Semaphore Bit for the E1000E */
-#define E1000E_SWSM_SWESMBI (1 << 1)
+#define E1000E_SWSM_SWESMBI (1U << 1)
 
 /* --- MDIO Phy Clause --- */
 /** @brief MDIO Control Register */
-#define E1000_PHY_MMD_CTRL 0x0D
+#define E1000E_PHY_MMD_CTRL 0x0D
 /** @brief MDIO Data Register */
-#define E1000_PHY_MMD_DATA 0x0E
+#define E1000E_PHY_MMD_DATA 0x0E
 
 /** @brief E1000E EEPROM Signature Retry Delay in nanoseconds */
 #define E1000E_EEPROM_SIGNATURE_RETRY_DELAY_NS 20000000ULL
@@ -755,13 +755,13 @@
 #define E1000E_SEMAPHORE_LOCK_TIMEOUT_NS 5000000ULL
 
 /** @brief MDIO Write command */
-#define E1000E_MDIO_WRITE (1 << 26)
+#define E1000E_MDIO_WRITE (1U << 26)
 /** @brief MDIO Read command */
-#define E1000E_MDIO_READ (1 << 27)
+#define E1000E_MDIO_READ (1U << 27)
 /** @brief MDIO Done flag */
-#define E1000E_MDIO_DONE (1 << 28)
+#define E1000E_MDIO_DONE (1U << 28)
 /** @brief MDIO Error flag */
-#define E1000E_MDIO_ERROR (1 << 30)
+#define E1000E_MDIO_ERROR (1U << 30)
 /** @brief MDIO Address shift */
 #define E1000E_MDIO_ADDR_SHIFT 16
 /** @brief MDIO PHY shift */
@@ -776,63 +776,63 @@
 
 /* --- Receive Control Registers --- */
 /** @brief Receive Control Register: Enable */
-#define E1000E_RCTL_EN (1 << 1)
+#define E1000E_RCTL_EN (1U << 1)
 /** @brief Receive Control Register: Store Bad Packets */
-#define E1000E_RCTL_SBP (1 << 2)
+#define E1000E_RCTL_SBP (1U << 2)
 /** @brief Receive Control Register: Unicast Promiscuous Enable */
-#define E1000E_RCTL_UPE (1 << 3)
+#define E1000E_RCTL_UPE (1U << 3)
 /** @brief Receive Control Register: Multicast Promiscuous Enable */
-#define E1000E_RCTL_MPE (1 << 4)
+#define E1000E_RCTL_MPE (1U << 4)
 /** @brief Receive Control Register: Long Packet Enable */
-#define E1000E_RCTL_LPE (1 << 5)
+#define E1000E_RCTL_LPE (1U << 5)
 /** @brief Receive Control Register: Loopback Mode - None */
-#define E1000E_RCTL_LBM_NONE (0 << 6)
+#define E1000E_RCTL_LBM_NONE (0U << 6)
 /** @brief Receive Control Register: Loopback Mode - PHY */
-#define E1000E_RCTL_LBM_PHY (0 << 6)
+#define E1000E_RCTL_LBM_PHY (1U << 6)
 /** @brief Receive Control Register: Receive Descriptor Minimum Threshold 2/8 */
-#define E1000E_RCTL_RDMTS_2 (0 << 8)
+#define E1000E_RCTL_RDMTS_2 (0U << 8)
 /** @brief Receive Control Register: Receive Descriptor Minimum Threshold 4/8 */
-#define E1000E_RCTL_RDMTS_4 (1 << 8)
+#define E1000E_RCTL_RDMTS_4 (1U << 8)
 /** @brief Receive Control Register: Receive Descriptor Minimum Threshold 8/8 */
-#define E1000E_RCTL_RDMTS_8 (2 << 8)
+#define E1000E_RCTL_RDMTS_8 (2U << 8)
 /** @brief Receive Control Register: Multicast Offset [47:36] */
-#define E1000E_RCTL_MO_36 (0 << 12)
+#define E1000E_RCTL_MO_36 (0U << 12)
 /** @brief Receive Control Register: Multicast Offset [46:35] */
-#define E1000E_RCTL_MO_35 (1 << 12)
+#define E1000E_RCTL_MO_35 (1U << 12)
 /** @brief Receive Control Register: Multicast Offset [45:34] */
-#define E1000E_RCTL_MO_34 (2 << 12)
+#define E1000E_RCTL_MO_34 (2U << 12)
 /** @brief Receive Control Register: Multicast Offset [43:32] */
-#define E1000E_RCTL_MO_32 (3 << 12)
+#define E1000E_RCTL_MO_32 (3U << 12)
 /** @brief Receive Control Register: Broadcast Accept Mode */
-#define E1000E_RCTL_BAM (1 << 15)
+#define E1000E_RCTL_BAM (1U << 15)
 /** @brief Receive Control Register: Receive Buffer Size 2048 */
-#define E1000E_RCTL_BSIZE_2048 (0 << 16)
+#define E1000E_RCTL_BSIZE_2048 (0U << 16)
 /** @brief Receive Control Register: Receive Buffer Size 1024 */
-#define E1000E_RCTL_BSIZE_1024 (1 << 16)
+#define E1000E_RCTL_BSIZE_1024 (1U << 16)
 /** @brief Receive Control Register: Receive Buffer Size 512 */
-#define E1000E_RCTL_BSIZE_512 (2 << 16)
+#define E1000E_RCTL_BSIZE_512 (2U << 16)
 /** @brief Receive Control Register: Receive Buffer Size 256 */
-#define E1000E_RCTL_BSIZE_256 (3 << 16)
+#define E1000E_RCTL_BSIZE_256 (3U << 16)
 /** @brief Receive Control Register: Receive Buffer Size 16384 */
-#define E1000E_RCTL_BSIZE_16384 (1 << 16)
+#define E1000E_RCTL_BSIZE_16384 (1U << 16)
 /** @brief Receive Control Register: Receive Buffer Size 8192 */
-#define E1000E_RCTL_BSIZE_8192 (2 << 16)
+#define E1000E_RCTL_BSIZE_8192 (2U << 16)
 /** @brief Receive Control Register: Receive Buffer Size 4096 */
-#define E1000E_RCTL_BSIZE_4096 (3 << 16)
+#define E1000E_RCTL_BSIZE_4096 (3U << 16)
 /** @brief Receive Control Register: VLAN Filter Enable */
-#define E1000E_RCTL_VFE (1 << 18)
+#define E1000E_RCTL_VFE (1U << 18)
 /** @brief Receive Control Register: Canonical Form Indicator Enable */
-#define E1000E_RCTL_CFIEN (1 << 19)
+#define E1000E_RCTL_CFIEN (1U << 19)
 /** @brief Receive Control Register: Canonical Form Indicator */
-#define E1000E_RCTL_CFI (1 << 20)
+#define E1000E_RCTL_CFI (1U << 20)
 /** @brief Receive Control Register: Discard Pause Frames */
-#define E1000E_RCTL_DPF (1 << 22)
+#define E1000E_RCTL_DPF (1U << 22)
 /** @brief Receive Control Register: Pass MAC Control Frames */
-#define E1000E_RCTL_PMCF (1 << 23)
+#define E1000E_RCTL_PMCF (1U << 23)
 /** @brief Receive Control Register: Buffer Size Extension */
-#define E1000E_RCTL_BSEX (1 << 25)
+#define E1000E_RCTL_BSEX (1U << 25)
 /** @brief Receive Control Register: Strip Ethernet CRC */
-#define E1000E_RCTL_SECRC (1 << 26)
+#define E1000E_RCTL_SECRC (1U << 26)
 
 /* --- Initialization Values --- */
 /** @brief Default auto-negotiation mask */
@@ -862,7 +862,7 @@
 /** @brief Default broadcast listen mode */
 #define E1000E_LISTEN_BROADCAST_INIT true
 /** @brief Default CRC stripping mode */
-#define E1000E_CRC_STRIPPING_INIT false
+#define E1000E_CRC_STRIPPING_INIT true
 
 /* --- Miscellaneous --- */
 /** @brief Receive buffer size */
@@ -875,99 +875,123 @@
 #define E1000E_TX_BUFFER_ALIGNMENT 128
 
 /** @brief Receive Address Hash Register Valid Bit */
-#define E1000E_RAH_VALID (1 << 31)
+#define E1000E_RAH_VALID (1U << 31)
 
 /** @brief E1000E EXTCNF_CTRL Register Software Ownership Bit */
-#define E1000E_EXTCNF_CTRL_SWOWN (1 << 5)
+#define E1000E_EXTCNF_CTRL_SWOWN (1U << 5)
 
 /* --- Transmit Control Registers --- */
 /** @brief Transmit Control Register: Enable */
-#define E1000E_TCTL_EN (1 << 1)
+#define E1000E_TCTL_EN (1U << 1)
 /** @brief Transmit Control Register: Pad Short Packets */
-#define E1000_TCTL_PSP (1 << 3)
+#define E1000E_TCTL_PSP (1U << 3)
 /** @brief Transmit Control Register: Collision Threshold */
-#define E1000_TCTL_CT_SHIFT 4
+#define E1000E_TCTL_CT_SHIFT 4
 /** @brief Transmit Control Register: Collision Distance */
-#define E1000_TCTL_COLD_SHIFT 12
+#define E1000E_TCTL_COLD_SHIFT 12
 /** @brief Transmit Control Register: Software XOFF */
-#define E1000_TCTL_SWXOFF (1 << 22)
+#define E1000E_TCTL_SWXOFF (1U << 22)
 /** @brief Transmit Control Register: Re-transmit on Late Collision */
-#define E1000_TCTL_RTLC (1 << 24)
+#define E1000E_TCTL_RTLC (1U << 24)
 /** @brief Transmit Control Register: No Re-transmit on underrun */
-#define E1000_TCTL_UNORTX (1 << 25)
+#define E1000E_TCTL_UNORTX (1U << 25)
 /** @brief Transmit Control Register: Collision Threshold for Ethernet */
-#define E1000_TCTL_CT_ETHER 0x10
+#define E1000E_TCTL_CT_ETHER 0x10
 /** @brief Transmit Control Register: Collision Distance for Full Duplex */
-#define E1000_TCTL_COLD_FULL 0x40
+#define E1000E_TCTL_COLD_FULL 0x40
 /** @brief Transmit Control Register: Collision Distance for Half Duplex */
-#define E1000_TCTL_COLD_HALF 0x200
+#define E1000E_TCTL_COLD_HALF 0x200
 
 /* --- Device Control Register Bits --- */
 /** @brief Full Duplex Enable */
-#define E1000E_CTRL_FD (1 << 0)
+#define E1000E_CTRL_FD (1U << 0)
 /** @brief Auto-Speed Detection Enable */
-#define E1000E_CTRL_ASDE (1 << 5)
+#define E1000E_CTRL_ASDE (1U << 5)
 /** @brief Speed Link Up */
-#define E1000E_CTRL_SLU (1 << 6)
+#define E1000E_CTRL_SLU (1U << 6)
 /** @brief Speed Selection mask */
 #define E1000E_CTRL_SPD_SEL (3 << 8)
 /** @brief Speed Selection 10 Mbps */
 #define E1000E_CTRL_SPD_SEL_10 (0 << 8)
 /** @brief Speed Selection 100 Mbps */
-#define E1000E_CTRL_SPD_SEL_100 (1 << 8)
+#define E1000E_CTRL_SPD_SEL_100 (1U << 8)
 /** @brief Speed Selection 1000 Mbps */
 #define E1000E_CTRL_SPD_SEL_1000 (2 << 8)
 /** @brief Force Speed Selection */
-#define E1000E_CTRL_FRCSPEED (1 << 11)
+#define E1000E_CTRL_FRCSPEED (1U << 11)
 /** @brief Force Duplex Selection */
-#define E1000E_CTRL_FRCDPLX (1 << 12)
+#define E1000E_CTRL_FRCDPLX (1U << 12)
 /** @brief Reset control bit */
-#define E1000E_CTRL_RST (1 << 26)
+#define E1000E_CTRL_RST (1U << 26)
 /** @brief E1000 CTRL Register RFCE (Receive Flow Control Enable) bit */
-#define E1000E_CTRL_RFCE (1 << 27)
+#define E1000E_CTRL_RFCE (1U << 27)
 /** @brief E1000 CTRL Register TFCE (Transmit Flow Control Enable) bit */
-#define E1000E_CTRL_TFCE (1 << 28)
+#define E1000E_CTRL_TFCE (1U << 28)
 
-/** @brief E1000E CTRL_EXT Register IAME (Interrupt Auto Mask Enable) bit */
-#define E1000E_CTRL_EXT_IAME (1 << 27)
+/** @brief Control Register: Extended DMA Dynamic Clock */
+#define E1000E_CTRL_EXT_DMA_DYN_CLK (1U << 1)
+/** @brief Register EIAME (Extended Interrupt Auto Mask Enable) bit */
+#define E1000E_CTRL_EXT_EIAME (1U << 24)
+/** @brief Register IAME (Interrupt Auto Mask Enable) bit */
+#define E1000E_CTRL_EXT_IAME (1U << 27)
 /** @brief E1000E CTRL_EXT Register Driver Load Bit */
-#define E1000E_CTRL_EXT_DRV_LOAD (1 << 28)
+#define E1000E_CTRL_EXT_DRV_LOAD (1U << 28)
+/** @brief E1000E CTRL_EXT Register Packet Buffer Allocation Bit */
+#define E1000E_CTRL_EXT_PBA (1U << 31)
 
 /** @brief Interrupt Mask Set/Read Register: Transmit Descriptor Written Back */
-#define E1000E_IMS_TXDW (1 << 0)
+#define E1000E_IMS_TXDW (1U << 0)
 /** @brief Interrupt Mask Set/Read Register: Transmit Queue Empty */
-#define E1000E_IMS_TXQE (1 << 1)
+#define E1000E_IMS_TXQE (1U << 1)
 /** @brief Interrupt Mask Set/Read Register: Link Status Change */
-#define E1000E_IMS_LSC (1 << 2)
+#define E1000E_IMS_LSC (1U << 2)
 /**
  * @brief Interrupt Mask Set/Read Register: Receive Descriptor Minimum Threshold
  * hit
  */
-#define E1000E_IMS_RXDMT0 (1 << 4)
+#define E1000E_IMS_RXDMT0 (1U << 4)
 /** @brief Interrupt Mask Set/Read Register: Receive Overrun */
-#define E1000E_IMS_RXO (1 << 6)
+#define E1000E_IMS_RXO (1U << 6)
 /** @brief Interrupt Mask Set/Read Register: Receive Timer Interrupt */
-#define E1000E_IMS_RXT0 (1 << 7)
+#define E1000E_IMS_RXT0 (1U << 7)
 /** @brief Interrupt Mask Set/Read Register: MDI/O Access Complete  */
-#define E1000E_IMS_MDAC (1 << 9)
+#define E1000E_IMS_MDAC (1U << 9)
 /** @brief Interrupt Mask Set/Read Register: Receiving /C/ ordered sets */
-#define E1000E_IMS_RXCFG (1 << 10)
+#define E1000E_IMS_RXCFG (1U << 10)
 /** @brief Interrupt Mask Set/Read Register: PHY Interrupt */
-#define E1000E_IMS_PHYINT (1 << 12)
+#define E1000E_IMS_PHYINT (1U << 12)
 /** @brief Interrupt Mask Set/Read Register: General Purpose Interrupts */
-#define E1000E_IMS_GPI (2 << 13)
+#define E1000E_IMS_GPI (3 << 13)
 /**
  * @brief Interrupt Mask Set/Read Register: Transmit Descriptor Low Threshold
  * hit
  */
-#define E1000E_IMS_TXD_LOW (1 << 15)
+#define E1000E_IMS_TXD_LOW (1U << 15)
 /** @brief Interrupt Mask Set/Read Register: Small Receive Packet Detection */
-#define E1000E_IMS_SRPD (1 << 16)
+#define E1000E_IMS_SRPD (1U << 16)
+/** @brief Interrupt Mask Set/Read Register: Receive Queue 0 */
+#define E1000E_IMS_RXQ0 (1U << 20)
+/** @brief Interrupt Mask Set/Read Register: Receive Queue 1 */
+#define E1000E_IMS_RXQ1 (1U << 21)
+/** @brief Interrupt Mask Set/Read Register: Transmit Queue 0 */
+#define E1000E_IMS_TXQ0 (1U << 22)
+/** @brief Interrupt Mask Set/Read Register: Transmit Queue 1 */
+#define E1000E_IMS_TXQ1 (1U << 23)
+/** @brief Interrupt Mask Set/Read Register: Other Interrupts */
+#define E1000E_IMS_OTH (1U << 24)
 
-/** @brief Enabled interrupt mask */
-#define E1000E_ENABLED_INTERRUPTS (E1000E_IMS_TXDW | \
-                                   E1000E_IMS_LSC  | \
-                                   E1000E_IMS_RXT0)
+/** @brief Enabled interrupt mask for MSI */
+#define E1000E_ENABLED_INTERRUPTS_MSI (E1000E_IMS_TXDW | \
+                                       E1000E_IMS_LSC  | \
+                                       E1000E_IMS_RXT0)
+
+/** @brief Enabled interrupt mask for MSI-X */
+#define E1000E_ENABLED_INTERRUPTS_MSIX (E1000E_IMS_LSC  | \
+                                        E1000E_IMS_RXQ0 | \
+                                        E1000E_IMS_RXQ1 | \
+                                        E1000E_IMS_TXQ0 | \
+                                        E1000E_IMS_TXQ1 | \
+                                        E1000E_IMS_OTH)
 
 /* --- Device PBA Register Bits --- */
 /** @brief E1000 PBA (Packet Buffer Allocation) Register value mask */
@@ -977,19 +1001,222 @@
 
 /* --- Status Register Bits --- */
 /** @brief Status Register: Link Up */
-#define E1000E_STATUS_LU (1 << 1)
+#define E1000E_STATUS_LU (1U << 1)
 /** @brief Status Register: Speed */
-#define E1000E_STATUS_SPEED_MASK (3 << 6)
+#define E1000E_STATUS_SPEED_MASK (3U << 6)
 /** @brief Status Register: Speed 1000 Mbps */
-#define E1000E_STATUS_SPEED_1000A (2 << 6)
+#define E1000E_STATUS_SPEED_1000A (2U << 6)
 /** @brief Status Register: Speed 100 Mbps */
-#define E1000E_STATUS_SPEED_1000B (3 << 6)
+#define E1000E_STATUS_SPEED_1000B (3U << 6)
 /** @brief Status Register: Speed 10 Mbps */
-#define E1000E_STATUS_SPEED_100  (1 << 6)
+#define E1000E_STATUS_SPEED_100  (1U << 6)
 /** @brief Status Register: Speed 10 Mbps */
-#define E1000E_STATUS_SPEED_10   (0 << 6)
+#define E1000E_STATUS_SPEED_10   (0U << 6)
 /** @brief Status Register: Full Duplex */
-#define E1000E_STATUS_FD (1 << 0)
+#define E1000E_STATUS_FD (1U << 0)
+
+/* --- Standard IEEE 802.3 Clause 22 Registers (0 - 15) --- */
+/** @brief PHY Control Register */
+#define E1000E_PHY_CTRL 0x00
+/** @brief PHY Status Register*/
+#define E1000E_PHY_STATUS 0x01
+/** @brief PHY Identifier Register 1  */
+#define E1000E_PHY_ID1 0x02
+/** @brief PHY Identifier Register 2 */
+#define E1000E_PHY_ID2 0x03
+/** @brief Auto-Negotiation Advertisement Register */
+#define E1000E_PHY_AUTONEG_ADV 0x04
+/** @brief Auto-Negotiation Link Partner Ability Register */
+#define E1000E_PHY_LP_ABILITY 0x05
+/** @brief Auto-Negotiation Expansion Register */
+#define E1000E_PHY_AUTONEG_EXP 0x06
+/** @brief Auto-Negotiation Next Page Transmit Register */
+#define E1000E_PHY_NEXT_PAGE_TX 0x07
+/** @brief Auto-Negotiation Link Partner Next Page Register */
+#define E1000E_PHY_LP_NEXT_PAGE 0x08
+/** @brief 1000BASE-T Control Register */
+#define E1000E_PHY_1000T_CTRL 0x09
+/** @brief 1000BASE-T Status Register */
+#define E1000E_PHY_1000T_STATUS 0x0A
+/** @brief Extended Status Register */
+#define E1000E_PHY_EXT_STATUS 0x0F
+
+
+/* --- Miscellaneous --- */
+/** @brief E1000 PBA (Packet Buffer Allocation) Register default value */
+#define E1000E_PBA_RX_DEFAULT 0x00000030
+
+/** @brief E1000 FCRTL Register XON Enable Bit */
+#define E1000E_FCRTL_XONE (1U << 31)
+
+/** @brief E1000E RXDCTL Register Packet Threshold Mask */
+#define E1000E_RXDCTL_PTHRESH_MASK 0x0000003F
+/** @brief E1000E RXDCTL Register Header Threshold Mask */
+#define E1000E_RXDCTL_HTHRESH_MASK 0x00003F00
+/** @brief E1000E RXDCTL Register Writeback Threshold Mask */
+#define E1000E_RXDCTL_WTHRESH_MASK 0x003F0000
+
+/** @brief E1000E RXDCTL Register Packet Threshold Default Value */
+#define E1000E_RXDCTL_PTHRESH_DEFAULT 0x1F
+/** @brief E1000E RXDCTL Register Header Threshold Default Value */
+#define E1000E_RXDCTL_HTHRESH_DEFAULT 0x01
+/** @brief E1000E RXDCTL Register Writeback Threshold Default Value */
+#define E1000E_RXDCTL_WTHRESH_DEFAULT 0x00
+/** @brief E1000E RXDCTL Register Granularity Bit */
+#define E1000E_RXDCTL_GRAN (1U << 24)
+
+/** @brief E1000E TXDCTL Register Packet Threshold Mask */
+#define E1000E_TXDCTL_PTHRESH_MASK 0x0000003F
+/** @brief E1000E TXDCTL Register Header Threshold Mask */
+#define E1000E_TXDCTL_HTHRESH_MASK 0x00003F00
+/** @brief E1000E TXDCTL Register Writeback Threshold Mask */
+#define E1000E_TXDCTL_WTHRESH_MASK 0x003F0000
+/** @brief E1000E TXDCTL Register Packet Threshold Default Value */
+#define E1000E_TXDCTL_PTHRESH_DEFAULT 0x1F
+/** @brief E1000E TXDCTL Register Header Threshold Default Value */
+#define E1000E_TXDCTL_HTHRESH_DEFAULT 0x01
+/** @brief E1000E TXDCTL Register Writeback Threshold Default Value */
+#define E1000E_TXDCTL_WTHRESH_DEFAULT 0x00
+/** @brief E1000E TXDCTL Register Granularity Bit */
+#define E1000E_TXDCTL_GRAN (1U << 24)
+
+/* --- EEPROM --- */
+/** @brief EEPROM Read Status Flags: Address Shift */
+#define E1000E_EERD_ADDR_SHIFT 2
+/** @brief EEPROM Read Status Flags: Data Shift */
+#define E1000E_EERD_DATA_SHIFT 16
+/** @brief EEPROM Read Status Flags: Start */
+#define E1000E_EERD_START (1U << 0)
+/** @brief EEPROM Read Status Flags: Done */
+#define E1000E_EERD_DONE (1U << 1)
+
+/** @brief E1000E IP Control Register: EEE Enable for 100M */
+#define E1000E_IPCNFG_EEE_100M_AN (1U << 2)
+/** @brief E1000E IP Control Register: EEE Enable for 1000M */
+#define E1000E_IPCNFG_EEE_1G_AN (1U << 3)  /* Enable 1000BASE-T EEE Auto-Neg */
+
+/** @brief PHY Initialization Timeout in Nanoseconds */
+#define E1000E_PHY_INIT_TIMEOUT_NS 20000000ULL
+
+/** @brief Wake-up Control Register: Auto Power Management Enable */
+#define E1000E_WUC_APME (1U << 0)
+/** @brief Wake-up Control Register: Power Management Enable */
+#define E1000E_WUC_PME_EN (1U << 1)
+/** @brief Wake-up Control Register: Power Management Status */
+#define E1000E_WUC_PME_STATUS (1U << 2)
+
+/** @brief General Control Register: L1 Active Without L0S RX */
+#define E1000E_GCR_L1_ACT_WITHOUT_L0S_RX (1U << 27)
+
+/** @brief Maximum number of multicast addresses supported */
+#define E1000E_MULTICAST_TABLE_SIZE 128
+/** @brief Maximum number of VLAN filters supported */
+#define E1000E_VLAN_FILTER_TABLE_SIZE 128
+
+/** @brief Receive Checksum Control Register: Clear Mask */
+#define E1000E_RXCSUM_CLEAR_MASK 0xFFFFFFFF
+/** @brief Receive Checksum Control Register: IPv4 Offload */
+#define E1000E_RXCSUM_IPOFL (1U << 8)
+/** @brief Receive Checksum Control Register: TCP/UDP Offload */
+#define E1000E_RXCSUM_TUOFL (1U << 9)
+/** @brief Receive Checksum Control Register: CRC32 Offload */
+#define E1000E_RXCSUM_CRCOFL (1U << 11)
+/** @brief Receive Checksum Control Register: IP Payload Checksum offload */
+#define E1000E_RXCSUM_IPPCSE (1U << 12)
+/** @brief Receive Checksum Control Register: Packet checksim disable */
+#define E1000E_RXCSUM_PCDD (1U << 13)
+
+
+/** @brief Number of nanoseconds to wait for status updates */
+#define E1000E_STAT_UPDATE_INTERVAL_NS 2000000000
+/** @brief Number of times to wait for transactions to complete */
+#define E1000E_TRANSACTION_WAIT_COUNT 500
+/** @brief Number of nanoseconds to wait for transactions to complete */
+#define E1000E_TRANSACTION_WAIT_NS 20000000
+
+/** @brief Transmit Buffer Size */
+#define E1000E_TX_BUFFER_SIZE 2048
+
+/** @brief Transmit Descriptor Command: End of Packet */
+#define E1000E_TX_CMD_EOP (1U << 0)
+/** @brief Transmit Descriptor Command: Insert FCS */
+#define E1000E_TX_CMD_IFCS (1U << 1)
+/** @brief Transmit Descriptor Command: Insert Checksum */
+#define E1000E_TX_CMD_IC (1U << 2)
+/** @brief Transmit Descriptor Command: Report Status */
+#define E1000E_TX_CMD_RS (1U << 3)
+/** @brief Transmit Descriptor Command: Report Packet Sent */
+#define E1000E_TX_CMD_RPS (1U << 4)
+/** @brief Transmit Descriptor Command: Descriptor Extension */
+#define E1000E_TX_CMD_DEXT (1U << 5)
+/** @brief Transmit Descriptor Command: VLAN Packet Enable */
+#define E1000E_TX_CMD_VLE (1U << 6)
+/** @brief Transmit Descriptor Command: Interrupt Delay Enabl */
+#define E1000E_TX_CMD_IDE (1U << 7)
+
+/* --- Interrupt Control Registers --- */
+/** @brief Interrupt Control Register: Transmit Descriptor Written Back */
+#define E1000E_ICR_TXDW (1U << 0)
+/** @brief Interrupt Control Register: Transmit Queue Empty */
+#define E1000E_ICR_TXQE (1U << 1)
+/** @brief Interrupt Control Register: Link Status Change */
+#define E1000E_ICR_LSC (1U << 2)
+/** @brief Interrupt Control Register: Receive Descriptor Minimum Threshold */
+#define E1000E_ICR_RXDMT0 (1U << 4)
+/** @brief Interrupt Control Register: Receive Overrun */
+#define E1000E_ICR_RXO (1U << 6)
+/** @brief Interrupt Control Register: Receive Timer Interrupt */
+#define E1000E_ICR_RXT0 (1U << 7)
+/** @brief Interrupt Control Register: MDI/O Access Complete */
+#define E1000E_ICR_MDAC (1U << 9)
+/** @brief Interrupt Control Register: Receiving /C/ ordered sets */
+#define E1000E_ICR_RXCFG (1U << 10)
+/** @brief Interrupt Control Register: PHY Interrupt */
+#define E1000E_ICR_PHYINT (1U << 12)
+/** @brief Interrupt Control Register: General Purpose Interrupts */
+#define E1000E_ICR_GPI (3U << 13)
+/** @brief Interrupt Control Register: Transmit Descriptor Low Threshold hit */
+#define E1000E_ICR_TXD_LOW (1U << 15)
+/** @brief Interrupt Control Register: Small Receive Packet Detection */
+#define E1000E_ICR_SRPD (1U << 16)
+
+/* --- PHY Values --- */
+/** @brief PHY Control Register: Full Duplex */
+#define E1000E_PHY_CTRL_FD (1U << 8)
+/** @brief PHY Control Register: Speed Selection 10 Mbps */
+#define E1000E_PHY_CTRL_SPEED_10 0
+/** @brief PHY Control Register: Speed Selection 100 Mbps */
+#define E1000E_PHY_CTRL_SPEED_100 (1U << 13)
+/** @brief PHY Control Register: Speed Selection 1000 Mbps */
+#define E1000E_PHY_CTRL_SPEED_1000 (1U << 6)
+/** @brief PHY Control Register: Speed Mask */
+#define E1000E_PHY_CTRL_SPEED_MASK ((1U << 6) | (1U << 13))
+/** @brief PHY Control Register: Duplex Mask */
+#define E1000E_PHY_CTRL_DUPLEX_MASK (1U << 8)
+/** @brief PHY Control Register: Auto-Negotiation Restart */
+#define E1000E_PHY_CTRL_AN_RESTART (1U << 9)
+/** @brief PHY Control Register: Auto-Negotiation Enable */
+#define E1000E_PHY_CTRL_AN_ENABLE (1U << 12)
+/** @brief PHY Control Register: Reset */
+#define E1000E_PHY_CTRL_RESET (1U << 15)
+
+/** @brief PHY Auto-Negotiation Advertisement: 100BASE-TX Full Duplex */
+#define E1000E_PHY_ANA_100BASE_TX_FULL (1U << 8)
+/** @brief PHY Auto-Negotiation Advertisement: 100BASE-TX Half Duplex */
+#define E1000E_PHY_ANA_100BASE_TX_HALF (1U << 7)
+/** @brief PHY Auto-Negotiation Advertisement: 10BASE-T Full Duplex */
+#define E1000E_PHY_ANA_10BASE_T_FULL (1U << 6)
+/** @brief PHY Auto-Negotiation Advertisement: 10BASE-T Half Duplex */
+#define E1000E_PHY_ANA_10BASE_T_HALF (1U << 5)
+/** @brief PHY Auto-Negotiation Advertisement: 1000BASE-X Full Duplex */
+#define E1000E_PHY_ANA_1000BASE_X_FULL (1U << 6)
+/** @brief PHY Auto-Negotiation Advertisement: 1000BASE-X Half Duplex */
+#define E1000E_PHY_ANA_1000BASE_X_HALF (1U << 5)
+
+/** @brief PHY Auto-Negotiation Advertisement: 1000BASE-T Full Duplex */
+#define E1000E_PHY_1000T_1000BASE_T_FULL (1U << 9)
+/** @brief PHY Auto-Negotiation Advertisement: 1000BASE-T Half Duplex */
+#define E1000E_PHY_1000T_1000BASE_T_HALF (1U << 8)
 
 /* --- Auto-Negotiation Masks --- */
 /** @brief Auto-Negotiation Mask: 1000BASE-T Full Duplex */
@@ -1007,94 +1234,53 @@
 /** @brief Auto-Negotiation Mask: Off */
 #define E1000E_AUTONEG_MASK_OFF 0x00
 
-/* --- Miscellaneous --- */
-/** @brief E1000 PBA (Packet Buffer Allocation) Register default value */
-#define E1000E_PBA_RX_DEFAULT 0x00000030
+/** @brief Maximum number per batch to clean TX descriptors */
+#define E1000E_TX_CLEAN_BUDGET 32
+/** @brief Maximum number of times to poll the device */
+#define E1000E_POLL_MAX_BUDGET 64
 
-/** @brief E1000 FCRTL Register XON Enable Bit */
-#define E1000E_FCRTL_XONE (1 << 31)
+/* --- Transmit Descriptor Status Bits --- */
+/** @brief Transmit Descriptor Status: Descriptor Done */
+#define E1000E_TXD_STAT_DD (1U << 0)
 
-/** @brief E1000E RXDCTL Register Packet Threshold Mask */
-#define E1000E_RXDCTL_PTHRESH_MASK 0x0000003F
-/** @brief E1000E RXDCTL Register Header Threshold Mask */
-#define E1000E_RXDCTL_HTHRESH_MASK 0x00003F00
-/** @brief E1000E RXDCTL Register Writeback Threshold Mask */
-#define E1000E_RXDCTL_WTHRESH_MASK 0x003F0000
+/* --- Receive Descriptor Status Bits --- */
+/** @brief Receive Descriptor Status: Descriptor Done */
+#define E1000E_RXD_STAT_DD (1U << 0)
+/** @brief Receive Descriptor Status: End of Packet */
+#define E1000E_RXD_STAT_EOP (1U << 1)
 
-/** @brief E1000E RXDCTL Register Packet Threshold Default Value */
-#define E1000E_RXDCTL_PTHRESH_DEFAULT 0x1F
-/** @brief E1000E RXDCTL Register Header Threshold Default Value */
-#define E1000E_RXDCTL_HTHRESH_DEFAULT 0x01
-/** @brief E1000E RXDCTL Register Writeback Threshold Default Value */
-#define E1000E_RXDCTL_WTHRESH_DEFAULT 0x00
-/** @brief E1000E RXDCTL Register Granularity Bit */
-#define E1000E_RXDCTL_GRAN (1 << 24)
+/* --- Interrupt Vector Assignment Registers --- */
+/** @brief Interrupt Vector Assignment Register: RX Queue 0 Enable */
+#define E1000E_IVAR_RXQ0_EN (1U << 3)
+/** @brief Interrupt Vector Assignment Register: RX Queue 1 Enable */
+#define E1000E_IVAR_RXQ1_EN (1U << 7)
+/** @brief Interrupt Vector Assignment Register: TX Queue 0 Enable */
+#define E1000E_IVAR_TXQ0_EN (1U << 11)
+/** @brief Interrupt Vector Assignment Register: TX Queue 1 Enable */
+#define E1000E_IVAR_TXQ1_EN (1U << 15)
+/** @brief Interrupt Vector Assignment Register: Other Traffic Control Enable */
+#define E1000E_IVAR_OTC_EN  (1U << 19)
+/** @brief Interrupt Vector Assignment Register: RX Queue 0 Vector */
+#define E1000E_IVAR_RXQ0(VECTOR) ((VECTOR & 0x7) << 0)
+/** @brief Interrupt Vector Assignment Register: RX Queue 1 Vector */
+#define E1000E_IVAR_RXQ1(VECTOR) ((VECTOR & 0x7) << 4)
+/** @brief Interrupt Vector Assignment Register: TX Queue 0 Vector */
+#define E1000E_IVAR_TXQ0(VECTOR) ((VECTOR & 0x7) << 8)
+/** @brief Interrupt Vector Assignment Register: TX Queue 1 Vector */
+#define E1000E_IVAR_TXQ1(VECTOR) ((VECTOR & 0x7) << 12)
+/** @brief Interrupt Vector Assignment Register: Other Traffic Control Vector */
+#define E1000E_IVAR_OTHER(VECTOR) ((VECTOR & 0x7) << 16)
 
-/** @brief E1000E TXDCTL Register Packet Threshold Mask */
-#define E1000E_TXDCTL_PTHRESH_MASK 0x0000003F
-/** @brief E1000E TXDCTL Register Header Threshold Mask */
-#define E1000E_TXDCTL_HTHRESH_MASK 0x00003F00
-/** @brief E1000E TXDCTL Register Writeback Threshold Mask */
-#define E1000E_TXDCTL_WTHRESH_MASK 0x003F0000
-/** @brief E1000E TXDCTL Register Packet Threshold Default Value */
-#define E1000E_TXDCTL_PTHRESH_DEFAULT 0x1F
-/** @brief E1000E TXDCTL Register Header Threshold Default Value */
-#define E1000E_TXDCTL_HTHRESH_DEFAULT 0x01
-/** @brief E1000E TXDCTL Register Writeback Threshold Default Value */
-#define E1000E_TXDCTL_WTHRESH_DEFAULT 0x00
-/** @brief E1000E TXDCTL Register Granularity Bit */
-#define E1000E_TXDCTL_GRAN (1 << 24)
-
-/* --- EEPROM --- */
-/** @brief EEPROM Read Status Flags: Address Shift */
-#define E1000E_EERD_ADDR_SHIFT 2
-/** @brief EEPROM Read Status Flags: Data Shift */
-#define E1000E_EERD_DATA_SHIFT 16
-/** @brief EEPROM Read Status Flags: Start */
-#define E1000E_EERD_START (1 << 0)
-/** @brief EEPROM Read Status Flags: Done */
-#define E1000E_EERD_DONE (1 << 1)*/
-
-/** @brief E1000E IP Control Register: EEE Enable for 100M */
-#define E1000_IPCNFG_EEE_100M_AN (1 << 2)
-/** @brief E1000E IP Control Register: EEE Enable for 1000M */
-#define E1000_IPCNFG_EEE_1G_AN (1 << 3)  /* Enable 1000BASE-T EEE Auto-Neg */
-
-#define E1000E_IPCNFG_EEE_100M_AN
-#define E1000E_IPCNFG_EEE_1G_AN
-#define E1000E_PHY_INIT_TIMEOUT_NS
-#define E1000E_WUC_PME_EN
-
-#define E1000E_WUC_APME
-#define E1000E_WUC_PME_STATUS
-#define E1000E_GCR_L1_ACT_WITHOUT_L0S_RX
-#define E1000E_CTRL_EXT_DMA_DYN_CLK
-
-#define E1000E_MULTICAST_TABLE_SIZE 128
-#define E1000E_VLAN_FILTER_TABLE_SIZE 128
-
-#define E1000E_RXCSUM_CLEAR_MASK
-#define E1000E_RXCSUM_IPOFL
-#define E1000E_RXCSUM_TUOFL
-#define E1000E_RXCSUM_IPV6OFL
-
-#define E1000E_STAT_UPDATE_INTERVAL_NS
-
-#define E1000E_TCTL_PSP
-
-#define E1000E_TRANSACTION_WAIT_NS
-#define E1000E_TRANSACTION_WAIT_COUNT
-
-#define E1000_TX_BUFFER_SIZE 2048
-
-#define E1000E_TX_CMD_IDE
-#define E1000E_TX_CMD_IFCS
-#define E1000E_TX_CMD_EOP
-#define E1000E_TX_CMD_RS
-
-#define E1000E_ICR_RXT0
-#define E1000E_ICR_LSC
-#define E1000E_ICR_TXDW
+/** @brief Interrupt Vector Assignment RX Queue 0 Vector */
+#define E1000E_RXQ0_VECTOR 0
+/** @brief Interrupt Vector Assignment RX Queue 1 Vector */
+#define E1000E_RXQ1_VECTOR 0
+/** @brief Interrupt Vector Assignment TX Queue 0 Vector */
+#define E1000E_TXQ0_VECTOR 0
+/** @brief Interrupt Vector Assignment TX Queue 1 Vector */
+#define E1000E_TXQ1_VECTOR 0
+/** @brief Interrupt Vector Assignment Other Traffic Control Vector */
+#define E1000E_OTC_VECTOR  0
 
 /*******************************************************************************
  * STRUCTURES AND TYPES
@@ -1241,12 +1427,10 @@ typedef struct S_E1000EDriver
   uint32_t txDescriptorIdx;
   /** @brief The index of the next TX descriptor to clean. */
   uint32_t txDescriptorCleanIdx;
-  /** @brief The index of the next TX descriptor to watch. */
-  uint32_t txDescriptorWatchIdx;
   /** @brief The ticket for the next TX operation. */
-  uint32_t txTicket;
+  volatile uint32_t txTicket;
   /** @brief The service index for the next TX operation. */
-  uint32_t txService;
+  T_U32Atomic txService;
 
   /** @brief Whether to use legacy interrupts. */
   bool useMSIXInterrupts;
@@ -1298,6 +1482,8 @@ typedef struct S_E1000EDriver
   bool enableMulticastPromiscuous;
   /** @brief Whether to listen for broadcast packets. */
   bool listenBroadcast;
+  /** @brief Whether to strip the CRC from received packets. */
+  bool crcStripping;
 
   /** @brief Whether the RX operation is running. */
   bool rxOperationRunning;
@@ -2070,7 +2256,7 @@ static E_Return _SemaphoreLock(S_E1000EDriver*         pDriver,
     do
     {
       swSemaphore = _MMIORead32(E1000E_REG(pDriver->barAddress, semaphoreReg));
-      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_SWSM),
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, semaphoreReg),
                   swSemaphore | semaphoreValue);
 
       swSemaphore = _MMIORead32(E1000E_REG(pDriver->barAddress, semaphoreReg));
@@ -2104,12 +2290,10 @@ static void _SemaphoreUnlock(S_E1000EDriver*         pDriver,
     case E1000E_SEM_PHY:
       semaphoreValue = E1000E_EXTCNF_CTRL_SWOWN;
       semaphoreReg   = E1000E_EXTCNF_CTRL;
-      error = NO_ERROR;
       break;
     case E1000E_SEM_NVM:
       semaphoreValue = E1000E_SWSM_SWESMBI;
       semaphoreReg   = E1000E_SWSM;
-      error = NO_ERROR;
       break;
     default:
       KERNEL_ERROR("E1000E invalid semaphore unlock request\n");
@@ -2128,11 +2312,9 @@ static E_Return _ValidateEEPROM(const S_E1000EDriver* kpDriver)
 {
   E_Return error;
   uint16_t signature;
-  uint32_t i;
+  uint16_t i;
   uint32_t retry;
   uint16_t checksum;
-
-
 
   for (retry = 0; retry < E1000E_EEPROM_SIGNATURE_RETRIES; ++retry)
   {
@@ -2145,7 +2327,7 @@ static E_Return _ValidateEEPROM(const S_E1000EDriver* kpDriver)
         checksum += signature;
         if (i == E1000E_EEPROM_SIZE - 1)
         {
-          if (signature == E1000E_EEPROM_SIGNATURE)
+          if (checksum == E1000E_EEPROM_SIGNATURE)
           {
             KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                          MODULE_NAME,
@@ -2157,7 +2339,7 @@ static E_Return _ValidateEEPROM(const S_E1000EDriver* kpDriver)
             KERNEL_ERROR("E1000E EEPROM signature mismatch: expected 0x%04X, "
                          "got 0x%04X\n",
                          E1000E_EEPROM_SIGNATURE,
-                         signature);
+                         checksum);
             error = ERR_INVALID_VALUE;
           }
         }
@@ -2173,7 +2355,7 @@ static E_Return _ValidateEEPROM(const S_E1000EDriver* kpDriver)
     {
       break;
     }
-    SleepNs(E1000E_EEPROM_SIGNATURE_RETRY_DELAY_NS);
+    SleepNs(E1000E_EEPROM_SIGNATURE_RETRY_DELAY_NS, NULL);
   }
 
   return error;
@@ -2185,14 +2367,13 @@ static E_Return _ReadEEPROM(const S_E1000EDriver* kpDriver,
 {
   E_Return error;
   uint32_t regValue;
-  uint16_t address;
   uint64_t timeout;
 
   error = _SemaphoreLock((S_E1000EDriver*)kpDriver, E1000E_SEM_NVM);
   if (error == NO_ERROR)
   {
     regValue = E1000E_EERD_START |
-              ((address & 0x3FFF) << E1000E_EERD_ADDR_SHIFT);
+              ((kAddress & 0x3FFF) << E1000E_EERD_ADDR_SHIFT);
     _MMIOWrite32(E1000E_REG(kpDriver->barAddress, E1000E_EERD), regValue);
 
     timeout = TimeGetUptime() + E1000E_EEPROM_READ_TIMEOUT_NS;
@@ -2313,9 +2494,11 @@ static E_Return _WriteMDIO(const S_E1000EDriver* kpDriver,
         {
           break;
         }
-      } while ((regValue & E1000E_MDIO_DONE) == 0);
+      } while ((regValue & E1000E_MDIO_DONE) == 0 &&
+              (regValue & E1000E_MDIO_ERROR) == 0);
 
-      if ((regValue & E1000E_MDIO_DONE) != 0)
+      if ((regValue & E1000E_MDIO_DONE) != 0 &&
+          (regValue & E1000E_MDIO_ERROR) == 0)
       {
         KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                     MODULE_NAME,
@@ -2465,11 +2648,16 @@ static void _Detach(S_E1000EDriver* pDriver)
   uint32_t       intState;
   S_E1000EDriver* pPrevDriver;
 
+  if (pDriver->isInitialized == true)
+  {
+    _DevDownlink(&pDriver->networkDevice);
+  }
+
   if (pDriver->interruptLine > 0)
   {
     if (pDriver->useMSIXInterrupts == true)
     {
-      PCISetupInterruptMSIX(pDriver->pPCIDevice, 0, 0, false);
+      PCISetupInterruptMSIX(pDriver->pPCIDevice, 0, 0, 0, false);
     }
     else
     {
@@ -2565,8 +2753,6 @@ static E_Return _ProbeDevice(const uint16_t kDeviceId, S_E1000EDriver* pDriver)
     case E1000E_DEV_ID_PCH_D_HW_V:
     case E1000E_DEV_ID_PCH2_LV_LM:
     case E1000E_DEV_ID_PCH2_LV_V:
-    case E1000E_DEV_ID_PCH2_LV_LM:
-    case E1000E_DEV_ID_PCH2_LV_V:
     case E1000E_DEV_ID_PCH_LPT_I217_LM:
     case E1000E_DEV_ID_PCH_LPT_I217_V:
     case E1000E_DEV_ID_PCH_LPTLP_I218_V:
@@ -2600,7 +2786,6 @@ static E_Return _ProbeDevice(const uint16_t kDeviceId, S_E1000EDriver* pDriver)
     case E1000E_DEV_ID_PCH_CMP_I219_V12:
     case E1000E_DEV_ID_PCH_TGP_I219_LM15:
     case E1000E_DEV_ID_PCH_TGP_I219_V15:
-    case E1000E_DEV_ID_PCH_CMP_I219_LM10:
     case E1000E_DEV_ID_PCH_TGP_I219_LM14:
     case E1000E_DEV_ID_PCH_TGP_I219_V14:
     case E1000E_DEV_ID_PCH_TGP_I219_LM13:
@@ -2662,8 +2847,6 @@ static E_Return _ProbeDevice(const uint16_t kDeviceId, S_E1000EDriver* pDriver)
 
 static void _LoadDefaultDevice(S_E1000EDriver* pDriver)
 {
-  E_Return retCode;
-  uint16_t eepromValue;
   uint64_t macAddress;
   uint32_t registerVal;
 
@@ -2805,8 +2988,10 @@ static void _ResetDevice(S_E1000EDriver* pDriver)
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT0), 0);
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDH0 + 0x100), 0);
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT0 + 0x100), 0);
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDH), 0);
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT), 0);
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDH0), 0);
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT0), 0);
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDH0 + 0x100), 0);
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT0 + 0x100), 0);
 
   /* Wait for the disable to take effect */
   SleepNs(E1000E_RESET_TIMEOUT_NS, NULL);
@@ -2944,7 +3129,6 @@ static E_Return _AllocateDeviceTXResources(S_E1000EDriver* pDriver)
   /* Allocate the TX buffer descriptor ring */
   pDriver->txDescriptorIdx      = 0;
   pDriver->txDescriptorCleanIdx = 0;
-  pDriver->txDescriptorWatchIdx = 0;
   pDriver->txService            = 0;
   pDriver->txTicket             = 0;
 
@@ -2980,6 +3164,8 @@ static E_Return _AllocateDeviceTXResources(S_E1000EDriver* pDriver)
 
 static void _SetDeviceMAC(S_E1000EDriver* pDriver, const uint64_t kMACAddress)
 {
+  uint64_t macAddress;
+
   KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                MODULE_NAME,
                "E1000E device %04X:%04X:%04X setting MAC address to "
@@ -2994,11 +3180,13 @@ static void _SetDeviceMAC(S_E1000EDriver* pDriver, const uint64_t kMACAddress)
                (uint8_t)((kMACAddress >> 32) & 0xFF),
                (uint8_t)((kMACAddress >> 40) & 0xFF));
 
+  macAddress = ((kMACAddress & 0x0000FFFFFFFFFFFF) |
+                (((uint64_t)E1000E_RAH_VALID) << 32));
   /* Write the MAC address to the device */
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RAL_0),
-               kMACAddress & 0xFFFFFFFF);
+               macAddress & 0xFFFFFFFF);
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RAH_0),
-               (kMACAddress >> 32) & 0x0000FFFF);
+               (macAddress >> 32) & 0xFFFFFFFF);
 }
 
 static void _ReleaseDeviceResources(S_E1000EDriver* pDriver)
@@ -3169,15 +3357,15 @@ static void _InitializeDeviceRX(S_E1000EDriver* pDriver)
                pDriver->rxBufferCount - 1);
 
   /* Initialize the RX descriptor control register */
-  regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_RXDCTL));
-  regValue &= ~(E1000E_RXDCTL_PTHRESH_MASK |
-                E1000E_RXDCTL_HTHRESH_MASK |
-                E1000E_RXDCTL_WTHRESH_MASK);
-  regValue |= E1000E_RXDCTL_PTHRESH_DEFAULT |
-              E1000E_RXDCTL_HTHRESH_DEFAULT |
-              E1000E_RXDCTL_WTHRESH_DEFAULT |
-              E1000E_RXDCTL_GRAN;
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RXDCTL), regValue);
+  configReg = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_RXDCTL));
+  configReg &= ~(E1000E_RXDCTL_PTHRESH_MASK |
+                 E1000E_RXDCTL_HTHRESH_MASK |
+                 E1000E_RXDCTL_WTHRESH_MASK);
+  configReg |= E1000E_RXDCTL_PTHRESH_DEFAULT |
+               E1000E_RXDCTL_HTHRESH_DEFAULT |
+               E1000E_RXDCTL_WTHRESH_DEFAULT |
+               E1000E_RXDCTL_GRAN;
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RXDCTL), configReg);
 
   configReg = E1000E_RCTL_EN | E1000E_RCTL_RDMTS_8 | E1000E_RCTL_MO_36;
   if (pDriver->enableUnicastPromiscuous == true)
@@ -3244,6 +3432,11 @@ static void _InitializeDeviceRX(S_E1000EDriver* pDriver)
                  pDriver->bufferSize);
   }
 
+  if (pDriver->crcStripping == true)
+  {
+    configReg |= E1000E_RCTL_SECRC;
+  }
+
   /* Write configuration to the device */
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RCTL), configReg);
 
@@ -3277,8 +3470,8 @@ static void _InitializeDeviceTX(S_E1000EDriver* pDriver)
                (physAddr >> 32) & 0xFFFFFFFF);
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDLEN),
                pDriver->txBufferCount * sizeof(S_TXBufferDescriptor));
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDH), 0);
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT), 0);
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDH0), 0);
+  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT0), 0);
 
   regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_TXDCTL));
   regValue &= ~(E1000E_TXDCTL_PTHRESH_MASK |
@@ -3314,7 +3507,6 @@ static E_Return _SetupDeviceInterrupts(S_E1000EDriver* pDriver)
 {
   E_Return     err;
   S_PCIDevice* pDevice;
-  uint32_t     ctrlExt;
 
   pDevice = pDriver->pPCIDevice;
 
@@ -3336,23 +3528,33 @@ static E_Return _SetupDeviceInterrupts(S_E1000EDriver* pDriver)
                    pDriver->pPCIDevice->bus,
                    pDriver->pPCIDevice->slot,
                    pDriver->pPCIDevice->function);
-      pDriver->useMSIXInterrupts = true;
-
       /* Setup MSIX */
       err = PCISetupInterruptMSIX(pDevice,
                                   pDriver->interruptLine,
                                   0,
                                   pDriver->handlerCore,
                                   true);
-      if (err != NO_ERROR)
+      if (err == NO_ERROR)
       {
+        pDriver->useMSIXInterrupts = true;
+
+        KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
+                     MODULE_NAME,
+                     "E1000E device %04X:%04X:%04X MSI-X setup successful",
+                     pDriver->pPCIDevice->bus,
+                     pDriver->pPCIDevice->slot,
+                     pDriver->pPCIDevice->function);
+      }
+      else
+      {
+        pDriver->useMSIXInterrupts = false;
+
         KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                    MODULE_NAME,
                    "E1000E device %04X:%04X:%04X using MSI interrupts",
                    pDriver->pPCIDevice->bus,
                    pDriver->pPCIDevice->slot,
                    pDriver->pPCIDevice->function);
-        pDriver->useMSIXInterrupts = false;
 
         /* We do not have the MSI-X capability, fall back to MSI interrupts */
         err = PCISetupInterruptMSI(pDevice,
@@ -3375,20 +3577,6 @@ static E_Return _SetupDeviceInterrupts(S_E1000EDriver* pDriver)
       err = InterruptRegister(pDriver->interruptLine, _E1000EInterruptHandler);
       if (err == NO_ERROR)
       {
-        /* Mask the interrupt in the device */
-        _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IMC), 0x01FFFFFF);
-
-        /* Set interrupt auto mask */
-        ctrlExt = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT));
-        ctrlExt |= E1000E_CTRL_EXT_IAME;
-        _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT), ctrlExt);
-        _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IAM),
-                     E1000E_ENABLED_INTERRUPTS);
-
-        /* Setup the interrupt throttle */
-        _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_ITR),
-                     pDriver->intThrottle);
-
         InterruptSetEOI(pDriver->interruptLine);
 
         KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
@@ -3410,7 +3598,8 @@ static E_Return _SetupDeviceInterrupts(S_E1000EDriver* pDriver)
         }
         FreeInterruptLine(pDriver->interruptLine);
         pDriver->interruptLine = 0;
-        KERNEL_ERROR("E1000E device %04X:%04X:%04X failed to register handler\n",
+        KERNEL_ERROR("E1000E device %04X:%04X:%04X failed to register"
+                     " handler\n",
                      pDriver->pPCIDevice->bus,
                      pDriver->pPCIDevice->slot,
                      pDriver->pPCIDevice->function);
@@ -3428,7 +3617,8 @@ static E_Return _SetupDeviceInterrupts(S_E1000EDriver* pDriver)
   }
   else
   {
-    KERNEL_ERROR("E1000E device %04X:%04X:%04X failed to allocate interrupt line\n",
+    KERNEL_ERROR("E1000E device %04X:%04X:%04X failed to allocate interrupt"
+                 " line\n",
                  pDriver->pPCIDevice->bus,
                  pDriver->pPCIDevice->slot,
                  pDriver->pPCIDevice->function);
@@ -3456,7 +3646,8 @@ static void _SetPhyForced(S_E1000EDriver* pDriver)
   regValue |= E1000E_CTRL_FRCDPLX | E1000E_CTRL_FRCSPEED;
   regValue &= ~E1000E_CTRL_ASDE;
 
-  if (pDriver->duplexType == DUPLEX_FUL)
+  if (pDriver->duplexType == DUPLEX_FULL ||
+      pDriver->linkSpeed == LINK_SPEED_1GBPS)
   {
     phyValue = E1000E_PHY_CTRL_FD;
     regValue |= E1000E_CTRL_FD;
@@ -3494,7 +3685,7 @@ static void _SetPhyForced(S_E1000EDriver* pDriver)
   retCode  = _ReadMDIO(pDriver, E1000E_PHY_CTRL, (uint16_t*)&regValue);
   if (retCode == NO_ERROR)
   {
-    regValue &= ~(E1000E_PHY_CTLR_SPEED_MASK |
+    regValue &= ~(E1000E_PHY_CTRL_SPEED_MASK |
                   E1000E_PHY_CTRL_DUPLEX_MASK |
                   E1000E_PHY_CTRL_AN_ENABLE);
     regValue |= phyValue | E1000E_PHY_CTRL_RESET;
@@ -3550,6 +3741,18 @@ static void _SetPhyAutoNeg(S_E1000EDriver* pDriver)
                   pDriver->pPCIDevice->function);
   }
 
+  if (pDriver->autoNegMask == E1000E_AUTONEG_MASK_OFF &&
+      pDriver->linkSpeed == LINK_SPEED_1GBPS)
+  {
+    KERNEL_ERROR("E1000E device %04X:%04X:%04X auto-negotiation disabled "
+                  "with 1Gbps link speed, using auto-negotiation\n",
+                  pDriver->pPCIDevice->bus,
+                  pDriver->pPCIDevice->slot,
+                  pDriver->pPCIDevice->function);
+    pDriver->autoNegMask = E1000E_AUTONEG_MASK_1000_FULL |
+                           E1000E_AUTONEG_MASK_1000_HALF;
+  }
+
   /* Setup the MAC auto-negotiation speed */
   regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_CTRL));
   regValue &= ~(E1000E_CTRL_FRCSPEED | E1000E_CTRL_FRCDPLX | E1000E_CTRL_FD);
@@ -3574,7 +3777,7 @@ static void _SetPhyAutoNeg(S_E1000EDriver* pDriver)
     }
     if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_1000_HALF)
     {
-      regValue |= E1000E_PHY_ANA_1000BASE_X_HALF`;
+      regValue |= E1000E_PHY_ANA_1000BASE_X_HALF;
     }
     if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_100_FULL)
     {
@@ -3617,23 +3820,14 @@ static void _SetPhyAutoNeg(S_E1000EDriver* pDriver)
     regValue &= ~(E1000E_PHY_1000T_1000BASE_T_FULL |
                   E1000E_PHY_1000T_1000BASE_T_HALF);
 
-    if (pDriver->deviceId == E1000E_DEV_ID_82544EI_COPPER ||
-        pDriver->deviceId == E1000E_DEV_ID_82544GC_COPPER ||
-        pDriver->deviceId == E1000E_DEV_ID_82544GC_LOM)
+
+    if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_1000_FULL)
     {
-      regValue |= E1000E_PHY_1000T_1000BASE_T_FULL |
-                  E1000E_PHY_1000T_1000BASE_T_HALF;
+      regValue |= E1000E_PHY_1000T_1000BASE_T_FULL;
     }
-    else
+    if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_1000_HALF)
     {
-      if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_1000_FULL)
-      {
-        regValue |= E1000E_PHY_1000T_1000BASE_T_FULL;
-      }
-      if (pDriver->autoNegMask & E1000E_AUTONEG_MASK_1000_HALF)
-      {
-        regValue |= E1000E_PHY_1000T_1000BASE_T_HALF;
-      }
+      regValue |= E1000E_PHY_1000T_1000BASE_T_HALF;
     }
     retCode = _WriteMDIO(pDriver, E1000E_PHY_1000T_CTRL, regValue);
     if (retCode != NO_ERROR)
@@ -3690,34 +3884,11 @@ static void _SetPhyNonCopper(S_E1000EDriver* pDriver)
 
   /* Setup the MAC for non-copper media */
   regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_CTRL));
-  regValue &= ~(E1000E_CTRL_FRCSPEED | E1000E_CTRL_FRCDPLX | E1000E_CTRL_SPD_SEL);
+  regValue &= ~(E1000E_CTRL_FRCSPEED |
+                E1000E_CTRL_FRCDPLX  |
+                E1000E_CTRL_SPD_SEL);
   regValue |= E1000E_CTRL_ASDE | E1000E_CTRL_FD;
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_CTRL), regValue);
-
-  /* Set the transmit word */
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TXCW), 0);
-
-  regValue = E1000E_TXCW_FD | E1000E_TXCW_ANE | E1000E_TXCW_TXC;
-
-  /* Advertise flow control capabilities based on flow control settings */
-  if (pDriver->flowControl == FLOW_CONTROL_RX_PAUSE ||
-      pDriver->flowControl == FLOW_CONTROL_RX_TX_PAUSE)
-  {
-    regValue |= E1000E_TXCW_PAUSE;
-  }
-  if (pDriver->flowControl == FLOW_CONTROL_TX_PAUSE ||
-      pDriver->flowControl == FLOW_CONTROL_RX_TX_PAUSE)
-  {
-    regValue |= E1000E_TXCW_ASYM_PD;
-  }
-
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TXCW), regValue);
-
-  /* For SerDes, we must inform the MAC to bypass optical */
-  regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT));
-  regValue &= ~E1000E_CTRL_EXT_LINK_MODE_MASK;
-  regValue |= E1000E_CTRL_EXT_LINK_MODE_DIRECT;
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT), regValue);
 
   KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                 MODULE_NAME,
@@ -3791,7 +3962,6 @@ static void _InitializePhy(S_E1000EDriver* pDriver)
     case E1000E_DEV_ID_PCH_CMP_I219_V12:
     case E1000E_DEV_ID_PCH_TGP_I219_LM15:
     case E1000E_DEV_ID_PCH_TGP_I219_V15:
-    case E1000E_DEV_ID_PCH_CMP_I219_LM10:
     case E1000E_DEV_ID_PCH_TGP_I219_LM14:
     case E1000E_DEV_ID_PCH_TGP_I219_V14:
     case E1000E_DEV_ID_PCH_TGP_I219_LM13:
@@ -3811,17 +3981,17 @@ static void _InitializePhy(S_E1000EDriver* pDriver)
     case E1000E_DEV_ID_PCH_ARL_I219_LM22:
     case E1000E_DEV_ID_PCH_ARL_I219_V22:
       /* Disable EEE */
-      ipcnfg = _MMIORead32(E1000_REG(pDriver->barAddress, E1000E_IPCNFG));
+      ipcnfg = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_IPCNFG));
       ipcnfg &= ~(E1000E_IPCNFG_EEE_100M_AN | E1000E_IPCNFG_EEE_1G_AN);
-      _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_IPCNFG), ipcnfg);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IPCNFG), ipcnfg);
       _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_EEER), 0);
 
       /* Disable EEE advertisement on Phy */
-      if (_WriteMDIO(pDriver, E1000_PHY_MMD_CTRL, 0x0007) == NO_ERROR)
+      if (_WriteMDIO(pDriver, E1000E_PHY_MMD_CTRL, 0x0007) == NO_ERROR)
       {
-        _WriteMDIO(pDriver, E1000_PHY_MMD_DATA, 0x003C);
-        _WriteMDIO(pDriver, E1000_PHY_MMD_CTRL, 0x4007);
-        _WriteMDIO(pDriver, E1000_PHY_MMD_DATA, 0x0000);
+        _WriteMDIO(pDriver, E1000E_PHY_MMD_DATA, 0x003C);
+        _WriteMDIO(pDriver, E1000E_PHY_MMD_CTRL, 0x4007);
+        _WriteMDIO(pDriver, E1000E_PHY_MMD_DATA, 0x0000);
       }
       break;
     default:
@@ -3842,22 +4012,22 @@ static void _ConfigurePowerManagement(S_E1000EDriver* pDriver,
   if (kEnableActiveMode == true)
   {
     /* Clear any pending Wakeup Status flags (WUS) and disable WoL */
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_WUFC), 0);
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_WUS), 0xFFFFFFFF);
-    regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000E_WUC));
+    _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_WUFC), 0);
+    _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_WUS), 0xFFFFFFFF);
+    regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_WUC));
     regValue &= ~(E1000E_WUC_PME_EN | E1000E_WUC_APME);
     regValue |= E1000E_WUC_PME_STATUS;
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_WUC), regValue);
+    _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_WUC), regValue);
 
     /* Prevent premature L1 ASPM transitions during RX bursts */
-    regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000E_GCR));
+    regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_GCR));
     regValue |= E1000E_GCR_L1_ACT_WITHOUT_L0S_RX;
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_GCR), regValue);
+    _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_GCR), regValue);
 
     /* Enable Dynamic Clock Gating while keeping Relaxed Ordering intact */
-    regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000E_CTRL_EXT));
+    regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT));
     regValue |= E1000E_CTRL_EXT_DMA_DYN_CLK;
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_CTRL_EXT), regValue);
+    _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT), regValue);
 
     pDevice = pDriver->pPCIDevice;
 
@@ -3891,7 +4061,7 @@ static void _ConfigurePowerManagement(S_E1000EDriver* pDriver,
                        regCtrl);
     }
 
-    KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+    KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                  MODULE_NAME,
                  "E1000E device %04X:%04X:%04X active power state configured",
                  pDriver->pPCIDevice->bus,
@@ -3901,11 +4071,11 @@ static void _ConfigurePowerManagement(S_E1000EDriver* pDriver,
   else
   {
     /* Prepare device for low-power idle / downlink state */
-    regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000E_CTRL_EXT));
+    regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT));
     regValue &= ~E1000E_CTRL_EXT_DMA_DYN_CLK;
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_CTRL_EXT), regValue);
+    _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT), regValue);
 
-    KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+    KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                  MODULE_NAME,
                  "E1000E device %04X:%04X:%04X power management set to idle",
                  pDriver->pPCIDevice->bus,
@@ -3975,8 +4145,8 @@ static E_Return _DevUplink(S_NetworkDevice* pNetworkDevice)
 
 static E_Return _DevDownlink(S_NetworkDevice* pNetworkDevice)
 {
-  E_Return       retCode;
-  E_Return       internalErr;
+  E_Return        retCode;
+  E_Return        internalErr;
   S_E1000EDriver* pDriver;
 
   pDriver = (S_E1000EDriver *)pNetworkDevice->pDriverData;
@@ -4000,6 +4170,7 @@ static E_Return _DevUplinkSafe(S_E1000EDriver* pDriver)
 {
   E_Return retCode;
   uint32_t regValue;
+  uint32_t intEnabled;
 
   if (pDriver->isInitialized == false)
   {
@@ -4024,24 +4195,58 @@ static E_Return _DevUplinkSafe(S_E1000EDriver* pDriver)
       /* Setup power management */
       _ConfigurePowerManagement(pDriver, true);
 
+      /* Mask the interrupt in the device */
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IMC), 0x01FFFFFF);
+
+      /* Setup the MSI-X */
+      if (pDriver->useMSIXInterrupts == true)
+      {
+        regValue = E1000E_IVAR_RXQ0_EN | E1000E_IVAR_RXQ0(E1000E_RXQ0_VECTOR) |
+                   E1000E_IVAR_RXQ1_EN | E1000E_IVAR_RXQ1(E1000E_RXQ1_VECTOR) |
+                   E1000E_IVAR_TXQ0_EN | E1000E_IVAR_TXQ0(E1000E_TXQ0_VECTOR) |
+                   E1000E_IVAR_TXQ1_EN | E1000E_IVAR_TXQ1(E1000E_TXQ1_VECTOR) |
+                   E1000E_IVAR_OTC_EN  | E1000E_IVAR_OTHER(E1000E_OTC_VECTOR);
+        _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IVAR), regValue);
+      }
+
+      /* Set interrupt auto mask */
+      regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT));
+      if (pDriver->useMSIXInterrupts == true)
+      {
+        regValue |= E1000E_CTRL_EXT_IAME |
+                    E1000E_CTRL_EXT_PBA  |
+                    E1000E_CTRL_EXT_EIAME;
+        intEnabled = E1000E_ENABLED_INTERRUPTS_MSIX;
+      }
+      else
+      {
+        regValue |= E1000E_CTRL_EXT_IAME;
+        intEnabled = E1000E_ENABLED_INTERRUPTS_MSI;
+      }
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_CTRL_EXT), regValue);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IAM), intEnabled);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_EIAC), 0);
+
+      /* Setup the interrupt throttle */
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_ITR),
+                    pDriver->intThrottle);
+
       /* Initialize the device's RXChecksum settings */
       regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_RXCSUM));
       regValue &= E1000E_RXCSUM_CLEAR_MASK;
       if (pDriver->enableXSumRx == true)
       {
-        regValue |= E1000E_RXCSUM_IPOFL |
-                    E1000E_RXCSUM_TUOFL |
-                    E1000E_RXCSUM_IPV6OFL |
+        regValue |= E1000E_RXCSUM_IPOFL  |
+                    E1000E_RXCSUM_TUOFL  |
+                    E1000E_RXCSUM_CRCOFL |
+                    E1000E_RXCSUM_IPPCSE |
+                    E1000E_RXCSUM_PCDD   |
                     0x10;
         _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RXCSUM), regValue);
       }
 
       /* Initialize the device's control flow */
       _InitializeControlFlow(pDriver);
-
-      /* Initialize the device's RX and TX */
-      _InitializeDeviceRX(pDriver);
-      _InitializeDeviceTX(pDriver);
 
       /* Setup the multicas table */
       _SetupMulticastTable(pDriver);
@@ -4054,7 +4259,9 @@ static E_Return _DevUplinkSafe(S_E1000EDriver* pDriver)
       regValue |= E1000E_CTRL_SLU | E1000E_CTRL_ASDE;
       _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_CTRL), regValue);
 
+      /* Initialize the device's PHY and handle link status changes */
       _InitializePhy(pDriver);
+      _HandleLinkStatusChange(pDriver);
 
       /* Start the periodic stats task */
       pDriver->statTaskHandle = NetManagerAddPeriodicTask(_UpdateStatistics,
@@ -4063,8 +4270,12 @@ static E_Return _DevUplinkSafe(S_E1000EDriver* pDriver)
                                                 pDriver->handlerCore);
 
       /* Enable all interrupts */
-      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IMS),
-                   E1000E_ENABLED_INTERRUPTS);
+      regValue = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_ICR));
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IMS), intEnabled);
+
+      /* Initialize the device's RX and TX */
+      _InitializeDeviceRX(pDriver);
+      _InitializeDeviceTX(pDriver);
 
       pDriver->isInitialized = true;
 
@@ -4077,7 +4288,8 @@ static E_Return _DevUplinkSafe(S_E1000EDriver* pDriver)
     }
     else
     {
-      KERNEL_ERROR("E1000E device %04X:%04X:%04X failed to allocate resources\n",
+      KERNEL_ERROR("E1000E device %04X:%04X:%04X failed to allocate "
+                   "resources\n",
                    pDriver->pPCIDevice->bus,
                    pDriver->pPCIDevice->slot,
                    pDriver->pPCIDevice->function);
@@ -4145,8 +4357,8 @@ static E_Return _DevDownlinkSafe(S_E1000EDriver* pDriver)
       _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT0), 0);
       _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDH0 + 0x100), 0);
       _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT0 + 0x100), 0);
-      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDH), 0);
-      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT), 0);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDH0), 0);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT0), 0);
 
       /* Wait for the disable to take effect */
       SleepNs(E1000E_RESET_TIMEOUT_NS, NULL);
@@ -4201,8 +4413,8 @@ static E_Return _WaitForTransactionCompletion(S_E1000EDriver* pDriver)
 
   KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                MODULE_NAME,
-               "E1000E device %04X:%04X:%04X waiting for pending transactions to"
-               " complete",
+               "E1000E device %04X:%04X:%04X waiting for pending transactions"
+               " to complete",
                pDriver->pPCIDevice->bus,
                pDriver->pPCIDevice->slot,
                pDriver->pPCIDevice->function);
@@ -4228,7 +4440,9 @@ static E_Return _WaitForTransactionCompletion(S_E1000EDriver* pDriver)
       SleepNs(E1000E_TRANSACTION_WAIT_NS, NULL);
       /* Clear the pending transmit */
       _CompleteTransmit(pDriver, &isNotComplete);
-    } while (isNotComplete == true && waitCount < E1000E_TRANSACTION_WAIT_COUNT);
+      ++waitCount;
+    } while (isNotComplete == true &&
+             waitCount < E1000E_TRANSACTION_WAIT_COUNT);
 
     if (isNotComplete == true)
     {
@@ -4272,6 +4486,7 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
   uint32_t        requiredPackets;
   uint32_t        availableDescriptors;
   uint32_t        transmitTicket;
+  bool            forceRS;
 
   pDriver = (S_E1000EDriver *)pDevice->pDriverData;
 
@@ -4291,25 +4506,19 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
     {
       availableDescriptors = pDriver->txDescriptorCleanIdx - tailIdx - 1;
     }
-    requiredPackets = (kSize + E1000_TX_BUFFER_SIZE - 1) / E1000_TX_BUFFER_SIZE;
+    requiredPackets = (kSize + E1000E_TX_BUFFER_SIZE - 1) /
+                      E1000E_TX_BUFFER_SIZE;
 
     if (requiredPackets <= availableDescriptors)
     {
+      /* Force RS if this is the last packet of a burst OR ring space is 50% */
+      forceRS = kIsLastOfBurst ||
+                ((availableDescriptors - requiredPackets) <=
+                 (pDriver->txBufferCount / 2));
+
       /* Update the transmit descriptor tail */
       pDriver->txDescriptorIdx = (tailIdx + requiredPackets) %
                                  pDriver->txBufferCount;
-      /* Manage to indicate clean on last packet */
-      if (kIsLastOfBurst == true)
-      {
-        if (pDriver->txDescriptorIdx == 0)
-        {
-          pDriver->txDescriptorWatchIdx = pDriver->txBufferCount - 1;
-        }
-        else
-        {
-          pDriver->txDescriptorWatchIdx = pDriver->txDescriptorIdx - 1;
-        }
-      }
 
       /* Get the transmit ticket for this burst */
       transmitTicket = pDriver->txTicket++;
@@ -4326,7 +4535,7 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
             NULL);
 
         /* Get the packet size and setup driver */
-        packetSize = MIN(kSize - sentBytes, E1000_TX_BUFFER_SIZE);
+        packetSize = MIN(kSize - sentBytes, E1000E_TX_BUFFER_SIZE);
 
         /* Send the packet */
         pDriver->pTXDescriptorRing[tailIdx].bufferAddress = physAddr;
@@ -4338,6 +4547,12 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
         {
           regValue |= E1000E_TX_CMD_EOP | E1000E_TX_CMD_IFCS;
 
+          /* Manage RS to indicate clean on last packet */
+          if (forceRS == true)
+          {
+            regValue |= E1000E_TX_CMD_RS;
+          }
+
           pDriver->pTXDescriptorMeta[tailIdx].virtAddr = (uintptr_t)kpBuffer;
           pDriver->pTXDescriptorMeta[tailIdx].length = kSize;
         }
@@ -4345,12 +4560,6 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
         {
           pDriver->pTXDescriptorMeta[tailIdx].virtAddr = (uintptr_t)NULL;
           pDriver->pTXDescriptorMeta[tailIdx].length = 0;
-        }
-
-        /* Manage RS to indicate clean on last packet */
-        if (kIsLastOfBurst == true && (size_t)sentBytes == kSize)
-        {
-          regValue |= E1000E_TX_CMD_RS;
         }
 
         pDriver->pTXDescriptorRing[tailIdx].length = packetSize;
@@ -4368,10 +4577,10 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
       }
 
       /* Update the transmit descriptor tail */
-      _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000E_TDT), tailIdx);
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_TDT0), tailIdx);
 
       /* Increment the transmit service */
-      ++pDriver->txService;
+      AtomicIncrement32(&pDriver->txService);
     }
     else
     {
@@ -4404,18 +4613,20 @@ static ssize_t _IOControl(struct S_NetworkDevice* pDevice,
 
   pDriver = (S_E1000EDriver *)pDevice->pDriverData;
 
-  if (pDriver->isInitialized == true)
+  if (kCommand == VFS_IOCTL_NET_IFACE_UP)
+  {
+    retCode = _DevUplink(pDevice);
+  }
+  else if (kCommand == VFS_IOCTL_NET_IFACE_DOWN)
+  {
+    retCode = _DevDownlink(pDevice);
+  }
+  else if (pDriver->isInitialized == true)
   {
     AtomicIncrement32(&pDriver->ioctlOperationRunning);
 
     switch (kCommand)
     {
-      case VFS_IOCTL_NET_IFACE_UP:
-        retCode = _DevUplink(pDevice);
-        break;
-      case VFS_IOCTL_NET_IFACE_DOWN:
-        retCode = _DevDownlink(pDevice);
-        break;
       case VFS_IOCTL_NET_GET_STATS:
         retCode = _IOControlGetStats(pDriver, pArg);
         break;
@@ -4442,11 +4653,11 @@ static ssize_t _IOControl(struct S_NetworkDevice* pDevice,
         break;
       default:
         KERNEL_ERROR("E1000E device %04X:%04X:%04X ioctl command 0x%08X not "
-                     "supported\n",
-                     pDriver->pPCIDevice->bus,
-                     pDriver->pPCIDevice->slot,
-                     pDriver->pPCIDevice->function,
-                     kCommand);
+                    "supported\n",
+                    pDriver->pPCIDevice->bus,
+                    pDriver->pPCIDevice->slot,
+                    pDriver->pPCIDevice->function,
+                    kCommand);
         retCode = -EINVAL;
         break;
     }
@@ -4471,7 +4682,8 @@ static bool _E1000EInterruptHandler(void)
   S_KernelThread* pCurrentThread;
   uint32_t        intId;
   uint32_t        status;
-  S_E1000EDriver*  pDriver;
+  S_E1000EDriver* pDriver;
+  uint32_t        intEnabled;
 
   /* Get the current thread */
   pCurrentThread = GetCurrentThread();
@@ -4493,6 +4705,14 @@ static bool _E1000EInterruptHandler(void)
 
   if (pDriver != NULL)
   {
+    if (pDriver->useMSIXInterrupts == true)
+    {
+      intEnabled = E1000E_ENABLED_INTERRUPTS_MSIX;
+    }
+    else
+    {
+      intEnabled = E1000E_ENABLED_INTERRUPTS_MSI;
+    }
     status = _MMIORead32(E1000E_REG(pDriver->barAddress, E1000E_ICR));
     KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                  MODULE_NAME,
@@ -4501,10 +4721,14 @@ static bool _E1000EInterruptHandler(void)
                  pDriver->pPCIDevice->slot,
                  pDriver->pPCIDevice->function,
                  status);
-    if ((status & (E1000E_ICR_RXT0 | E1000E_ICR_LSC | E1000E_ICR_TXDW)) != 0)
+    if ((status & intEnabled) != 0)
     {
-      pDriver->cachedICR = status;
+      AtomicOr32(&pDriver->cachedICR, status);
       NetManagerSubmitTask(&pDriver->networkDevice);
+    }
+    else
+    {
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IMS), intEnabled);
     }
   }
 
@@ -4517,7 +4741,10 @@ static bool _E1000EInterruptHandler(void)
 static void _HandleInterruptWorker(void* pDriverPtr)
 {
   S_E1000EDriver* pDriver;
-  uint32_t       icrStatus;
+  uint32_t        icrStatus;
+  uint32_t        intRx;
+  uint32_t        intTx;
+  uint32_t        intOther;
 
   pDriver = (S_E1000EDriver *)pDriverPtr;
 
@@ -4528,30 +4755,53 @@ static void _HandleInterruptWorker(void* pDriverPtr)
                pDriver->pPCIDevice->slot,
                pDriver->pPCIDevice->function);
 
-  icrStatus = pDriver->cachedICR;
-
-  if (icrStatus & E1000E_ICR_TXDW)
+  /* Catch if status is 0, which means no interrupt is pending (spurious) */
+  icrStatus = AtomicExchange32(&pDriver->cachedICR, 0);
+  if (icrStatus != 0)
   {
-    /* Handle transmit Complete */
-    _CompleteTransmit(pDriver, NULL);
-  }
+    if (pDriver->useMSIXInterrupts == true)
+    {
+      intRx = E1000E_IMS_RXQ0 | E1000E_IMS_RXQ1;
+      intTx = E1000E_IMS_TXQ0 | E1000E_IMS_TXQ1;
+      intOther = E1000E_IMS_OTH | E1000E_IMS_LSC;
+    }
+    else
+    {
+      intRx = E1000E_IMS_RXT0;
+      intTx = E1000E_IMS_TXDW;
+      intOther = E1000E_IMS_LSC;
+    }
 
-  if (icrStatus & E1000E_ICR_RXT0)
-  {
-    /* Handle the received packet */
-    _HandleReceivedPacket(pDriver);
-  }
+    if (icrStatus & intTx)
+    {
+      /* Handle transmit Complete */
+      _CompleteTransmit(pDriver, NULL);
+    }
 
-  if (icrStatus & E1000E_ICR_LSC)
-  {
-    _HandleLinkStatusChange(pDriver);
-  }
+    if (icrStatus & intRx)
+    {
+      /* Handle the received packet */
+      _HandleReceivedPacket(pDriver);
+    }
 
-  pDriver->cachedICR = 0;
+    if (icrStatus & intOther)
+    {
+      _HandleLinkStatusChange(pDriver);
+    }
+  }
 
   /* Re-enable the interrupt in the device */
-  _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IMS),
-               E1000E_ENABLED_INTERRUPTS);
+  if (pDriver->useMSIXInterrupts == true)
+  {
+    _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IMS),
+                 E1000E_ENABLED_INTERRUPTS_MSIX);
+  }
+  else
+  {
+    _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IMS),
+                 E1000E_ENABLED_INTERRUPTS_MSI);
+  }
+
 }
 
 static void _HandleLinkStatusChange(void* pDriverPtr)
@@ -4572,11 +4822,11 @@ static void _HandleLinkStatusChange(void* pDriverPtr)
 
     if ((status & E1000E_STATUS_SPEED_MASK) == E1000E_STATUS_SPEED_1000A)
     {
-      pDriver->linkSpeed = LINK_SPEED_1GBPS
+      pDriver->linkSpeed = LINK_SPEED_1GBPS;
     }
-    if ((status & E1000E_STATUS_SPEED_MASK) == E1000E_STATUS_SPEED_1000B)
+    else if ((status & E1000E_STATUS_SPEED_MASK) == E1000E_STATUS_SPEED_1000B)
     {
-      pDriver->linkSpeed = LINK_SPEED_1GBPS
+      pDriver->linkSpeed = LINK_SPEED_1GBPS;
     }
     else if ((status & E1000E_STATUS_SPEED_MASK) == E1000E_STATUS_SPEED_100)
     {
@@ -4618,21 +4868,15 @@ static void _HandleLinkStatusChange(void* pDriverPtr)
                  pDriver->pPCIDevice->function);
   }
 
-  /* Enable the interrupt in the device */
-  if (pDriver->isInitialized == true)
-  {
-    /* Re-enable the interrupt in the device */
-    _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_IMS),
-                 E1000E_ENABLED_INTERRUPTS);
-  }
-
   pDriver->linkOperationRunning = false;
 }
 
 static void _CompleteTransmit(S_E1000EDriver* pDriver, bool* pIsMoreToClean)
 {
-  uint32_t                 watchIdx;
   uint32_t                 cleanIdx;
+  uint32_t                 scanIdx;
+  uint32_t                 lastDoneIdx;
+  uint32_t                 finishedIdx;
   uint32_t                 nextIdx;
   S_E1000ETXBufferMetadata freeBuffers[E1000E_TX_CLEAN_BUDGET];
   uint32_t                 freeCount;
@@ -4654,24 +4898,31 @@ static void _CompleteTransmit(S_E1000EDriver* pDriver, bool* pIsMoreToClean)
     /* Check if there is anything to clean */
     SpinlockAcquire(&pDriver->txRingLock);
     nextIdx  = pDriver->txDescriptorIdx;
-    watchIdx = pDriver->txDescriptorWatchIdx;
     cleanIdx = pDriver->txDescriptorCleanIdx;
 
     if (cleanIdx != nextIdx)
     {
-      /* Check if the next to watch is done processing */
-      KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
-                  MODULE_NAME,
-                  "E1000E device %04X:%04X:%04X checking descriptor %u status: 0x%08X",
-                  pDriver->pPCIDevice->bus,
-                  pDriver->pPCIDevice->slot,
-                  pDriver->pPCIDevice->function,
-                  watchIdx,
-                  pDriver->pTXDescriptorRing[watchIdx].status);
-      if ((pDriver->pTXDescriptorRing[watchIdx].status & E1000E_TXD_STAT_DD) == E1000E_TXD_STAT_DD)
+      /* Scan forward to find the furthest completed RS descriptor */
+      scanIdx     = cleanIdx;
+      lastDoneIdx = UINT32_MAX;
+
+      while (scanIdx != nextIdx)
       {
-        while (cleanIdx != nextIdx && freeCount < E1000E_TX_CLEAN_BUDGET)
+        if ((pDriver->pTXDescriptorRing[scanIdx].status & E1000E_TXD_STAT_DD) ==
+            E1000E_TXD_STAT_DD)
         {
+          lastDoneIdx = scanIdx;
+        }
+        scanIdx = (scanIdx + 1) % pDriver->txBufferCount;
+      }
+
+      /* Everything up through lastDoneIdx is transmitted in FIFO order */
+      if (lastDoneIdx != UINT32_MAX)
+      {
+        while (freeCount < E1000E_TX_CLEAN_BUDGET)
+        {
+          finishedIdx = cleanIdx;
+
           KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                       MODULE_NAME,
                       "E1000E device %04X:%04X:%04X cleaning descriptor %u",
@@ -4679,6 +4930,7 @@ static void _CompleteTransmit(S_E1000EDriver* pDriver, bool* pIsMoreToClean)
                       pDriver->pPCIDevice->slot,
                       pDriver->pPCIDevice->function,
                       cleanIdx);
+
           /* Clean the descriptor */
           pDriver->pTXDescriptorRing[cleanIdx].status = 0;
 
@@ -4687,7 +4939,8 @@ static void _CompleteTransmit(S_E1000EDriver* pDriver, bool* pIsMoreToClean)
           {
             KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                         MODULE_NAME,
-                        "E1000E device %04X:%04X:%04X unring buffer at 0x%p of size %u",
+                        "E1000E device %04X:%04X:%04X unring buffer at 0x%p "
+                        "of size %u",
                         pDriver->pPCIDevice->bus,
                         pDriver->pPCIDevice->slot,
                         pDriver->pPCIDevice->function,
@@ -4700,18 +4953,15 @@ static void _CompleteTransmit(S_E1000EDriver* pDriver, bool* pIsMoreToClean)
             ++freeCount;
           }
 
-          if (cleanIdx == watchIdx)
+          cleanIdx = (cleanIdx + 1) % pDriver->txBufferCount;
+
+          if (finishedIdx == lastDoneIdx)
           {
-            cleanIdx = (cleanIdx + 1) % pDriver->txBufferCount;
             break;
           }
-          else
-          {
-            cleanIdx = (cleanIdx + 1) % pDriver->txBufferCount;
-          }
         }
+        pDriver->txDescriptorCleanIdx = cleanIdx;
       }
-      pDriver->txDescriptorCleanIdx = cleanIdx;
     }
     SpinlockRelease(&pDriver->txRingLock);
 
@@ -4720,7 +4970,8 @@ static void _CompleteTransmit(S_E1000EDriver* pDriver, bool* pIsMoreToClean)
     {
       KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                   MODULE_NAME,
-                  "E1000E device %04X:%04X:%04X releasing buffer at 0x%p of size %u",
+                  "E1000E device %04X:%04X:%04X releasing buffer at 0x%p of "
+                  "size %u",
                   pDriver->pPCIDevice->bus,
                   pDriver->pPCIDevice->slot,
                   pDriver->pPCIDevice->function,
@@ -4729,6 +4980,7 @@ static void _CompleteTransmit(S_E1000EDriver* pDriver, bool* pIsMoreToClean)
       NetManagerReleaseTransmitBuffer((void *)freeBuffers[nextIdx].virtAddr,
                                       freeBuffers[nextIdx].length);
     }
+
     /* If we haven't cleaned enough buffers, respin */
     if (freeCount == E1000E_TX_CLEAN_BUDGET)
     {
@@ -4742,7 +4994,8 @@ static void _CompleteTransmit(S_E1000EDriver* pDriver, bool* pIsMoreToClean)
   {
     KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
                 MODULE_NAME,
-                "E1000E device %04X:%04X:%04X transmit complete, more to clean: %s %x %x",
+                "E1000E device %04X:%04X:%04X transmit complete, more to clean:"
+                " %s %x %x",
                 pDriver->pPCIDevice->bus,
                 pDriver->pPCIDevice->slot,
                 pDriver->pPCIDevice->function,
@@ -4783,7 +5036,7 @@ static void _HandleReceivedPacket(S_E1000EDriver* pDriver)
     /* Go through all descriptors to check the reception status */
     pollBudget = 0;
     while ((pRXDescRing[pktIdx].status & E1000E_RXD_STAT_DD) != 0 &&
-          pollBudget < E1000E_POLL_MAX_BUDGET)
+           pollBudget < E1000E_POLL_MAX_BUDGET)
     {
       /* Process the received packet */
       KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
@@ -4838,7 +5091,8 @@ static void _HandleReceivedPacket(S_E1000EDriver* pDriver)
                                           &packetBuffer);
 
         /* Check if the packet is complete */
-        if ((pRXDescRing[pktIdx].status & E1000E_RXD_STAT_EOP) == E1000E_RXD_STAT_EOP ||
+        if ((pRXDescRing[pktIdx].status & E1000E_RXD_STAT_EOP) ==
+             E1000E_RXD_STAT_EOP ||
             pFragmentList->fragmentCount >= NET_MGR_MAX_FRAGMENT_COUNT)
         {
           /* Process the complete packet */
@@ -4863,6 +5117,8 @@ static void _HandleReceivedPacket(S_E1000EDriver* pDriver)
         pRXDescRing[pktIdx].bufferAddress = packetBuffer.physAddr;
         pRXDescRing[pktIdx].length = pDriver->bufferSize;
         pRXDescRing[pktIdx].status = 0;
+        pRXDescRing[pktIdx].checksum = 0;
+        pRXDescRing[pktIdx].errors = 0;
       }
       else
       {
@@ -4879,6 +5135,8 @@ static void _HandleReceivedPacket(S_E1000EDriver* pDriver)
         ++pDriver->stats.rxDropped;
         pRXDescRing[pktIdx].length = pDriver->bufferSize;
         pRXDescRing[pktIdx].status = 0;
+        pRXDescRing[pktIdx].checksum = 0;
+        pRXDescRing[pktIdx].errors = 0;
         KERNEL_ERROR("E1000E device %04X:%04X:%04X no free buffer available,"
                     " dropping packet\n",
                     pDriver->pPCIDevice->bus,
@@ -4905,11 +5163,20 @@ static void _HandleReceivedPacket(S_E1000EDriver* pDriver)
     pDriver->rxDescriptorIdx = pktIdx;
     if (pollBudget == E1000E_POLL_MAX_BUDGET)
     {
+      _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT0), tail & 0xFFFF);
       /* We still have packets to read, simply yield */
       pCurThread = GetCurrentThread();
       CPUSaveContextAndSchedule(pCurThread->pVCpu);
     }
   } while (pollBudget == E1000E_POLL_MAX_BUDGET);
+
+  KERNEL_DEBUG(E1000E_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "E1000E device %04X:%04X:%04X receive complete, tail index: %u",
+               pDriver->pPCIDevice->bus,
+               pDriver->pPCIDevice->slot,
+               pDriver->pPCIDevice->function,
+               tail);
 
   _MMIOWrite32(E1000E_REG(pDriver->barAddress, E1000E_RDT0), tail & 0xFFFF);
 
@@ -4934,6 +5201,7 @@ static void _UpdateStatistics(void* pDriver)
   regLow  = _MMIORead32(E1000E_REG(bar, E1000E_GORCL));
   regHigh = _MMIORead32(E1000E_REG(bar, E1000E_GORCH));
   pDev->stats.rxBytes   += regLow | ((uint64_t)regHigh << 32);
+
   regLow  = _MMIORead32(E1000E_REG(bar, E1000E_GOTCL));
   regHigh = _MMIORead32(E1000E_REG(bar, E1000E_GOTCH));
   pDev->stats.txBytes   += regLow | ((uint64_t)regHigh << 32);
@@ -4957,7 +5225,7 @@ static void _UpdateStatistics(void* pDriver)
   /* TX Errors */
   pDev->stats.txAbortedErrors   += _MMIORead32(E1000E_REG(bar, E1000E_ECOL));
   pDev->stats.txCarrierErrors   += _MMIORead32(E1000E_REG(bar, E1000E_TNCRS));
-  pDev->stats.txFifoErrors      += _MMIORead32(E1000E_REG(bar, E1000E_LCOL));
+  pDev->stats.txFifoErrors      += _MMIORead32(E1000E_REG(bar, E1000E_LATECOL));
   pDev->stats.txWindowErrors    += pDev->stats.txFifoErrors;
   pDev->stats.txErrors = pDev->stats.txAbortedErrors +
                             pDev->stats.txCarrierErrors +
@@ -5273,12 +5541,14 @@ static ssize_t _IOControlSetAutoNeg(S_E1000EDriver* pDriver)
 
   if (pDriver->isInitialized == true)
   {
-
-
     /* Reinitialize the network device */
     _DevDownlinkSafe(pDriver);
     _DevUplinkSafe(pDriver);
     retCode = 0;
+  }
+  else
+  {
+    retCode = -ENODEV;
   }
 
   internalErr = KernelMutexUnlock(&pDriver->configLock);

@@ -611,8 +611,6 @@
 #define E1000_ICR_TXQE (1 << 1)
 /** @brief Interrupt Control Register: Link Status Change */
 #define E1000_ICR_LSC (1 << 2)
-/** @brief Interrupt Control Register: Receive Sequence Error */
-#define E1000_ICR_RXSEQ (1 << 3)
 /** @brief Interrupt Control Register: Receive Descriptor Minimum Threshold */
 #define E1000_ICR_RXDMT0 (1 << 4)
 /** @brief Interrupt Control Register: Receive Overrun */
@@ -802,7 +800,7 @@
 /** @brief PHY Control Register: Speed Selection 1000 Mbps */
 #define E1000_PHY_CTRL_SPEED_1000 (1 << 6)
 /** @brief PHY Control Register: Speed Mask */
-#define E1000_PHY_CTLR_SPEED_MASK ((1 << 6) | (1 << 13))
+#define E1000_PHY_CTRL_SPEED_MASK ((1 << 6) | (1 << 13))
 /** @brief PHY Control Register: Duplex Mask */
 #define E1000_PHY_CTRL_DUPLEX_MASK (1 << 8)
 /** @brief PHY Control Register: Auto-Negotiation Restart */
@@ -897,7 +895,7 @@ typedef enum
   EEPROM_MICROWIRE,
   /** @brief Modern 16-bit SPI structure */
   EEPROM_SPI
-} E_E1000EEPROMType;
+} E_E1000EPROMType;
 
 /** @brief The type of the E1000 media. */
 typedef enum
@@ -999,7 +997,7 @@ typedef struct S_E1000Driver
   uint16_t deviceId;
 
   /** @brief The device EEPROM type. */
-  E_E1000EEPROMType eepromType;
+  E_E1000EPROMType eepromType;
   /** @brief The media type. */
   E_E1000MediaType mediaType;
 
@@ -1034,12 +1032,10 @@ typedef struct S_E1000Driver
   uint32_t txDescriptorIdx;
   /** @brief The index of the next TX descriptor to clean. */
   uint32_t txDescriptorCleanIdx;
-  /** @brief The index of the next TX descriptor to watch. */
-  uint32_t txDescriptorWatchIdx;
   /** @brief The ticket for the next TX operation. */
-  uint32_t txTicket;
+  volatile uint32_t txTicket;
   /** @brief The service index for the next TX operation. */
-  uint32_t txService;
+  T_U32Atomic txService;
 
   /** @brief Whether to use legacy interrupts. */
   bool useLegacyInterrupts;
@@ -2124,6 +2120,11 @@ static void _Detach(S_E1000Driver* pDriver)
   uint32_t       intState;
   S_E1000Driver* pPrevDriver;
 
+  if (pDriver->isInitialized == true)
+  {
+    _DevDownlink(&pDriver->networkDevice);
+  }
+
   if (pDriver->interruptLine > 0)
   {
     if (pDriver->useLegacyInterrupts == true)
@@ -2506,7 +2507,7 @@ static E_Return _AllocateDeviceRXResources(S_E1000Driver* pDriver)
                         KERNEL_PAGE_SIZE);
 
   /* Allocate the RX buffer descriptor ring */
-  pDriver->rxDescriptorIdx  = 0;
+  pDriver->rxDescriptorIdx   = 0;
   pDriver->pRXFragmentList   = NULL;
   pDriver->pRXDescriptorRing = MemoryKernelAllocate(toAllocate,
                                                    MEMMGR_MAP_KERNEL |
@@ -2580,7 +2581,6 @@ static E_Return _AllocateDeviceTXResources(S_E1000Driver* pDriver)
   /* Allocate the TX buffer descriptor ring */
   pDriver->txDescriptorIdx      = 0;
   pDriver->txDescriptorCleanIdx = 0;
-  pDriver->txDescriptorWatchIdx = 0;
   pDriver->txService            = 0;
   pDriver->txTicket             = 0;
 
@@ -2999,13 +2999,6 @@ static E_Return _SetupDeviceInterrupts(S_E1000Driver* pDriver)
       err = InterruptRegister(pDriver->interruptLine, _E1000InterruptHandler);
       if (err == NO_ERROR)
       {
-        /* Mask the interrupt in the device */
-        _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMC), 0xFFFFFFFF);
-
-        /* Setup the interrupt throttle */
-        _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_ITR),
-                     pDriver->intThrottle);
-
         InterruptSetEOI(pDriver->interruptLine);
 
         KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
@@ -3108,7 +3101,7 @@ static void _SetPhyForced(S_E1000Driver* pDriver)
   retCode  = _ReadMDIO(pDriver, E1000_PHY_CTRL, (uint16_t*)&regValue);
   if (retCode == NO_ERROR)
   {
-    regValue &= ~(E1000_PHY_CTLR_SPEED_MASK |
+    regValue &= ~(E1000_PHY_CTRL_SPEED_MASK |
                   E1000_PHY_CTRL_DUPLEX_MASK |
                   E1000_PHY_CTRL_AN_ENABLE);
     regValue |= phyValue | E1000_PHY_CTRL_RESET;
@@ -3162,6 +3155,18 @@ static void _SetPhyAutoNeg(S_E1000Driver* pDriver)
                   pDriver->pPCIDevice->bus,
                   pDriver->pPCIDevice->slot,
                   pDriver->pPCIDevice->function);
+  }
+
+  if (pDriver->autoNegMask == E1000_AUTONEG_MASK_OFF &&
+      pDriver->linkSpeed == LINK_SPEED_1GBPS)
+  {
+    KERNEL_ERROR("E1000 device %04X:%04X:%04X auto-negotiation disabled "
+                  "with 1Gbps link speed, using auto-negotiation\n",
+                  pDriver->pPCIDevice->bus,
+                  pDriver->pPCIDevice->slot,
+                  pDriver->pPCIDevice->function);
+    pDriver->autoNegMask = E1000_AUTONEG_MASK_1000_FULL |
+                           E1000_AUTONEG_MASK_1000_HALF;
   }
 
   /* Setup the MAC auto-negotiation speed */
@@ -3349,7 +3354,8 @@ static void _InitializePhy(S_E1000Driver* pDriver)
   {
     if (pDriver->autoNegMask == E1000_AUTONEG_MASK_OFF &&
         pDriver->linkSpeed != LINK_SPEED_AUTONEG &&
-        pDriver->duplexType != DUPLEX_AUTONEG)
+        pDriver->duplexType != DUPLEX_AUTONEG &&
+        pDriver->linkSpeed != LINK_SPEED_1GBPS)
     {
       _SetPhyForced(pDriver);
     }
@@ -3469,6 +3475,13 @@ static E_Return _DevUplinkSafe(S_E1000Driver* pDriver)
       /* Reset the controller */
       _ResetDevice(pDriver);
 
+      /* Mask the interrupt in the device */
+      _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMC), 0xFFFFFFFF);
+
+        /* Setup the interrupt throttle */
+      _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_ITR),
+                   pDriver->intThrottle);
+
       /* Initialize the device's RXChecksum settings */
       regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000_RXCSUM));
       regValue &= E1000_RXCSUM_CLEAR_MASK;
@@ -3484,10 +3497,6 @@ static E_Return _DevUplinkSafe(S_E1000Driver* pDriver)
       /* Initialize the device's control flow */
       _InitializeControlFlow(pDriver);
 
-      /* Initialize the device's RX and TX */
-      _InitializeDeviceRX(pDriver);
-      _InitializeDeviceTX(pDriver);
-
       /* Setup the multicas table */
       _SetupMulticastTable(pDriver);
 
@@ -3499,7 +3508,9 @@ static E_Return _DevUplinkSafe(S_E1000Driver* pDriver)
       regValue |= E1000_CTRL_SLU | E1000_CTRL_ASDE;
       _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_CTRL), regValue);
 
+      /* Initialize the device's PHY and handle link status changes */
       _InitializePhy(pDriver);
+      _HandleLinkStatusChange(pDriver);
 
       /* Start the periodic stats task */
       pDriver->statTaskHandle = NetManagerAddPeriodicTask(_UpdateStatistics,
@@ -3508,8 +3519,13 @@ static E_Return _DevUplinkSafe(S_E1000Driver* pDriver)
                                                 pDriver->handlerCore);
 
       /* Enable all interrupts */
+      regValue = _MMIORead32(E1000_REG(pDriver->barAddress, E1000_ICR));
       _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMS),
                    E1000_ENABLED_INTERRUPTS);
+
+      /* Initialize the device's RX and TX */
+      _InitializeDeviceRX(pDriver);
+      _InitializeDeviceTX(pDriver);
 
       pDriver->isInitialized = true;
 
@@ -3662,7 +3678,9 @@ static E_Return _WaitForTransactionCompletion(S_E1000Driver* pDriver)
       SleepNs(E1000_TRANSACTION_WAIT_NS, NULL);
       /* Clear the pending transmit */
       _CompleteTransmit(pDriver, &isNotComplete);
-    } while (isNotComplete == true && waitCount < E1000_TRANSACTION_WAIT_COUNT);
+      ++waitCount;
+    } while (isNotComplete == true &&
+             waitCount < E1000_TRANSACTION_WAIT_COUNT);
 
     if (isNotComplete == true)
     {
@@ -3706,6 +3724,7 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
   uint32_t       requiredPackets;
   uint32_t       availableDescriptors;
   uint32_t       transmitTicket;
+  bool           forceRS;
 
   pDriver = (S_E1000Driver *)pDevice->pDriverData;
 
@@ -3729,21 +3748,14 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
 
     if (requiredPackets <= availableDescriptors)
     {
+      /* Force RS if this is the last packet of a burst OR ring space is 50% */
+      forceRS = kIsLastOfBurst ||
+                ((availableDescriptors - requiredPackets) <=
+                 (pDriver->txBufferCount / 2));
+
       /* Update the transmit descriptor tail */
       pDriver->txDescriptorIdx = (tailIdx + requiredPackets) %
                                  pDriver->txBufferCount;
-      /* Manage to indicate clean on last packet */
-      if (kIsLastOfBurst == true)
-      {
-        if (pDriver->txDescriptorIdx == 0)
-        {
-          pDriver->txDescriptorWatchIdx = pDriver->txBufferCount - 1;
-        }
-        else
-        {
-          pDriver->txDescriptorWatchIdx = pDriver->txDescriptorIdx - 1;
-        }
-      }
 
       /* Get the transmit ticket for this burst */
       transmitTicket = pDriver->txTicket++;
@@ -3772,6 +3784,12 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
         {
           regValue |= E1000_TX_CMD_EOP | E1000_TX_CMD_IFCS;
 
+          /* Manage RS to indicate clean on last packet */
+          if (forceRS == true)
+          {
+            regValue |= E1000_TX_CMD_RS;
+          }
+
           pDriver->pTXDescriptorMeta[tailIdx].virtAddr = (uintptr_t)kpBuffer;
           pDriver->pTXDescriptorMeta[tailIdx].length = kSize;
         }
@@ -3779,12 +3797,6 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
         {
           pDriver->pTXDescriptorMeta[tailIdx].virtAddr = (uintptr_t)NULL;
           pDriver->pTXDescriptorMeta[tailIdx].length = 0;
-        }
-
-        /* Manage RS to indicate clean on last packet */
-        if (kIsLastOfBurst == true && (size_t)sentBytes == kSize)
-        {
-          regValue |= E1000_TX_CMD_RS;
         }
 
         pDriver->pTXDescriptorRing[tailIdx].length = packetSize;
@@ -3805,7 +3817,7 @@ static ssize_t _TransmitPacket(struct S_NetworkDevice* pDevice,
       _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_TDT), tailIdx);
 
       /* Increment the transmit service */
-      ++pDriver->txService;
+      AtomicIncrement32(&pDriver->txService);
     }
     else
     {
@@ -3838,18 +3850,20 @@ static ssize_t _IOControl(struct S_NetworkDevice* pDevice,
 
   pDriver = (S_E1000Driver *)pDevice->pDriverData;
 
-  if (pDriver->isInitialized == true)
+  if (kCommand == VFS_IOCTL_NET_IFACE_UP)
+  {
+    retCode = _DevUplink(pDevice);
+  }
+  else if (kCommand == VFS_IOCTL_NET_IFACE_DOWN)
+  {
+    retCode = _DevDownlink(pDevice);
+  }
+  else if (pDriver->isInitialized == true)
   {
     AtomicIncrement32(&pDriver->ioctlOperationRunning);
 
     switch (kCommand)
     {
-      case VFS_IOCTL_NET_IFACE_UP:
-        retCode = _DevUplink(pDevice);
-        break;
-      case VFS_IOCTL_NET_IFACE_DOWN:
-        retCode = _DevDownlink(pDevice);
-        break;
       case VFS_IOCTL_NET_GET_STATS:
         retCode = _IOControlGetStats(pDriver, pArg);
         break;
@@ -3937,12 +3951,16 @@ static bool _E1000InterruptHandler(void)
                  status);
     if ((status & (E1000_ICR_RXT0 | E1000_ICR_LSC | E1000_ICR_TXDW)) != 0)
     {
-      pDriver->cachedICR = status;
+      /* Mask the interrupt in the device */
+      _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMC), 0xFFFFFFFF);
+      AtomicOr32(&pDriver->cachedICR, status);
       NetManagerSubmitTask(&pDriver->networkDevice);
     }
-
-    /* Mask the interrupt in the device */
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMC), 0xFFFFFFFF);
+    else
+    {
+      _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMS),
+                   E1000_ENABLED_INTERRUPTS);
+    }
   }
 
   /* Acknowledge the interrupt in the IOAPIC */
@@ -3965,7 +3983,7 @@ static void _HandleInterruptWorker(void* pDriverPtr)
                pDriver->pPCIDevice->slot,
                pDriver->pPCIDevice->function);
 
-  icrStatus = pDriver->cachedICR;
+  icrStatus = AtomicExchange32(&pDriver->cachedICR, 0);
 
   if (icrStatus & E1000_ICR_TXDW)
   {
@@ -3983,8 +4001,6 @@ static void _HandleInterruptWorker(void* pDriverPtr)
   {
     _HandleLinkStatusChange(pDriver);
   }
-
-  pDriver->cachedICR = 0;
 
   /* Re-enable the interrupt in the device */
   _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMS),
@@ -4008,11 +4024,11 @@ static void _HandleLinkStatusChange(void* pDriverPtr)
 
     if ((status & E1000_STATUS_SPEED_MASK) == E1000_STATUS_SPEED_1000A)
     {
-      pDriver->linkSpeed = LINK_SPEED_1GBPS
+      pDriver->linkSpeed = LINK_SPEED_1GBPS;
     }
     if ((status & E1000_STATUS_SPEED_MASK) == E1000_STATUS_SPEED_1000B)
     {
-      pDriver->linkSpeed = LINK_SPEED_1GBPS
+      pDriver->linkSpeed = LINK_SPEED_1GBPS;
     }
     else if ((status & E1000_STATUS_SPEED_MASK) == E1000_STATUS_SPEED_100)
     {
@@ -4054,21 +4070,15 @@ static void _HandleLinkStatusChange(void* pDriverPtr)
                  pDriver->pPCIDevice->function);
   }
 
-  /* Enable the interrupt in the device */
-  if (pDriver->isInitialized == true)
-  {
-    /* Re-enable the interrupt in the device */
-    _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_IMS),
-                 E1000_ENABLED_INTERRUPTS);
-  }
-
   pDriver->linkOperationRunning = false;
 }
 
 static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
 {
-  uint32_t                watchIdx;
   uint32_t                cleanIdx;
+  uint32_t                scanIdx;
+  uint32_t                lastDoneIdx;
+  uint32_t                finishedIdx;
   uint32_t                nextIdx;
   S_E1000TXBufferMetadata freeBuffers[E1000_TX_CLEAN_BUDGET];
   uint32_t                freeCount;
@@ -4090,25 +4100,31 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
     /* Check if there is anything to clean */
     SpinlockAcquire(&pDriver->txRingLock);
     nextIdx  = pDriver->txDescriptorIdx;
-    watchIdx = pDriver->txDescriptorWatchIdx;
     cleanIdx = pDriver->txDescriptorCleanIdx;
 
     if (cleanIdx != nextIdx)
     {
-      /* Check if the next to watch is done processing */
-      KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
-                  MODULE_NAME,
-                  "E1000 device %04X:%04X:%04X checking descriptor %u status: 0x%08X",
-                  pDriver->pPCIDevice->bus,
-                  pDriver->pPCIDevice->slot,
-                  pDriver->pPCIDevice->function,
-                  watchIdx,
-                  pDriver->pTXDescriptorRing[watchIdx].status);
-      if ((pDriver->pTXDescriptorRing[watchIdx].status & E1000_TXD_STAT_DD) ==
-           E1000_TXD_STAT_DD)
+      /* Scan forward to find the furthest completed RS descriptor */
+      scanIdx     = cleanIdx;
+      lastDoneIdx = UINT32_MAX;
+
+      while (scanIdx != nextIdx)
       {
-        while (cleanIdx != nextIdx && freeCount < E1000_TX_CLEAN_BUDGET)
+        if ((pDriver->pTXDescriptorRing[scanIdx].status & E1000_TXD_STAT_DD) ==
+            E1000_TXD_STAT_DD)
         {
+          lastDoneIdx = scanIdx;
+        }
+        scanIdx = (scanIdx + 1) % pDriver->txBufferCount;
+      }
+
+      /* Everything up through lastDoneIdx is transmitted in FIFO order */
+      if (lastDoneIdx != UINT32_MAX)
+      {
+        while (freeCount < E1000_TX_CLEAN_BUDGET)
+        {
+          finishedIdx = cleanIdx;
+
           KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
                       MODULE_NAME,
                       "E1000 device %04X:%04X:%04X cleaning descriptor %u",
@@ -4116,6 +4132,7 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
                       pDriver->pPCIDevice->slot,
                       pDriver->pPCIDevice->function,
                       cleanIdx);
+
           /* Clean the descriptor */
           pDriver->pTXDescriptorRing[cleanIdx].status = 0;
 
@@ -4137,18 +4154,15 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
             ++freeCount;
           }
 
-          if (cleanIdx == watchIdx)
+          cleanIdx = (cleanIdx + 1) % pDriver->txBufferCount;
+
+          if (finishedIdx == lastDoneIdx)
           {
-            cleanIdx = (cleanIdx + 1) % pDriver->txBufferCount;
             break;
           }
-          else
-          {
-            cleanIdx = (cleanIdx + 1) % pDriver->txBufferCount;
-          }
         }
+        pDriver->txDescriptorCleanIdx = cleanIdx;
       }
-      pDriver->txDescriptorCleanIdx = cleanIdx;
     }
     SpinlockRelease(&pDriver->txRingLock);
 
@@ -4166,6 +4180,7 @@ static void _CompleteTransmit(S_E1000Driver* pDriver, bool* pIsMoreToClean)
       NetManagerReleaseTransmitBuffer((void *)freeBuffers[nextIdx].virtAddr,
                                       freeBuffers[nextIdx].length);
     }
+
     /* If we haven't cleaned enough buffers, respin */
     if (freeCount == E1000_TX_CLEAN_BUDGET)
     {
@@ -4275,7 +4290,8 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
                                           &packetBuffer);
 
         /* Check if the packet is complete */
-        if ((pRXDescRing[pktIdx].status & E1000_RXD_STAT_EOP) == E1000_RXD_STAT_EOP ||
+        if ((pRXDescRing[pktIdx].status & E1000_RXD_STAT_EOP) ==
+             E1000_RXD_STAT_EOP ||
             pFragmentList->fragmentCount >= NET_MGR_MAX_FRAGMENT_COUNT)
         {
           /* Process the complete packet */
@@ -4300,6 +4316,8 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
         pRXDescRing[pktIdx].bufferAddress = packetBuffer.physAddr;
         pRXDescRing[pktIdx].length = pDriver->bufferSize;
         pRXDescRing[pktIdx].status = 0;
+        pRXDescRing[pktIdx].checksum = 0;
+        pRXDescRing[pktIdx].errors = 0;
       }
       else
       {
@@ -4316,6 +4334,8 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
         ++pDriver->stats.rxDropped;
         pRXDescRing[pktIdx].length = pDriver->bufferSize;
         pRXDescRing[pktIdx].status = 0;
+        pRXDescRing[pktIdx].checksum = 0;
+        pRXDescRing[pktIdx].errors = 0;
         KERNEL_ERROR("E1000 device %04X:%04X:%04X no free buffer available,"
                     " dropping packet\n",
                     pDriver->pPCIDevice->bus,
@@ -4342,11 +4362,20 @@ static void _HandleReceivedPacket(S_E1000Driver* pDriver)
     pDriver->rxDescriptorIdx = pktIdx;
     if (pollBudget == E1000_POLL_MAX_BUDGET)
     {
+      _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_RDT), tail & 0xFFFF);
       /* We still have packets to read, simply yield */
       pCurThread = GetCurrentThread();
       CPUSaveContextAndSchedule(pCurThread->pVCpu);
     }
   } while (pollBudget == E1000_POLL_MAX_BUDGET);
+
+  KERNEL_DEBUG(E1000_DRIVER_DEBUG_ENABLED,
+               MODULE_NAME,
+               "E1000 device %04X:%04X:%04X receive complete, tail index: %u",
+               pDriver->pPCIDevice->bus,
+               pDriver->pPCIDevice->slot,
+               pDriver->pPCIDevice->function,
+               tail);
 
   _MMIOWrite32(E1000_REG(pDriver->barAddress, E1000_RDT), tail & 0xFFFF);
 
@@ -4710,12 +4739,14 @@ static ssize_t _IOControlSetAutoNeg(S_E1000Driver* pDriver)
 
   if (pDriver->isInitialized == true)
   {
-
-
     /* Reinitialize the network device */
     _DevDownlinkSafe(pDriver);
     _DevUplinkSafe(pDriver);
     retCode = 0;
+  }
+  else
+  {
+    retCode = -ENODEV;
   }
 
   internalErr = KernelMutexUnlock(&pDriver->configLock);
