@@ -1617,7 +1617,7 @@ E_Return PCISetupInterruptMSIX(S_PCIDevice*   pDevice,
 {
   E_Return  retCode;
   uint32_t  cpuMainLapicId;
-  uint16_t  msgCtrl;
+  uint32_t  msgCtrl;
   uint32_t  msgAddr;
   uint32_t  msgData;
   uint32_t  vector;
@@ -1631,10 +1631,11 @@ E_Return PCISetupInterruptMSIX(S_PCIDevice*   pDevice,
       {
         pDevice->isMSIXEnabled = true;
 
-        /* Enable MSI */
+        /* Enable MSI-X */
         cpuMainLapicId = CPUGetLAPICIdByCore(kCoreId);
 
         msgCtrl |= PCIE_MSIX_CONTROL_ENABLE;
+        msgCtrl &= ~PCIE_MSIX_CONTROL_MASK;
         msgAddr = 0xFEE00000 | (cpuMainLapicId << 12);
         msgData = kInterruptLine;
         vector  = 0;
@@ -1643,19 +1644,27 @@ E_Return PCISetupInterruptMSIX(S_PCIDevice*   pDevice,
       {
         pDevice->isMSIXEnabled = false;
 
-        /* Disable MSI */
+        /* Disable MSI-X */
         msgCtrl &= ~PCIE_MSIX_CONTROL_ENABLE;
         msgAddr = 0;
         msgData = 0;
         vector  = 1;
       }
 
+      /* Initialize the MSI-X setup */
+      _MMIOWrite32((void*)(pDevice->msiXBaseAddr),
+                   msgCtrl | PCIE_MSIX_CONTROL_ENABLE | PCIE_MSIX_CONTROL_MASK);
+
+      /* Write the MSI-X table entries */
       _MMIOWrite32(&pDevice->pMSIXTable[kVector].msgAddrLow, msgAddr);
       _MMIOWrite32(&pDevice->pMSIXTable[kVector].msgAddrHigh, 0);
       _MMIOWrite32(&pDevice->pMSIXTable[kVector].msgData, msgData);
       _MMIOWrite32(&pDevice->pMSIXTable[kVector].vectorControl, vector);
 
+      /* Write the MSI-X control register */
       _MMIOWrite32((void*)(pDevice->msiXBaseAddr), msgCtrl);
+
+
       KERNEL_DEBUG(PCIE_DRIVER_DEBUG_ENABLED,
                     MODULE_NAME,
                     "MSIX %s for device at %p",
@@ -1771,7 +1780,6 @@ E_Return PrepareDeviceMSIInterrupt(S_PCIDevice* pDevice)
     }
   }
 
-  /* Allocate IRQ is needed */
   if (pDevice->msiXBaseAddr == 0 && pDevice->msiBaseAddr == 0)
   {
     retCode = ERR_NOT_SUPPORTED;

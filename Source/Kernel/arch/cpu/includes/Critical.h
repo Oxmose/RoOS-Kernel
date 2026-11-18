@@ -177,6 +177,35 @@ uint32_t AtomicIncrement32(T_U32Atomic* pValue);
  */
 uint32_t AtomicDecrement32(T_U32Atomic* pValue);
 
+/**
+ * @brief Atomically performs a bitwise OR operation on a value in memory.
+ *
+ * @details Atomically performs a bitwise OR operation on a value in memory.
+ * Thus function is safe in kernel mode.
+ *
+ * @param[out] pValue The pointer to the value to atomically perform the OR
+ * operation on.
+ *
+ * @param[in] value The value to perform the OR operation with.
+ *
+ * @return The value of the atomic before incrementing is returned.
+ */
+uint32_t AtomicOr32(T_U32Atomic* pValue, uint32_t value);
+
+/**
+ * @brief Atomically exchanges a value in memory.
+ *
+ * @details Atomically exchanges a value in memory. This function is safe in
+ * kernel mode.
+ *
+ * @param[out] pValue The pointer to the value to atomically exchange.
+ *
+ * @param[in] newValue The new value to exchange with.
+ *
+ * @return The value of the atomic before exchanging is returned.
+ */
+uint32_t AtomicExchange32(T_U32Atomic* pValue, uint32_t newValue);
+
 #endif /* #ifndef __CPU_CRITICAL_H_ */
 
 /************************************ EOF *************************************/
